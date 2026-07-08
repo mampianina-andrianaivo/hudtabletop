@@ -41,4 +41,22 @@ export interface GameState {
   isImmersiveMode?: boolean;
   useStatBars?: boolean;
   statBarsMax?: number;
+  showHp?: boolean;
+  showChakra?: boolean;
+  showOrange?: boolean;
+  maxOrange?: number;
+  currentOrange?: boolean[];
+  showViolet?: boolean;
+  maxViolet?: number;
+  currentViolet?: boolean[];
+  counterHp?: boolean;
+  counterChakra?: boolean;
+  counterOrange?: boolean;
+  counterViolet?: boolean;
+  labelHp?: string;
+  labelChakra?: string;
+  labelOrange?: string;
+  labelViolet?: string;
+  slotTextSize?: number;
+  charStatsTextSize?: number;
 }

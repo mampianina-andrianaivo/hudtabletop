@@ -103,25 +103,30 @@ const SlotUI: React.FC<{
           onClick={(e) => { e.stopPropagation(); onClick(slot, side); }}
           onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(slot, side); }}
           className={cn(
-            "relative bg-white/5 border border-white/10 rounded-none backdrop-blur-xl transition-all shadow-lg flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-square",
-            slot.isGreyedOut && "opacity-30 grayscale",
-            isSelected && !isEditMode && "border-blue-500/80 shadow-[0_0_20px_rgba(59,130,246,0.4)]",
-            isEditMode && "border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+            "relative bg-white/5 rounded-none backdrop-blur-xl transition-all shadow-lg flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-square",
+            slot.isGreyedOut && "opacity-30 grayscale"
           )}
         >
-          <div className="absolute top-2 left-2 text-[10px] text-white/50 font-bold tracking-widest z-10 px-1 bg-black/40 rounded-none pointer-events-none">#{slot.slotNumber}</div>
+          {/* Top-level absolute border overlay to prevent any clipping, cropping or overlap by absolute child images/overlays */}
+          <div className={cn(
+            "absolute inset-0 border pointer-events-none z-30 transition-all",
+            isSelected && !isEditMode ? "border-blue-500" : "border-white/10",
+            isEditMode && "border-amber-500"
+          )} />
+
+          <div className="absolute top-2 left-2 text-xs text-white/50 font-bold tracking-widest z-10 px-1 bg-black/40 rounded-none pointer-events-none">#{slot.slotNumber}</div>
           
           <div className="w-full h-full flex flex-col relative">
             <div className="flex-grow w-full flex items-center justify-center bg-black/40 relative">
               {slot.image ? (
                 <img src={slot.image} alt="slot" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
               ) : (
-                <span className="text-white/20 text-2xl font-light">+</span>
+                <span className="text-white/20 text-3xl font-light">+</span>
               )}
             </div>
           </div>
           
-          {slot.name && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/80 font-bold tracking-widest z-10 px-2 py-0.5 bg-black/80 rounded-none pointer-events-none uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[90%] text-center">{slot.name}</div>}
+          {slot.name && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white/80 font-bold tracking-widest z-10 px-2 py-0.5 bg-black/80 rounded-none pointer-events-none uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[90%] text-center">{slot.name}</div>}
 
           {isEditMode && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20">
@@ -130,14 +135,14 @@ const SlotUI: React.FC<{
           )}
         </div>
 
-        <div className="flex justify-between items-center px-1 min-h-[32px]">
-          <div className="flex items-center justify-center bg-black/40 h-8 w-10 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noDice ? 0 : 1 }}>
-            <span className="text-lg font-black text-orange-400 drop-shadow-md text-center">
+        <div className="flex justify-between items-center px-1 min-h-[36px]">
+          <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noDice ? 0 : 1 }}>
+            <span className="text-xl font-black text-orange-400 drop-shadow-md text-center">
               {slot.diceTarget}
             </span>
           </div>
-          <div className="flex items-center justify-center bg-black/40 h-8 w-10 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noCost ? 0 : 1 }}>
-            <span className="text-lg font-black text-blue-400 drop-shadow-md text-center">
+          <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noCost ? 0 : 1 }}>
+            <span className="text-xl font-black text-blue-400 drop-shadow-md text-center">
               {slot.chakraCost}
             </span>
           </div>
@@ -149,6 +154,32 @@ const SlotUI: React.FC<{
 };
 
 export default function App() {
+  const [dimensions, setDimensions] = useState({ width: 1366, height: 768, scale: 1 });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const BASE_WIDTH = 1366;
+      const BASE_HEIGHT = 768;
+      const wScale = window.innerWidth / BASE_WIDTH;
+      const hScale = window.innerHeight / BASE_HEIGHT;
+      
+      // Use the minimum scale factor to ensure everything fits inside the viewport
+      const scaleVal = Math.min(wScale, hScale);
+      
+      // Calculate container dimensions so the scaled container fills the entire viewport
+      const widthVal = window.innerWidth / scaleVal;
+      const heightVal = window.innerHeight / scaleVal;
+
+      setDimensions({
+        width: widthVal,
+        height: heightVal,
+        scale: scaleVal,
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [gameState, setGameState] = useState<GameState>(DEFAULT_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -191,7 +222,7 @@ export default function App() {
              return defaultSlots.map(ds => {
                 const found = slots.find(s => s.id === ds.id);
                 if (found) {
-                   return { ...ds, ...found, shape: ds.shape, diceCondition: found.diceCondition || 'exact', noDice: found.noDice || false, noCost: found.noCost || false, slotNumber: ds.slotNumber };
+                   return { ...ds, ...found, diceCondition: found.diceCondition || 'exact', noDice: found.noDice || false, noCost: found.noCost || false, slotNumber: ds.slotNumber };
                 }
                 return ds;
              });
@@ -223,6 +254,12 @@ export default function App() {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ type: 'slot', slot: SlotData, side: 'left' | 'right' } | { type: 'character' } | null>(null);
+  
+  const currentSelectedSlot = selectedItem && selectedItem.type === 'slot'
+    ? (selectedItem.side === 'left' 
+        ? gameState.leftSlots.find(s => s.id === selectedItem.slot.id) 
+        : gameState.rightSlots.find(s => s.id === selectedItem.slot.id))
+    : null;
   
   // Modals state
   const [editingSlot, setEditingSlot] = useState<{ slot: SlotData; side: 'left' | 'right' } | null>(null);
@@ -278,16 +315,20 @@ export default function App() {
     }
   };
 
-  const handleSlotDoubleClick = (slot: SlotData, side: 'left' | 'right') => {
-    if (isEditMode) return;
+  const toggleSlotGreyedOut = (slotId: string, side: 'left' | 'right') => {
     setGameState((prev) => {
       const list = side === 'left' ? [...prev.leftSlots] : [...prev.rightSlots];
-      const index = list.findIndex((s) => s.id === slot.id);
+      const index = list.findIndex((s) => s.id === slotId);
       if (index !== -1) {
         list[index] = { ...list[index], isGreyedOut: !list[index].isGreyedOut };
       }
       return { ...prev, [side === 'left' ? 'leftSlots' : 'rightSlots']: list };
     });
+  };
+
+  const handleSlotDoubleClick = (slot: SlotData, side: 'left' | 'right') => {
+    if (isEditMode) return;
+    toggleSlotGreyedOut(slot.id, side);
   };
 
   const handleGaugeClick = (slotId: string, gaugeIndex: number, side: 'left' | 'right') => {
@@ -324,61 +365,36 @@ export default function App() {
   return (
     <div 
       className={cn(
-        "h-screen w-full bg-[#05070a] text-white flex flex-col font-sans overflow-hidden select-none transition-all duration-500 relative",
+        "h-[100dvh] w-full bg-[#05070a] text-white flex items-center justify-center font-sans overflow-hidden select-none transition-all duration-500",
         gameState.isLightMode && "invert hue-rotate-180 light-mode"
       )}
       style={{ background: `radial-gradient(circle at center, ${gameState.hudColor || '#1a1f2e'} 0%, #05070a 100%)` }}
       onClick={() => setSelectedItem(null)}
     >
+      <div 
+        className="relative flex flex-col flex-shrink-0"
+        style={{ 
+          width: `${dimensions.width}px`, 
+          height: `${dimensions.height}px`, 
+          transform: `scale(${dimensions.scale})`, 
+          transformOrigin: 'center' 
+        }}
+      >
       {/* Header / Controls */}
-      <div className="absolute top-6 left-8 flex flex-col items-start z-50 gap-2">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={(e) => { e.stopPropagation(); setIsEditMode(!isEditMode); }}
-            className={cn(
-              "px-4 py-2 border rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all shadow-lg",
-              isEditMode ? "bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30" : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
-            )}
-          >
-            <span className="flex items-center gap-2">
-              <Edit2 className="w-4 h-4" />
-              {isEditMode ? "Mode Édition Actif" : "Mode Édition"}
-            </span>
-          </button>
-          
-          {isEditMode && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
-                className="bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Trash2 className="w-4 h-4" />
-                Réinitialiser
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleExport(); }}
-                className="bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Download className="w-4 h-4" />
-                Exporter
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
-                className="bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Upload className="w-4 h-4" />
-                Importer
-              </button>
-              <input
-                type="file"
-                accept=".json"
-                ref={importFileRef}
-                onChange={handleImport}
-                className="hidden"
-              />
-            </>
+      <div className="absolute top-6 left-8 flex flex-row items-center z-50 gap-3">
+        <button
+          onClick={(e) => { e.stopPropagation(); setIsEditMode(!isEditMode); }}
+          className={cn(
+            "px-4 py-2 border rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all shadow-lg",
+            isEditMode ? "bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30" : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
           )}
-        </div>
+        >
+          <span className="flex items-center gap-2">
+            <Edit2 className="w-4 h-4" />
+            {isEditMode ? "Mode Édition Actif" : "Mode Édition"}
+          </span>
+        </button>
+
         <button
           onClick={(e) => { 
             e.stopPropagation(); 
@@ -388,13 +404,46 @@ export default function App() {
         >
           {gameState.isLightMode ? "Mode Sombre" : "Mode Clair"}
         </button>
+        
+        {isEditMode && (
+          <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
+              className="bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+            >
+              <Trash2 className="w-4 h-4" />
+              Réinitialiser
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleExport(); }}
+              className="bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+            >
+              <Download className="w-4 h-4" />
+              Exporter
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
+              className="bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+            >
+              <Upload className="w-4 h-4" />
+              Importer
+            </button>
+            <input
+              type="file"
+              accept=".json"
+              ref={importFileRef}
+              onChange={handleImport}
+              className="hidden"
+            />
+          </div>
+        )}
       </div>
 
       {/* Main HUD Area */}
-      <div className="flex-1 flex flex-row items-center justify-center p-8 pr-[18rem] gap-12 min-h-0 relative">
+      <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] gap-12 min-h-0 relative">
         
         {/* Left Slots */}
-        <div className="w-1/4 max-w-[22rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
+        <div className="w-[32%] max-w-[30rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
           {gameState.leftSlots.map((slot) => (
             <SlotUI 
               key={slot.id} slot={slot} side="left" 
@@ -407,7 +456,7 @@ export default function App() {
         </div>
 
         {/* Center Area */}
-        <div className="flex flex-col items-center justify-center w-80 flex-shrink-0 h-full">
+        <div className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full">
           
           {/* Hearts (HP) */}
           <div className="flex flex-wrap justify-center gap-2 mb-6 max-w-[250px]">
@@ -417,7 +466,7 @@ export default function App() {
                   className={cn(
                     "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
                     isActive 
-                      ? "bg-red-600/80 shadow-[0_0_12px_rgba(220,38,38,0.8)] border-red-400" 
+                      ? "bg-red-600 border-red-400" 
                       : "bg-black/50"
                   )}
                 />
@@ -429,11 +478,17 @@ export default function App() {
           <div 
             onClick={(e) => { e.stopPropagation(); handleCharacterClick(); }}
             className={cn(
-              "w-64 aspect-[1/2] bg-white/5 border border-white/10 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all",
-              selectedItem?.type === 'character' && "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.3)]",
-              isEditMode && "border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+              "h-[65%] max-h-[512px] w-auto aspect-[1/2] bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all"
             )}
           >
+            {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
+            <div className={cn(
+              "absolute inset-0 border pointer-events-none z-30 transition-all",
+              selectedItem?.type === 'character' && "border-blue-500",
+              isEditMode && "border-amber-500",
+              !(selectedItem?.type === 'character') && !isEditMode && "border-white/10"
+            )} />
+
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 pointer-events-none"></div>
             <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-transparent z-10 pointer-events-none"></div>
             {gameState.characterImage ? (
@@ -467,7 +522,7 @@ export default function App() {
                   className={cn(
                     "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
                     isActive 
-                      ? "bg-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.8)] border-blue-400" 
+                      ? "bg-blue-500 border-blue-400" 
                       : "bg-black/50"
                   )}
                 />
@@ -478,7 +533,7 @@ export default function App() {
         </div>
 
         {/* Right Slots */}
-        <div className="w-1/4 max-w-[22rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
+        <div className="w-[32%] max-w-[30rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
           {gameState.rightSlots.map((slot) => (
             <SlotUI 
               key={slot.id} slot={slot} side="right" 
@@ -498,9 +553,9 @@ export default function App() {
       >
         {selectedItem && !isEditMode ? (
           <div className="flex gap-6 h-full items-center px-4 relative z-10">
-            {selectedItem.type === 'slot' && selectedItem.slot.image && (
+            {selectedItem.type === 'slot' && currentSelectedSlot?.image && (
               <div className="h-[80%] aspect-square border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">
-                 <img src={selectedItem.slot.image} className="w-full h-full object-cover opacity-80" />
+                 <img src={currentSelectedSlot.image} className="w-full h-full object-cover opacity-80" />
               </div>
             )}
             {selectedItem.type === 'character' && gameState.characterImage && (
@@ -509,27 +564,50 @@ export default function App() {
               </div>
             )}
             <div className="flex-1 flex flex-col justify-center text-left">
-              <div className="text-blue-400 font-bold uppercase tracking-wider text-xs mb-1">
-                {selectedItem.type === 'slot' ? (selectedItem.slot.name || `TUILE #${selectedItem.slot.slotNumber}`) : gameState.characterName}
+              <div className="text-blue-400 font-bold uppercase tracking-wider text-xs mb-1 flex items-center gap-4">
+                <span>
+                  {selectedItem.type === 'slot' && currentSelectedSlot 
+                    ? (currentSelectedSlot.name || `TUILE #${currentSelectedSlot.slotNumber}`) 
+                    : gameState.characterName}
+                </span>
+
+                {selectedItem.type === 'slot' && currentSelectedSlot && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSlotGreyedOut(currentSelectedSlot.id, selectedItem.side);
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 text-[10px] font-black uppercase tracking-widest border rounded-none transition-all duration-200 cursor-pointer shadow-md",
+                      currentSelectedSlot.isGreyedOut
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 animate-pulse"
+                        : "bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20"
+                    )}
+                  >
+                    {currentSelectedSlot.isGreyedOut ? "Réactiver" : "Griser"}
+                  </button>
+                )}
               </div>
               <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[4.5rem] overflow-y-auto pr-2">
-                {selectedItem.type === 'slot' ? (selectedItem.slot.description || <span className="text-white/30 italic">Aucune description...</span>) : (gameState.characterDescription || <span className="text-white/30 italic">Aucune description...</span>)}
+                {selectedItem.type === 'slot' && currentSelectedSlot 
+                  ? (currentSelectedSlot.description || <span className="text-white/30 italic">Aucune description...</span>) 
+                  : (gameState.characterDescription || <span className="text-white/30 italic">Aucune description...</span>)}
               </p>
             </div>
-            {selectedItem.type === 'slot' && (!selectedItem.slot.noDice || !selectedItem.slot.noCost) && (
+            {selectedItem.type === 'slot' && currentSelectedSlot && (!currentSelectedSlot.noDice || !currentSelectedSlot.noCost) && (
               <div className="flex gap-6 flex-shrink-0 items-center">
-                {!selectedItem.slot.noDice && (
+                {!currentSelectedSlot.noDice && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
                     <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Cible</span>
                     <span className="text-2xl font-black text-amber-500 drop-shadow-md">
-                      {selectedItem.slot.diceTarget}
+                      {currentSelectedSlot.diceTarget}
                     </span>
                   </div>
                 )}
-                {!selectedItem.slot.noCost && (
+                {!currentSelectedSlot.noCost && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
                     <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Coût</span>
-                    <span className="text-2xl font-black text-blue-500 drop-shadow-md">{selectedItem.slot.chakraCost}</span>
+                    <span className="text-2xl font-black text-blue-500 drop-shadow-md">{currentSelectedSlot.chakraCost}</span>
                   </div>
                 )}
               </div>
@@ -613,6 +691,7 @@ export default function App() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }

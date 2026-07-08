@@ -34,4 +34,11 @@ export interface GameState {
   rightSlots: SlotData[];
   hudColor: string;
   isLightMode: boolean;
+  slotScale?: number;
+  slotOffsetY?: number;
+  characterScale?: number;
+  characterOffsetY?: number;
+  isImmersiveMode?: boolean;
+  useStatBars?: boolean;
+  statBarsMax?: number;
 }

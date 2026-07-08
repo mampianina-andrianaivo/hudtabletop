@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GameState, SlotData } from './types';
-import { Heart, Droplet, Settings, Edit2, Info, X, Image as ImageIcon, Trash2, Download, Upload } from 'lucide-react';
+import { Heart, Droplet, Settings, Edit2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -39,7 +39,7 @@ const DEFAULT_STATE: GameState = {
   maxChakra: 3,
   currentChakra: [true, true, true],
   characterImage: null,
-  characterName: 'PERSONNAGE',
+  characterName: 'CHARACTER',
   characterDescription: '',
   customStats: Array(10).fill(null).map(() => ({ name: '', value: '', isVisible: false })),
   playerNotes: '',
@@ -47,6 +47,13 @@ const DEFAULT_STATE: GameState = {
   rightSlots: generateInitialSlots('right', 7),
   hudColor: '#1a1f2e',
   isLightMode: false,
+  slotScale: 1,
+  slotOffsetY: 0,
+  characterScale: 1,
+  characterOffsetY: 0,
+  isImmersiveMode: false,
+  useStatBars: false,
+  statBarsMax: 12,
 };
 
 const SlotUI: React.FC<{ 
@@ -126,7 +133,7 @@ const SlotUI: React.FC<{
             </div>
           </div>
           
-          {slot.name && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white/80 font-bold tracking-widest z-10 px-2 py-0.5 bg-black/80 rounded-none pointer-events-none uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[90%] text-center">{slot.name}</div>}
+          {slot.name && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white/80 font-bold tracking-widest z-10 px-2 py-0.5 bg-black/80 rounded-none pointer-events-none whitespace-nowrap overflow-hidden text-ellipsis max-w-[90%] text-center">{slot.name}</div>}
 
           {isEditMode && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20">
@@ -206,7 +213,7 @@ export default function App() {
           }
         } catch (error) {
           console.error("Error parsing JSON", error);
-          alert("Fichier JSON invalide.");
+          alert("Invalid JSON file.");
         }
       };
       reader.readAsText(file);
@@ -269,7 +276,7 @@ export default function App() {
   if (!isLoaded) {
     return (
       <div className="h-screen w-full bg-[#05070a] flex items-center justify-center">
-        <div className="text-blue-500 animate-pulse">Chargement du HUD...</div>
+        <div className="text-blue-500 animate-pulse">Loading HUD...</div>
       </div>
     );
   }
@@ -382,167 +389,385 @@ export default function App() {
       >
       {/* Header / Controls */}
       <div className="absolute top-6 left-8 flex flex-row items-center z-50 gap-3">
-        <button
-          onClick={(e) => { e.stopPropagation(); setIsEditMode(!isEditMode); }}
-          className={cn(
-            "px-4 py-2 border rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all shadow-lg",
-            isEditMode ? "bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30" : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
-          )}
-        >
-          <span className="flex items-center gap-2">
-            <Edit2 className="w-4 h-4" />
-            {isEditMode ? "Mode Édition Actif" : "Mode Édition"}
-          </span>
-        </button>
-
+        {/* Immersive Mode Toggle (Always visible, placed BEFORE edit mode button) */}
         <button
           onClick={(e) => { 
             e.stopPropagation(); 
-            setGameState(prev => ({ ...prev, isLightMode: !prev.isLightMode })); 
+            if (!isEditMode) {
+              setGameState(prev => ({ ...prev, isImmersiveMode: !prev.isImmersiveMode })); 
+            }
           }}
-          className="px-4 py-2 border rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all shadow-lg bg-white/10 hover:bg-white/20 border-white/20 text-white flex items-center gap-2"
+          disabled={isEditMode}
+          title={isEditMode ? "Disable Edit Mode to enter Immersive Mode" : (gameState.isImmersiveMode ? "Exit Immersive Mode" : "Immersive Mode")}
+          className={cn(
+            "w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg outline-none",
+            isEditMode 
+              ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed" 
+              : gameState.isImmersiveMode 
+                ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-400 hover:bg-indigo-600/40" 
+                : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+          )}
         >
-          {gameState.isLightMode ? "Mode Sombre" : "Mode Clair"}
+          {gameState.isImmersiveMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
         </button>
-        
-        {isEditMode && (
-          <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+
+        {/* Other Controls (Hidden when in Immersive Mode) */}
+        {!gameState.isImmersiveMode && (
+          <>
+            {/* Edit Mode Button (Icon-only: Pencil or Green Checkmark) */}
             <button
-              onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
-              className="bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setIsEditMode(!isEditMode); }}
+              title={isEditMode ? "Save and exit Edit Mode" : "Edit Mode"}
+              className={cn(
+                "w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg outline-none",
+                isEditMode ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/30" : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+              )}
             >
-              <Trash2 className="w-4 h-4" />
-              Réinitialiser
+              {isEditMode ? <Check className="w-4 h-4 text-emerald-400 font-bold" /> : <Edit2 className="w-4 h-4" />}
             </button>
+
+            {/* Light/Dark Mode Toggle (Icon-only) */}
             <button
-              onClick={(e) => { e.stopPropagation(); handleExport(); }}
-              className="bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setGameState(prev => ({ ...prev, isLightMode: !prev.isLightMode })); 
+              }}
+              title={gameState.isLightMode ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              className="w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg bg-white/10 hover:bg-white/20 border-white/20 text-white outline-none"
             >
-              <Download className="w-4 h-4" />
-              Exporter
+              {gameState.isLightMode ? <Moon className="w-4 h-4 text-sky-300" /> : <Sun className="w-4 h-4 text-amber-400" />}
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
-              className="bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg"
-            >
-              <Upload className="w-4 h-4" />
-              Importer
-            </button>
-            <input
-              type="file"
-              accept=".json"
-              ref={importFileRef}
-              onChange={handleImport}
-              className="hidden"
-            />
-          </div>
+
+            {/* Tuiles (Slots) scale and position controls */}
+            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Slots</span>
+              <div className="flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, slotScale: Math.max(0.5, Number(((prev.slotScale ?? 1) - 0.05).toFixed(2))) }));
+                  }}
+                  title="Decrease slots size"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                
+                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
+                  {Math.round((gameState.slotScale ?? 1) * 100)}%
+                </span>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, slotScale: Math.min(2.0, Number(((prev.slotScale ?? 1) + 0.05).toFixed(2))) }));
+                  }}
+                  title="Increase slots size"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, slotOffsetY: (prev.slotOffsetY ?? 0) - 5 }));
+                  }}
+                  title="Move slots up"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
+                  {(gameState.slotOffsetY ?? 0) > 0 ? `+${gameState.slotOffsetY}px` : `${gameState.slotOffsetY ?? 0}px`}
+                </span>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, slotOffsetY: (prev.slotOffsetY ?? 0) + 5 }));
+                  }}
+                  title="Move slots down"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Perso (Character) scale and position controls */}
+            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Char</span>
+              <div className="flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, characterScale: Math.max(0.5, Number(((prev.characterScale ?? 1) - 0.05).toFixed(2))) }));
+                  }}
+                  title="Decrease character size"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                
+                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
+                  {Math.round((gameState.characterScale ?? 1) * 100)}%
+                </span>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, characterScale: Math.min(2.0, Number(((prev.characterScale ?? 1) + 0.05).toFixed(2))) }));
+                  }}
+                  title="Increase character size"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, characterOffsetY: (prev.characterOffsetY ?? 0) - 5 }));
+                  }}
+                  title="Move character up"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
+                  {(gameState.characterOffsetY ?? 0) > 0 ? `+${gameState.characterOffsetY}px` : `${gameState.characterOffsetY ?? 0}px`}
+                </span>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ ...prev, characterOffsetY: (prev.characterOffsetY ?? 0) + 5 }));
+                  }}
+                  title="Move character down"
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Reset Layout Controls */}
+            {((gameState.slotScale ?? 1) !== 1 || (gameState.slotOffsetY ?? 0) !== 0 || (gameState.characterScale ?? 1) !== 1 || (gameState.characterOffsetY ?? 0) !== 0) && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGameState(prev => ({ ...prev, slotScale: 1, slotOffsetY: 0, characterScale: 1, characterOffsetY: 0 }));
+                }}
+                title="Reset Viewport"
+                className="px-3 py-2 border border-white/20 bg-white/10 hover:bg-white/25 text-white/70 hover:text-white rounded-none backdrop-blur-md text-[10px] font-bold tracking-widest transition-all shadow-lg outline-none"
+              >
+                Reset
+              </button>
+            )}
+            
+            {isEditMode && (
+              <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
+                  className="bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Reset
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleExport(); }}
+                  className="bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
+                  className="bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                >
+                  <Upload className="w-4 h-4" />
+                  Import
+                </button>
+                <input
+                  type="file"
+                  accept=".json"
+                  ref={importFileRef}
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Main HUD Area */}
-      <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] gap-12 min-h-0 relative">
-        
-        {/* Left Slots */}
-        <div className="w-[32%] max-w-[30rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
-          {gameState.leftSlots.map((slot) => (
-            <SlotUI 
-              key={slot.id} slot={slot} side="left" 
-              onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
-              onGaugeClick={handleGaugeClick}
-              isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
-              isEditMode={isEditMode}
-            />
-          ))}
-        </div>
-
-        {/* Center Area */}
-        <div className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full">
-          
-          {/* Hearts (HP) */}
-          <div className="flex flex-wrap justify-center gap-2 mb-6 max-w-[250px]">
-            {gameState.currentHp.map((isActive, idx) => (
-              <button key={idx} onClick={(e) => { e.stopPropagation(); toggleHp(idx); }} className="outline-none">
-                <div 
-                  className={cn(
-                    "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
-                    isActive 
-                      ? "bg-red-600 border-red-400" 
-                      : "bg-black/50"
-                  )}
-                />
-              </button>
-            ))}
-          </div>
-
-          {/* Character */}
+      <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] min-h-0 relative">
+        <div className="flex flex-row items-center justify-center gap-12 h-full w-full max-w-[90rem]">
+          {/* Left Slots */}
           <div 
-            onClick={(e) => { e.stopPropagation(); handleCharacterClick(); }}
-            className={cn(
-              "h-[65%] max-h-[512px] w-auto aspect-[1/2] bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all"
-            )}
+            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200"
+            style={{
+              transform: `scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
+              transformOrigin: 'center center'
+            }}
           >
-            {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
-            <div className={cn(
-              "absolute inset-0 border pointer-events-none z-30 transition-all",
-              selectedItem?.type === 'character' && "border-blue-500",
-              isEditMode && "border-amber-500",
-              !(selectedItem?.type === 'character') && !isEditMode && "border-white/10"
-            )} />
-
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 pointer-events-none"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-transparent z-10 pointer-events-none"></div>
-            {gameState.characterImage ? (
-              <img src={gameState.characterImage} alt="Character" className="w-full h-full object-cover absolute inset-0 z-0 opacity-80 pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center opacity-40 z-0 pointer-events-none">
-                <div className="w-40 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-                <ImageIcon className="w-16 h-16 text-white/30 absolute" />
-              </div>
-            )}
-            
-            <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-20 pointer-events-none px-4 pt-6 text-center">
-               <span className="text-xl font-bold tracking-widest uppercase text-white drop-shadow-lg">{gameState.characterName}</span>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 pointer-events-none flex flex-col gap-1 pt-10">
-              {gameState.customStats.filter(s => s.isVisible && s.name).map((stat, idx) => (
-                <div key={idx} className="flex justify-between items-end text-xs">
-                  <span className="text-white/60 font-bold uppercase tracking-widest">{stat.name}</span>
-                  <span className="text-white font-black text-sm">{stat.value}</span>
-                </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
+              {gameState.leftSlots.map((slot) => (
+                <SlotUI 
+                  key={slot.id} slot={slot} side="left" 
+                  onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
+                  onGaugeClick={handleGaugeClick}
+                  isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
+                  isEditMode={isEditMode}
+                />
               ))}
             </div>
           </div>
 
-          {/* Chakra */}
-          <div className="flex flex-wrap justify-center gap-2 mt-8 max-w-[250px]">
-            {gameState.currentChakra.map((isActive, idx) => (
-              <button key={idx} onClick={(e) => { e.stopPropagation(); toggleChakra(idx); }} className="outline-none">
-                <div 
-                  className={cn(
-                    "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
-                    isActive 
-                      ? "bg-blue-500 border-blue-400" 
-                      : "bg-black/50"
-                  )}
-                />
-              </button>
-            ))}
+          {/* Center Area */}
+          <div 
+            className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200"
+            style={{
+              transform: `scale(${gameState.characterScale ?? 1}) translateY(${gameState.characterOffsetY ?? 0}px)`,
+              transformOrigin: 'center center'
+            }}
+          >
+            
+            {/* Hearts (HP) */}
+            <div className="flex flex-wrap justify-center gap-2 mb-6 max-w-[250px]">
+              {gameState.currentHp.map((isActive, idx) => (
+                <button key={idx} onClick={(e) => { e.stopPropagation(); toggleHp(idx); }} className="outline-none">
+                  <div 
+                    className={cn(
+                      "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
+                      isActive 
+                        ? "bg-red-600 border-red-400" 
+                        : "bg-black/50"
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Character */}
+            <div 
+              onClick={(e) => { e.stopPropagation(); handleCharacterClick(); }}
+              className={cn(
+                "h-[65%] max-h-[512px] w-auto aspect-[1/2] bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all"
+              )}
+            >
+              {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
+              <div className={cn(
+                "absolute inset-0 border pointer-events-none z-30 transition-all",
+                selectedItem?.type === 'character' && "border-blue-500",
+                isEditMode && "border-amber-500",
+                !(selectedItem?.type === 'character') && !isEditMode && "border-white/10"
+              )} />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-transparent z-10 pointer-events-none"></div>
+              {gameState.characterImage ? (
+                <img src={gameState.characterImage} alt="Character" className="w-full h-full object-cover absolute inset-0 z-0 opacity-80 pointer-events-none" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center opacity-40 z-0 pointer-events-none">
+                  <div className="w-40 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
+                  <ImageIcon className="w-16 h-16 text-white/30 absolute" />
+                </div>
+              )}
+              
+              <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-20 pointer-events-none px-4 pt-6 text-center">
+                 <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg">{gameState.characterName}</span>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-20 pointer-events-none flex flex-col gap-2 pt-10">
+                {gameState.useStatBars ? (
+                  <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center w-full">
+                    {gameState.customStats.filter(s => s.isVisible && s.name).map((stat, idx) => {
+                      const numMatch = stat.value.match(/\d+(\.\d+)?/);
+                      const numValue = numMatch ? parseFloat(numMatch[0]) : 0;
+                      const maxVal = gameState.statBarsMax || 100;
+                      const percent = Math.min(100, Math.max(0, (numValue / maxVal) * 100));
+
+                      return (
+                        <React.Fragment key={idx}>
+                          {/* Stat Name */}
+                          <span className="text-white font-bold tracking-widest text-[10px] whitespace-nowrap">
+                            {stat.name}
+                          </span>
+
+                          {/* Stat Bar */}
+                          <div className="h-1.5 bg-black/40 border border-white/5 relative overflow-hidden w-full">
+                            <div 
+                              className="h-full bg-white transition-all duration-300"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+
+                          {/* Stat Value */}
+                          <span className="text-white font-black text-xs text-right whitespace-nowrap min-w-[1.5rem]">
+                            {stat.value}
+                          </span>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  gameState.customStats.filter(s => s.isVisible && s.name).map((stat, idx) => (
+                    <div key={idx} className="flex justify-between items-end text-xs w-full">
+                      <span className="text-white font-bold tracking-widest text-[10px]">{stat.name}</span>
+                      <span className="text-white font-black text-sm">{stat.value}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Chakra */}
+            <div className="flex flex-wrap justify-center gap-2 mt-8 max-w-[250px]">
+              {gameState.currentChakra.map((isActive, idx) => (
+                <button key={idx} onClick={(e) => { e.stopPropagation(); toggleChakra(idx); }} className="outline-none">
+                  <div 
+                    className={cn(
+                      "w-6 h-6 rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
+                      isActive 
+                        ? "bg-blue-500 border-blue-400" 
+                        : "bg-black/50"
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+
           </div>
 
-        </div>
-
-        {/* Right Slots */}
-        <div className="w-[32%] max-w-[30rem] grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
-          {gameState.rightSlots.map((slot) => (
-            <SlotUI 
-              key={slot.id} slot={slot} side="right" 
-              onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
-              onGaugeClick={handleGaugeClick}
-              isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
-              isEditMode={isEditMode}
-            />
-          ))}
+          {/* Right Slots */}
+          <div 
+            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200"
+            style={{
+              transform: `scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
+              transformOrigin: 'center center'
+            }}
+          >
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
+              {gameState.rightSlots.map((slot) => (
+                <SlotUI 
+                  key={slot.id} slot={slot} side="right" 
+                  onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
+                  onGaugeClick={handleGaugeClick}
+                  isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
+                  isEditMode={isEditMode}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -564,10 +789,10 @@ export default function App() {
               </div>
             )}
             <div className="flex-1 flex flex-col justify-center text-left">
-              <div className="text-blue-400 font-bold uppercase tracking-wider text-xs mb-1 flex items-center gap-4">
+              <div className="text-blue-400 font-bold tracking-wider text-xs mb-1 flex items-center gap-4">
                 <span>
                   {selectedItem.type === 'slot' && currentSelectedSlot 
-                    ? (currentSelectedSlot.name || `TUILE #${currentSelectedSlot.slotNumber}`) 
+                    ? (currentSelectedSlot.name || `SLOT #${currentSelectedSlot.slotNumber}`) 
                     : gameState.characterName}
                 </span>
 
@@ -578,27 +803,27 @@ export default function App() {
                       toggleSlotGreyedOut(currentSelectedSlot.id, selectedItem.side);
                     }}
                     className={cn(
-                      "px-2.5 py-1 text-[10px] font-black uppercase tracking-widest border rounded-none transition-all duration-200 cursor-pointer shadow-md",
+                      "px-2.5 py-1 text-[10px] font-black tracking-widest border rounded-none transition-all duration-200 cursor-pointer shadow-md",
                       currentSelectedSlot.isGreyedOut
                         ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 animate-pulse"
                         : "bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20"
                     )}
                   >
-                    {currentSelectedSlot.isGreyedOut ? "Réactiver" : "Griser"}
+                    {currentSelectedSlot.isGreyedOut ? "Restore" : "Grey Out"}
                   </button>
                 )}
               </div>
               <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[4.5rem] overflow-y-auto pr-2">
                 {selectedItem.type === 'slot' && currentSelectedSlot 
-                  ? (currentSelectedSlot.description || <span className="text-white/30 italic">Aucune description...</span>) 
-                  : (gameState.characterDescription || <span className="text-white/30 italic">Aucune description...</span>)}
+                  ? (currentSelectedSlot.description || <span className="text-white/30 italic">No description...</span>) 
+                  : (gameState.characterDescription || <span className="text-white/30 italic">No description...</span>)}
               </p>
             </div>
             {selectedItem.type === 'slot' && currentSelectedSlot && (!currentSelectedSlot.noDice || !currentSelectedSlot.noCost) && (
               <div className="flex gap-6 flex-shrink-0 items-center">
                 {!currentSelectedSlot.noDice && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
-                    <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Cible</span>
+                    <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Target</span>
                     <span className="text-2xl font-black text-amber-500 drop-shadow-md">
                       {currentSelectedSlot.diceTarget}
                     </span>
@@ -606,7 +831,7 @@ export default function App() {
                 )}
                 {!currentSelectedSlot.noCost && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
-                    <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Coût</span>
+                    <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Cost</span>
                     <span className="text-2xl font-black text-blue-500 drop-shadow-md">{currentSelectedSlot.chakraCost}</span>
                   </div>
                 )}
@@ -615,10 +840,10 @@ export default function App() {
           </div>
         ) : (
           <div className="flex flex-col items-start justify-center h-full px-4 relative z-10">
-            <div className="text-blue-400 font-bold uppercase tracking-wider text-sm">System Logs</div>
+            <div className="text-blue-400 font-bold tracking-wider text-sm">Informations</div>
             <div className="text-gray-400 text-sm italic mt-1 flex items-center gap-2">
               <Info className="w-4 h-4 opacity-70" />
-              Sélectionnez un emplacement ou le personnage pour afficher les détails. Double-cliquez pour griser un slot.
+              Select a slot or the character to view details. Double-click to grey out a slot.
             </div>
           </div>
         )}
@@ -629,14 +854,14 @@ export default function App() {
         className="absolute right-0 top-8 bottom-8 w-64 bg-black/40 border border-r-0 border-white/10 rounded-none p-6 flex flex-col z-10 backdrop-blur-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-blue-400 font-bold uppercase tracking-wider text-xs mb-4 flex items-center gap-2">
+        <div className="text-blue-400 font-bold tracking-wider text-xs mb-4 flex items-center gap-2">
           <Edit2 className="w-3 h-3" />
-          Notes du Joueur
+          Player Notes
         </div>
         <textarea 
           spellCheck={false}
           className="flex-1 bg-transparent text-gray-300 text-sm resize-none focus:outline-none placeholder-white/20 leading-relaxed" 
-          placeholder="Écrivez vos notes de campagne ici..."
+          placeholder="Write your campaign notes here..."
           value={gameState.playerNotes}
           onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
         />
@@ -646,22 +871,22 @@ export default function App() {
       {isResetConfirmOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-900 border border-red-500/30 rounded-none p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 text-center">
-            <h2 className="text-xl font-bold text-red-400 uppercase tracking-widest">Avertissement</h2>
+            <h2 className="text-xl font-bold text-red-400 tracking-widest">Warning</h2>
             <p className="text-gray-300 text-sm">
-              Êtes-vous sûr de vouloir tout réinitialiser ? Cela supprimera toutes vos données de campagne.
+              Are you sure you want to reset everything? This will delete all your campaign data.
             </p>
             <div className="flex justify-center gap-4 mt-4">
               <button 
                 onClick={() => setIsResetConfirmOpen(false)}
-                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-none font-bold text-xs uppercase tracking-widest transition-all"
+                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-none font-bold text-xs tracking-widest transition-all"
               >
-                Annuler
+                Cancel
               </button>
               <button 
                 onClick={handleReset}
-                className="px-6 py-2 bg-red-600/80 hover:bg-red-500/80 text-white rounded-none font-bold text-xs uppercase tracking-widest transition-all"
+                className="px-6 py-2 bg-red-600/80 hover:bg-red-500/80 text-white rounded-none font-bold text-xs tracking-widest transition-all"
               >
-                Réinitialiser
+                Reset
               </button>
             </div>
           </div>
@@ -723,22 +948,22 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
              {data.image ? (
                <img src={data.image} className="w-full h-full object-cover opacity-90" />
              ) : (
-               <span className="text-white/30 text-sm font-bold uppercase tracking-widest">Image</span>
+               <span className="text-white/30 text-sm font-bold tracking-widest">Image</span>
              )}
           </div>
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold uppercase tracking-widest w-full transition-colors"
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold tracking-widest w-full transition-colors"
           >
-            Changer Image
+            Change Image
           </button>
           <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
           {data.image && (
             <button 
               onClick={() => setData(prev => ({ ...prev, image: null }))}
-              className="text-red-400/80 hover:text-red-400 text-xs uppercase font-bold tracking-wider"
+              className="text-red-400/80 hover:text-red-400 text-xs font-bold tracking-wider"
             >
-              Supprimer
+              Delete
             </button>
           )}
         </div>
@@ -746,58 +971,58 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
         {/* Right Form */}
         <div className="flex-1 flex flex-col gap-5">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-2xl font-bold text-blue-400">Éditer le Slot</h2>
+            <h2 className="text-2xl font-bold text-blue-400">Edit Slot</h2>
             <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
           </div>
 
           <div className="bg-white/5 rounded-none border border-white/10 p-5 space-y-5 max-h-[60vh] overflow-y-auto">
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase opacity-60 mb-2 font-bold tracking-widest text-white">Nom de la Tuile</label>
+                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Slot Name</label>
                 <input 
                   type="text"
                   value={data.name || ''}
                   onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm font-bold tracking-widest uppercase focus:outline-none focus:border-blue-500/50 shadow-inner"
-                  placeholder="Ex: Épée, Potion..."
+                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm font-bold tracking-widest focus:outline-none focus:border-blue-500/50 shadow-inner"
+                  placeholder="e.g. Sword, Potion..."
                 />
               </div>
               <div className="w-1/3">
-                <label className="block text-[10px] uppercase opacity-60 mb-2 font-bold tracking-widest text-white">Jauge Verte</label>
+                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Green Gauge</label>
                 <input 
                   type="number" min="0" max="20"
                   value={data.greenGaugeMax || 0}
                   onChange={(e) => setData(prev => ({ ...prev, greenGaugeMax: parseInt(e.target.value) || 0 }))}
                   className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-emerald-400 text-center font-bold text-sm focus:outline-none focus:border-emerald-500/50 shadow-inner"
-                  placeholder="Max (0 = désactivé)"
+                  placeholder="Max (0 = disabled)"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase opacity-60 mb-2 font-bold tracking-widest text-white">Description</label>
+              <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Description</label>
               <textarea 
                 value={data.description}
                 onChange={(e) => setData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full h-24 bg-black/50 border border-white/10 rounded-none p-3 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner"
-                placeholder="Description ou effets de cette carte..."
+                placeholder="Description or effects of this card..."
               />
             </div>
 
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-white text-xs cursor-pointer hover:text-blue-300">
                 <input type="checkbox" checked={data.noDice} onChange={(e) => setData(prev => ({...prev, noDice: e.target.checked}))} className="accent-blue-500" />
-                Masquer Dé
+                Hide Die
               </label>
               <label className="flex items-center gap-2 text-white text-xs cursor-pointer hover:text-blue-300">
                 <input type="checkbox" checked={data.noCost} onChange={(e) => setData(prev => ({...prev, noCost: e.target.checked}))} className="accent-blue-500" />
-                Masquer Coût
+                Hide Cost
               </label>
             </div>
 
             <div className="flex gap-6">
               <div className={cn("flex-1 space-y-2 transition-opacity duration-300", data.noDice && "opacity-30 grayscale pointer-events-none")}>
-                <label className="block text-[10px] uppercase opacity-60 font-bold tracking-widest text-white">Cible Dé</label>
+                <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Die Target</label>
                 <input 
                   type="number" 
                   value={data.diceTarget}
@@ -808,7 +1033,7 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
               </div>
 
               <div className={cn("flex-1 space-y-2 transition-opacity duration-300", data.noCost && "opacity-30 grayscale pointer-events-none")}>
-                <label className="block text-[10px] uppercase opacity-60 font-bold tracking-widest text-white">Coût Chakra</label>
+                <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Chakra Cost</label>
                 <input 
                   type="number" 
                   value={data.chakraCost}
@@ -821,8 +1046,8 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
           </div>
 
           <div className="mt-auto flex justify-end gap-3 pt-4">
-            <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs uppercase tracking-widest transition-colors">Annuler</button>
-            <button onClick={() => onSave(data)} className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs uppercase tracking-widest transition-all">Sauvegarder</button>
+            <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs tracking-widest transition-colors">Cancel</button>
+            <button onClick={() => onSave(data)} className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs tracking-widest transition-all">Save</button>
           </div>
         </div>
 
@@ -839,6 +1064,8 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   const [characterDescription, setCharacterDescription] = useState(gameState.characterDescription);
   const [customStats, setCustomStats] = useState(gameState.customStats);
   const [hudColor, setHudColor] = useState(gameState.hudColor || '#1a1f2e');
+  const [useStatBars, setUseStatBars] = useState(gameState.useStatBars ?? false);
+  const [statBarsMax, setStatBarsMax] = useState(gameState.statBarsMax ?? 100);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const colors = [
@@ -876,7 +1103,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
       <div className="bg-gray-900/95 backdrop-blur-3xl border border-white/20 rounded-none p-8 w-full max-w-2xl shadow-2xl flex flex-col gap-6 max-h-[90vh]">
         
         <div className="flex justify-between items-center mb-4 flex-shrink-0">
-          <h2 className="text-2xl font-bold text-blue-400">Paramètres Globaux</h2>
+          <h2 className="text-2xl font-bold text-blue-400">Global Settings</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
         </div>
 
@@ -884,7 +1111,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
           <div className="bg-white/5 rounded-none border border-white/10 p-5 space-y-6">
             <div className="flex gap-6">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase opacity-60 mb-2 font-bold tracking-widest text-white">Nombre de Vies (PV)</label>
+                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Max Health (HP)</label>
                 <input 
                   type="number" min="1" max="20"
                   value={maxHp}
@@ -893,7 +1120,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-[10px] uppercase opacity-60 mb-2 font-bold tracking-widest text-white">Nombre de Chakra</label>
+                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Max Chakra</label>
                 <input 
                   type="number" min="1" max="20"
                   value={maxChakra}
@@ -904,13 +1131,13 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
             </div>
 
             <div className="pt-2">
-              <label className="block text-[10px] uppercase opacity-60 mb-3 font-bold tracking-widest text-white">Personnage</label>
+              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Character</label>
               <div className="flex items-start gap-4">
                 <div className="w-16 h-32 border border-white/10 rounded-none bg-black/50 shadow-inner flex-shrink-0 overflow-hidden flex items-center justify-center">
                    {characterImage ? (
                      <img src={characterImage} className="w-full h-full object-cover opacity-80" />
                    ) : (
-                     <span className="text-white/30 text-[10px] font-bold uppercase tracking-widest">Image</span>
+                     <span className="text-white/30 text-[10px] font-bold tracking-widest">Image</span>
                    )}
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
@@ -918,27 +1145,27 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
                     type="text"
                     value={characterName}
                     onChange={(e) => setCharacterName(e.target.value)}
-                    placeholder="Nom du personnage"
-                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white font-bold tracking-widest uppercase text-sm shadow-inner focus:outline-none focus:border-blue-500/50"
+                    placeholder="Character name"
+                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white font-bold tracking-widest text-sm shadow-inner focus:outline-none focus:border-blue-500/50"
                   />
                   <div className="flex gap-2">
                     <button 
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold uppercase tracking-widest transition-colors"
+                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold tracking-widest transition-colors"
                     >
-                      Changer Image
+                      Change Image
                     </button>
                     <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
                     {characterImage && (
-                      <button onClick={() => setCharacterImage(null)} className="px-3 text-red-400/80 hover:text-red-400 text-xs font-bold uppercase tracking-wider text-left pl-1">
-                        Retirer
+                      <button onClick={() => setCharacterImage(null)} className="px-3 text-red-400/80 hover:text-red-400 text-xs font-bold tracking-wider text-left pl-1">
+                        Remove
                       </button>
                     )}
                   </div>
                   <textarea
                     value={characterDescription}
                     onChange={(e) => setCharacterDescription(e.target.value)}
-                    placeholder="Description, notes sur le personnage..."
+                    placeholder="Description, character notes..."
                     className="w-full h-14 bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner mt-1"
                   />
                 </div>
@@ -946,7 +1173,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
             </div>
             
             <div className="pt-4 border-t border-white/10">
-              <label className="block text-[10px] uppercase opacity-60 mb-3 font-bold tracking-widest text-white">Couleur du Fond</label>
+              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Background Color</label>
               <div className="flex flex-wrap gap-2">
                 {colors.map((c) => (
                   <button
@@ -963,17 +1190,47 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
             </div>
 
             <div className="pt-4 border-t border-white/10">
-              <label className="block text-[10px] uppercase opacity-60 mb-3 font-bold tracking-widest text-white">Statistiques Personnalisées (sur l'image)</label>
+              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Custom Stats (on image)</label>
+              
+              {/* Option Barres de Progression */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-white/5 border border-white/10 rounded-none mb-4">
+                <label className="flex items-center gap-3 text-white text-xs cursor-pointer select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={useStatBars} 
+                    onChange={(e) => setUseStatBars(e.target.checked)}
+                    className="accent-blue-500 w-4 h-4" 
+                  />
+                  <span>Show as progress bars</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className={cn("text-[10px] font-bold tracking-widest text-white/60", !useStatBars && "opacity-30")}>
+                    Max Value :
+                  </span>
+                  <input 
+                    type="number"
+                    min="1"
+                    value={statBarsMax}
+                    disabled={!useStatBars}
+                    onChange={(e) => setStatBarsMax(Math.max(1, parseInt(e.target.value) || 1))}
+                    className={cn(
+                      "w-20 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-sm text-blue-400 focus:outline-none focus:border-blue-500/50 shadow-inner",
+                      !useStatBars && "opacity-30 cursor-not-allowed"
+                    )}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 {customStats.map((stat, idx) => (
                   <div key={idx} className="flex items-center gap-2 bg-black/30 p-2 rounded-none border border-white/5">
                     <input 
-                      type="text" placeholder="Nom (ex: Force)"
+                      type="text" placeholder="Name (e.g. Strength)"
                       value={stat.name} onChange={(e) => updateCustomStat(idx, 'name', e.target.value)}
-                      className="w-1/2 bg-transparent text-white text-xs focus:outline-none placeholder-white/20 uppercase tracking-wider font-bold"
+                      className="w-1/2 bg-transparent text-white text-xs focus:outline-none placeholder-white/20 tracking-wider font-bold"
                     />
                     <input 
-                      type="text" placeholder="Val (ex: 18)"
+                      type="text" placeholder="Val (e.g. 18)"
                       value={stat.value} onChange={(e) => updateCustomStat(idx, 'value', e.target.value)}
                       className="w-1/3 bg-black/50 border border-white/10 rounded-none px-2 py-1 text-white text-xs font-bold focus:outline-none focus:border-blue-500/50"
                     />
@@ -992,12 +1249,12 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
         </div>
 
         <div className="mt-2 flex justify-end gap-3 flex-shrink-0">
-          <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs uppercase tracking-widest transition-colors">Annuler</button>
+          <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs tracking-widest transition-colors">Cancel</button>
           <button 
-            onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor })} 
-            className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs uppercase tracking-widest transition-all"
+            onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax })} 
+            className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs tracking-widest transition-all"
           >
-            Sauvegarder
+            Save
           </button>
         </div>
 

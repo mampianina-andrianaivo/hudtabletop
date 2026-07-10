@@ -80,7 +80,7 @@ const DEFAULT_STATE: GameState = {
   labelChakra: 'XXX',
   labelOrange: 'XXX',
   labelViolet: 'XXX',
-  slotTextSize: 6,
+  slotTextSize: 12,
   charStatsTextSize: 10,
   characterDiceType: 'd12',
 };
@@ -91,15 +91,17 @@ const SlotUI: React.FC<{
   onClick: (slot: SlotData, side: 'left' | 'right') => void;
   onDoubleClick: (slot: SlotData, side: 'left' | 'right') => void;
   onGaugeClick?: (slotId: string, gaugeIndex: number, side: 'left' | 'right') => void;
+  onToggleHidden?: (slotId: string, side: 'left' | 'right', isHidden: boolean) => void;
   isSelected?: boolean;
   isEditMode?: boolean;
   textSize?: number;
 }> = ({ 
   slot,
   side,
-  onClick, 
+  onClick,
   onDoubleClick,
   onGaugeClick,
+  onToggleHidden,
   isSelected,
   isEditMode,
   textSize = 11
@@ -127,8 +129,8 @@ const SlotUI: React.FC<{
              {col.map((item) => (
                 <button key={item.index} onClick={() => onGaugeClick && onGaugeClick(slot.id, item.index, side)} className="outline-none">
                   <div className={cn(
-                    "w-3 h-6 rounded-none transition-all border border-white/20 shadow-inner cursor-pointer",
-                    item.isActive ? "bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.6)] border-emerald-400" : "bg-black/50"
+                    "w-3 h-6 rounded-none transition-all cursor-pointer",
+                    item.isActive ? "skeuo-bar-green-active" : "skeuo-bar-green-inactive"
                   )} />
                 </button>
              ))}
@@ -139,30 +141,42 @@ const SlotUI: React.FC<{
   };
 
   return (
-    <div className="flex gap-1 items-start justify-center w-full">
+    <div className={cn("flex gap-1 items-start justify-center w-full", (!isEditMode && slot.isHidden) && "invisible")}>
       {isGaugeLeft && renderGauges()}
-      <div className="flex flex-col gap-1 flex-1 w-full min-w-0">
+      <div className="flex flex-col gap-1 flex-1 w-full min-w-0 relative">
         <div 
           onClick={(e) => { e.stopPropagation(); onClick(slot, side); }}
           onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(slot, side); }}
           className={cn(
-            "relative bg-white/5 rounded-none backdrop-blur-xl transition-all shadow-lg flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-square",
+            "relative skeuo-frame-slot rounded-none backdrop-blur-xl transition-all flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-square",
             slot.isGreyedOut && "opacity-30 grayscale"
           )}
         >
+          {isEditMode && (
+            <div className="absolute top-2 right-2 z-50 bg-black/80 rounded-sm border border-white/20 p-1 flex items-center justify-center shadow-lg" title={slot.isHidden ? "Hidden in Play Mode" : "Visible in Play Mode"}>
+              <input
+                type="checkbox"
+                checked={!slot.isHidden}
+                onChange={(e) => onToggleHidden?.(slot.id, side, !e.target.checked)}
+                className="w-3.5 h-3.5 cursor-pointer accent-blue-500"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
           {/* Top-level absolute border overlay to prevent any clipping, cropping or overlap by absolute child images/overlays */}
           <div className={cn(
             "absolute inset-0 border pointer-events-none z-30 transition-all",
-            isSelected && !isEditMode ? "border-blue-500" : "border-white/10",
-            isEditMode && "border-amber-500"
+            isSelected && !isEditMode ? "border-blue-500 shadow-[inset_0_0_8px_rgba(59,130,246,0.5)]" : "border-white/10",
+            isEditMode && "border-amber-500 shadow-[inset_0_0_8px_rgba(245,158,11,0.5)]"
           )} />
 
           <div 
-            style={{ fontSize: `${textSize}px` }}
-            className="absolute bottom-0 left-0 bg-slate-950/90 border-t border-r border-white/20 text-white font-mono font-bold tracking-widest z-10 px-1.5 py-0.5 pointer-events-none flex items-center gap-1.5 select-none whitespace-nowrap max-w-[95%] overflow-hidden text-ellipsis shadow-md"
+            style={{ fontSize: `${textSize + 1.5}px` }}
+            className="absolute bottom-0 left-0 bg-gradient-to-r from-slate-950 to-slate-900 border-t border-r border-white/20 text-white font-mono font-bold tracking-widest z-10 px-2.5 py-1 pointer-events-none flex items-center gap-1.5 select-none whitespace-nowrap max-w-[95%] overflow-hidden text-ellipsis shadow-[inset_0_1px_0_rgba(255,255,255,0.15),2px_-2px_6px_rgba(0,0,0,0.6)] rounded-tr-md"
           >
-            <span className="text-white/50 font-black">#{slot.slotNumber}</span>
-            {slot.name && <span className="text-white/95">{slot.name}</span>}
+            <span className="text-emerald-400 font-black">#{slot.slotNumber}</span>
+            {slot.name && <span className="text-white/95 font-semibold">{slot.name}</span>}
           </div>
           
           <div className="w-full h-full flex flex-col relative">
@@ -193,19 +207,19 @@ const SlotUI: React.FC<{
         </div>
 
         <div className="flex justify-between items-center px-1 min-h-[36px]">
-          <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noDice ? 0 : 1 }}>
-            <span className="text-xl font-black text-emerald-400 drop-shadow-md text-center">
+          <div className="flex items-center justify-center skeuo-led-screen h-9 w-12 rounded-none transition-opacity duration-300" style={{ opacity: slot.noDice ? 0 : 1 }}>
+            <span className="text-xl font-black text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.7)] text-center">
               {slot.diceTarget}
             </span>
           </div>
-          <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noCost ? 0 : 1 }}>
+          <div className="flex items-center justify-center skeuo-led-screen h-9 w-12 rounded-none transition-opacity duration-300" style={{ opacity: slot.noCost ? 0 : 1 }}>
             <span className={cn(
-              "text-xl font-black drop-shadow-md text-center",
-              (slot.costColor || 'blue') === 'blue' && "text-blue-400",
-              slot.costColor === 'red' && "text-red-400",
-              slot.costColor === 'orange' && "text-orange-400",
-              slot.costColor === 'violet' && "text-purple-400",
-              slot.costColor === 'white' && "text-white"
+              "text-xl font-black text-center",
+              (slot.costColor || 'blue') === 'blue' && "text-blue-400 drop-shadow-[0_0_6px_rgba(96,165,250,0.7)]",
+              slot.costColor === 'red' && "text-red-400 drop-shadow-[0_0_6px_rgba(248,113,113,0.7)]",
+              slot.costColor === 'orange' && "text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.7)]",
+              slot.costColor === 'violet' && "text-purple-400 drop-shadow-[0_0_6px_rgba(192,132,252,0.7)]",
+              slot.costColor === 'white' && "text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.7)]"
             )}>
               {slot.chakraCost}
             </span>
@@ -511,6 +525,20 @@ export default function App() {
     }
   };
 
+  const handleToggleHidden = (slotId: string, side: 'left' | 'right', isHidden: boolean) => {
+    setGameState(prev => {
+      const slots = side === 'left' ? [...prev.leftSlots] : [...prev.rightSlots];
+      const index = slots.findIndex(s => s.id === slotId);
+      if (index !== -1) {
+        slots[index] = { ...slots[index], isHidden };
+      }
+      return {
+        ...prev,
+        [side === 'left' ? 'leftSlots' : 'rightSlots']: slots
+      };
+    });
+  };
+
   const handleCharacterClick = () => {
     if (isEditMode) {
       setIsGlobalSettingsOpen(true);
@@ -668,12 +696,12 @@ export default function App() {
           disabled={isEditMode}
           title={isEditMode ? "Disable Edit Mode to enter Immersive Mode" : (gameState.isImmersiveMode ? "Exit Immersive Mode" : "Immersive Mode")}
           className={cn(
-            "w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg outline-none",
+            "w-9 h-9 flex items-center justify-center rounded-none transition-all outline-none",
             isEditMode 
-              ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed" 
+              ? "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed opacity-50" 
               : gameState.isImmersiveMode 
-                ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-400 hover:bg-indigo-600/40" 
-                : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+                ? "bg-gradient-to-b from-indigo-800 to-indigo-950 border border-indigo-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-indigo-400" 
+                : "skeuo-button text-white"
           )}
         >
           {gameState.isImmersiveMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -687,8 +715,8 @@ export default function App() {
               onClick={(e) => { e.stopPropagation(); setIsEditMode(!isEditMode); }}
               title={isEditMode ? "Save and exit Edit Mode" : "Edit Mode"}
               className={cn(
-                "w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg outline-none",
-                isEditMode ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/30" : "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+                "w-9 h-9 flex items-center justify-center rounded-none transition-all outline-none",
+                isEditMode ? "bg-gradient-to-b from-emerald-800 to-emerald-950 border border-emerald-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-emerald-400" : "skeuo-button text-white"
               )}
             >
               {isEditMode ? <Check className="w-4 h-4 text-emerald-400 font-bold" /> : <Edit2 className="w-4 h-4" />}
@@ -701,7 +729,7 @@ export default function App() {
                 setGameState(prev => ({ ...prev, isLightMode: !prev.isLightMode })); 
               }}
               title={gameState.isLightMode ? "Switch to Dark Mode" : "Switch to Light Mode"}
-              className="w-9 h-9 flex items-center justify-center border rounded-none backdrop-blur-md transition-all shadow-lg bg-white/10 hover:bg-white/20 border-white/20 text-white outline-none"
+              className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button text-white outline-none"
             >
               {gameState.isLightMode ? <Moon className="w-4 h-4 text-sky-300" /> : <Sun className="w-4 h-4 text-amber-400" />}
             </button>
@@ -718,13 +746,13 @@ export default function App() {
                       slotOffsetY: 0, 
                       characterScale: 1, 
                       characterOffsetY: 0, 
-                      slotTextSize: 6, 
+                      slotTextSize: 12, 
                       charStatsTextSize: 10, 
                       slotOffsetX: 0 
                     }));
                   }}
                   title="Reset Viewport"
-                  className="w-9 h-9 flex items-center justify-center border border-white/20 bg-white/10 hover:bg-white/25 text-white/70 hover:text-white rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
+                  className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button text-white outline-none"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -925,21 +953,21 @@ export default function App() {
                 <button
                   onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
                   title="Reset Everything"
-                  className="w-9 h-9 flex items-center justify-center bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
+                  className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button-red outline-none"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleExport(); }}
                   title="Export"
-                  className="w-9 h-9 flex items-center justify-center bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
+                  className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button-blue outline-none"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
                   title="Import"
-                  className="w-9 h-9 flex items-center justify-center bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
+                  className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button-green outline-none"
                 >
                   <Upload className="w-4 h-4" />
                 </button>
@@ -973,6 +1001,7 @@ export default function App() {
                   key={slot.id} slot={slot} side="left" 
                   onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
                   onGaugeClick={handleGaugeClick}
+                  onToggleHidden={handleToggleHidden}
                   isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
                   isEditMode={isEditMode}
                   textSize={gameState.slotTextSize ?? 11}
@@ -995,16 +1024,16 @@ export default function App() {
                 <div className="flex items-center justify-center gap-6 mb-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); decrementHp(); }}
-                    className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 font-bold text-lg cursor-pointer"
+                    className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-red font-bold text-lg cursor-pointer outline-none"
                   >
                     -
                   </button>
-                  <span className="text-xl font-black tracking-widest text-red-400 min-w-[4rem] text-center">
+                  <span className="text-xl font-black tracking-widest text-red-400 drop-shadow-[0_0_6px_rgba(239,68,68,0.5)] min-w-[4rem] text-center">
                     {gameState.currentHp.filter(Boolean).length}/{gameState.maxHp}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); incrementHp(); }}
-                    className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 font-bold text-lg cursor-pointer"
+                    className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-red font-bold text-lg cursor-pointer outline-none"
                   >
                     +
                   </button>
@@ -1019,10 +1048,10 @@ export default function App() {
                           <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleHp(globalIdx); }} className="outline-none" style={{ width: 'calc(20% - 2.4px)' }}>
                             <div 
                               className={cn(
-                                "h-[28px] rounded-none transition-all cursor-pointer border border-white/20 shadow-inner w-full",
+                                "h-[28px] rounded-none transition-all cursor-pointer w-full",
                                 isActive 
-                                  ? "bg-red-600 border-red-400 shadow-[0_0_8px_rgba(220,38,38,0.5)]" 
-                                  : "bg-black/50"
+                                  ? "skeuo-bar-hp-active" 
+                                  : "skeuo-bar-hp-inactive"
                               )}
                             />
                           </button>
@@ -1046,18 +1075,18 @@ export default function App() {
                     <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementOrange(); }}
-                      className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-amber-500/20 border-amber-500/50 text-amber-500 hover:bg-amber-500/30 font-bold text-lg cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-orange font-bold text-lg cursor-pointer outline-none"
                     >
                       +
                     </button>
-                    <div className="text-xl font-black tracking-widest text-amber-500 flex flex-col items-center">
+                    <div className="text-xl font-black tracking-widest text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)] flex flex-col items-center">
                       <span>{(gameState.currentOrange || []).filter(Boolean).length}</span>
                       <span className="text-xs opacity-50 my-0.5">/</span>
                       <span>{gameState.maxOrange || 10}</span>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); decrementOrange(); }}
-                      className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-amber-500/20 border-amber-500/50 text-amber-500 hover:bg-amber-500/30 font-bold text-lg cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-orange font-bold text-lg cursor-pointer outline-none"
                     >
                       -
                     </button>
@@ -1075,10 +1104,10 @@ export default function App() {
                             <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleOrange(globalIdx); }} className="outline-none w-full h-[24px]">
                               <div 
                                 className={cn(
-                                  "w-full h-full rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
+                                  "w-full h-full rounded-none transition-all cursor-pointer",
                                   isActive 
-                                    ? "bg-amber-500 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
-                                    : "bg-black/50"
+                                    ? "skeuo-bar-orange-active" 
+                                    : "skeuo-bar-orange-inactive"
                                   )}
                               />
                             </button>
@@ -1095,14 +1124,14 @@ export default function App() {
               <div className="relative w-56 sm:w-60 md:w-64 aspect-[1/2] flex-shrink-0">
                 {/* 1. TOP LABEL: HP (Red bars) */}
                 {(gameState.showHp ?? true) && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 bg-slate-950/95 border-2 border-red-500/80 text-red-400 px-3.5 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-lg shadow-red-950/50 select-none pointer-events-none whitespace-nowrap">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 skeuo-metal-badge text-red-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl select-none pointer-events-none whitespace-nowrap rounded-sm">
                     {gameState.labelHp || 'HP'}
                   </div>
                 )}
 
                 {/* 2. BOTTOM LABEL: Chakra (Blue bars) */}
                 {(gameState.showChakra ?? true) && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-45 bg-slate-950/95 border-2 border-blue-500/80 text-blue-400 px-3.5 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-lg shadow-blue-950/50 select-none pointer-events-none whitespace-nowrap">
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 skeuo-metal-badge text-blue-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl select-none pointer-events-none whitespace-nowrap rounded-sm">
                     {gameState.labelChakra || 'CHAKRA'}
                   </div>
                 )}
@@ -1113,7 +1142,7 @@ export default function App() {
                     className="absolute left-0 top-1/2 z-40 select-none pointer-events-none whitespace-nowrap"
                     style={{ transform: 'translate(-50%, -50%) rotate(-90deg)', transformOrigin: 'center' }}
                   >
-                    <div className="bg-slate-950/95 border-2 border-amber-500/80 text-amber-500 px-3.5 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-lg shadow-amber-950/50">
+                    <div className="skeuo-metal-badge text-amber-500 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl rounded-sm">
                       {gameState.labelOrange || 'ORANGE'}
                     </div>
                   </div>
@@ -1125,7 +1154,7 @@ export default function App() {
                     className="absolute right-0 top-1/2 z-40 select-none pointer-events-none whitespace-nowrap"
                     style={{ transform: 'translate(50%, -50%) rotate(90deg)', transformOrigin: 'center' }}
                   >
-                    <div className="bg-slate-950/95 border-2 border-purple-500/80 text-purple-400 px-3.5 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-lg shadow-purple-950/50">
+                    <div className="skeuo-metal-badge text-purple-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl rounded-sm">
                       {gameState.labelViolet || 'VIOLET'}
                     </div>
                   </div>
@@ -1140,15 +1169,15 @@ export default function App() {
                   onTouchStart={handlePressStart}
                   onTouchEnd={handlePressEnd}
                   className={cn(
-                    "w-full h-full bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all select-none"
+                    "w-full h-full skeuo-frame-character rounded-none backdrop-blur-2xl relative overflow-hidden group cursor-pointer transition-all select-none"
                   )}
                 >
                   {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
                   <div className={cn(
                     "absolute inset-0 border pointer-events-none z-30 transition-all",
-                    selectedItem?.type === 'character' && "border-blue-500",
-                    isEditMode && "border-amber-500",
-                    !(selectedItem?.type === 'character') && !isEditMode && "border-white/10"
+                    selectedItem?.type === 'character' && "border-blue-500 shadow-[inset_0_0_12px_rgba(59,130,246,0.6)]",
+                    isEditMode && "border-amber-500 shadow-[inset_0_0_12px_rgba(245,158,11,0.6)]",
+                    !(selectedItem?.type === 'character') && !isEditMode && "border-white/15"
                   )} />
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 pointer-events-none"></div>
@@ -1173,8 +1202,33 @@ export default function App() {
                     </div>
                   )}
                   
-                  <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-20 pointer-events-none px-4 pt-6 text-center">
-                    <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg">{gameState.characterName}</span>
+                  <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-40 pointer-events-none px-4 pt-6 text-center">
+                    <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg mb-2">{gameState.characterName}</span>
+                    <div 
+                      className="flex gap-1 pointer-events-auto"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                    >
+                      {(['d6', 'd8', 'd12', 'd20'] as const).map(d => (
+                        <button
+                          key={d}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGameState(prev => ({...prev, characterDiceType: d}));
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={cn(
+                            "px-2 py-1 text-[10px] font-mono font-black tracking-widest uppercase transition-all duration-200 outline-none cursor-pointer rounded-none",
+                            (gameState.characterDiceType || 'd12') === d
+                              ? "skeuo-button-green text-white"
+                              : "skeuo-button text-gray-400"
+                          )}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-20 pointer-events-none flex flex-col gap-2 pt-10">
@@ -1332,18 +1386,18 @@ export default function App() {
                     <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementViolet(); }}
-                      className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-purple-500/20 border-purple-500/50 text-purple-400 hover:bg-purple-500/30 font-bold text-lg cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-violet font-bold text-lg cursor-pointer outline-none"
                     >
                       +
                     </button>
-                    <div className="text-xl font-black tracking-widest text-purple-400 flex flex-col items-center">
+                    <div className="text-xl font-black tracking-widest text-purple-400 drop-shadow-[0_0_6px_rgba(168,85,247,0.5)] flex flex-col items-center">
                       <span>{(gameState.currentViolet || []).filter(Boolean).length}</span>
                       <span className="text-xs opacity-50 my-0.5">/</span>
                       <span>{gameState.maxViolet || 10}</span>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); decrementViolet(); }}
-                      className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-purple-500/20 border-purple-500/50 text-purple-400 hover:bg-purple-500/30 font-bold text-lg cursor-pointer"
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-violet font-bold text-lg cursor-pointer outline-none"
                     >
                       -
                     </button>
@@ -1361,10 +1415,10 @@ export default function App() {
                             <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleViolet(globalIdx); }} className="outline-none w-full h-[24px]">
                               <div 
                                 className={cn(
-                                  "w-full h-full rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
+                                  "w-full h-full rounded-none transition-all cursor-pointer",
                                   isActive 
-                                    ? "bg-purple-600 border-purple-400 shadow-[0_0_8px_rgba(147,51,234,0.5)]" 
-                                    : "bg-black/50"
+                                    ? "skeuo-bar-violet-active" 
+                                    : "skeuo-bar-violet-inactive"
                                 )}
                               />
                             </button>
@@ -1380,47 +1434,49 @@ export default function App() {
 
             {/* Chakra (Blue bars) */}
             {(gameState.showChakra ?? true) && (
-              gameState.counterChakra ? (
-                <div className="flex items-center justify-center gap-6 mt-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); decrementChakra(); }}
-                    className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-blue-500/20 border-blue-500/50 text-blue-400 hover:bg-blue-500/30 font-bold text-lg cursor-pointer"
-                  >
-                    -
-                  </button>
-                  <span className="text-xl font-black tracking-widest text-blue-400 min-w-[4rem] text-center">
-                    {gameState.currentChakra.filter(Boolean).length}/{gameState.maxChakra}
-                  </span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); incrementChakra(); }}
-                    className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-blue-500/20 border-blue-500/50 text-blue-400 hover:bg-blue-500/30 font-bold text-lg cursor-pointer"
-                  >
-                    +
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-y-1 mt-5 w-56 sm:w-60 md:w-64 select-none">
-                  {chunkArray(gameState.currentChakra, 5).map((row, rowIdx) => (
-                    <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
-                      {row.map((isActive, idx) => {
-                        const globalIdx = rowIdx * 5 + idx;
-                        return (
-                          <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleChakra(globalIdx); }} className="outline-none" style={{ width: 'calc(20% - 2.4px)' }}>
-                            <div 
-                              className={cn(
-                                "h-[28px] rounded-none transition-all cursor-pointer border border-white/20 shadow-inner w-full",
-                                isActive 
-                                  ? "bg-blue-500 border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
-                                  : "bg-black/50"
-                              )}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )
+              <div className="relative flex flex-col items-center mt-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
+                {gameState.counterChakra ? (
+                  <div className="flex items-center justify-center gap-6 w-full select-none">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); decrementChakra(); }}
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-blue font-bold text-lg cursor-pointer outline-none"
+                    >
+                      -
+                    </button>
+                    <span className="text-xl font-black tracking-widest text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.5)] min-w-[4rem] text-center">
+                      {gameState.currentChakra.filter(Boolean).length}/{gameState.maxChakra}
+                    </span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); incrementChakra(); }}
+                      className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-blue font-bold text-lg cursor-pointer outline-none"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-y-1 w-full select-none">
+                    {chunkArray(gameState.currentChakra, 5).map((row, rowIdx) => (
+                      <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
+                        {row.map((isActive, idx) => {
+                          const globalIdx = rowIdx * 5 + idx;
+                          return (
+                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleChakra(globalIdx); }} className="outline-none" style={{ width: 'calc(20% - 2.4px)' }}>
+                              <div 
+                                className={cn(
+                                  "h-[28px] rounded-none transition-all cursor-pointer w-full",
+                                  isActive 
+                                    ? "skeuo-bar-chakra-active" 
+                                    : "skeuo-bar-chakra-inactive"
+                                )}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
           </div>
@@ -1439,6 +1495,7 @@ export default function App() {
                   key={slot.id} slot={slot} side="right" 
                   onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
                   onGaugeClick={handleGaugeClick}
+                  onToggleHidden={handleToggleHidden}
                   isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
                   isEditMode={isEditMode}
                   textSize={gameState.slotTextSize ?? 11}
@@ -1447,11 +1504,33 @@ export default function App() {
             </div>
           </div>
         </div>
+
+      {/* Notes Area (Far Right) */}
+      <div 
+        className="absolute right-0 top-8 bottom-8 w-64 z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-full h-full skeuo-panel border-r-0 p-5 flex flex-col backdrop-blur-md">
+          <div className="text-blue-400 font-bold tracking-wider text-xs mb-3 flex items-center gap-2 select-none relative z-10">
+            <Edit2 className="w-3 h-3" />
+            Player Notes
+          </div>
+          <div className="flex-1 skeuo-textarea-inset p-3 rounded-none flex relative z-10">
+            <textarea 
+              spellCheck={false}
+              className="flex-1 bg-transparent text-gray-200 text-sm resize-none focus:outline-none placeholder-white/10 leading-relaxed" 
+              placeholder="Write your campaign notes here..."
+              value={gameState.playerNotes}
+              onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
+            />
+          </div>
+        </div>
+      </div>
       </div>
 
       {/* Bottom Info Panel */}
       <div 
-        className="h-32 mx-8 mb-6 mr-[17rem] bg-black/40 border border-white/10 rounded-none backdrop-blur-md flex-shrink-0 p-4 flex flex-col justify-center shadow-2xl relative overflow-hidden transition-all duration-300"
+        className="h-32 mx-8 mb-6 mr-[17rem] skeuo-panel backdrop-blur-md flex-shrink-0 p-4 flex flex-col justify-center transition-all duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {selectedItem && !isEditMode ? (
@@ -1481,10 +1560,10 @@ export default function App() {
                       toggleSlotGreyedOut(currentSelectedSlot.id, selectedItem.side);
                     }}
                     className={cn(
-                      "px-2.5 py-1 text-[10px] font-black tracking-widest border rounded-none transition-all duration-200 cursor-pointer shadow-md",
+                      "px-2.5 py-1 text-[10px] font-black tracking-widest rounded-none transition-all duration-200 cursor-pointer shadow-md outline-none",
                       currentSelectedSlot.isGreyedOut
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 animate-pulse"
-                        : "bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20"
+                        ? "skeuo-button-green animate-pulse"
+                        : "skeuo-button-red"
                     )}
                   >
                     {currentSelectedSlot.isGreyedOut ? "Restore" : "Grey Out"}
@@ -1534,42 +1613,25 @@ export default function App() {
         )}
       </div>
 
-      {/* Notes Area (Far Right) */}
-      <div 
-        className="absolute right-0 top-8 bottom-8 w-64 bg-black/40 border border-r-0 border-white/10 rounded-none p-6 flex flex-col z-10 backdrop-blur-md shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-blue-400 font-bold tracking-wider text-xs mb-4 flex items-center gap-2">
-          <Edit2 className="w-3 h-3" />
-          Player Notes
-        </div>
-        <textarea 
-          spellCheck={false}
-          className="flex-1 bg-transparent text-gray-300 text-sm resize-none focus:outline-none placeholder-white/20 leading-relaxed" 
-          placeholder="Write your campaign notes here..."
-          value={gameState.playerNotes}
-          onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
-        />
-      </div>
 
       {/* Modals */}
       {isResetConfirmOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-red-500/30 rounded-none p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 text-center">
-            <h2 className="text-xl font-bold text-red-400 tracking-widest">Warning</h2>
-            <p className="text-gray-300 text-sm">
+          <div className="skeuo-panel p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 text-center">
+            <h2 className="text-xl font-bold text-red-400 tracking-widest relative z-10">Warning</h2>
+            <p className="text-gray-300 text-sm relative z-10">
               Are you sure you want to reset everything? This will delete all your campaign data.
             </p>
-            <div className="flex justify-center gap-4 mt-4">
+            <div className="flex justify-center gap-4 mt-4 relative z-10">
               <button 
                 onClick={() => setIsResetConfirmOpen(false)}
-                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-none font-bold text-xs tracking-widest transition-all"
+                className="px-6 py-2 skeuo-button font-bold text-xs tracking-widest"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleReset}
-                className="px-6 py-2 bg-red-600/80 hover:bg-red-500/80 text-white rounded-none font-bold text-xs tracking-widest transition-all"
+                className="px-6 py-2 skeuo-button-red font-bold text-xs tracking-widest"
               >
                 Reset
               </button>
@@ -1646,10 +1708,10 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900/95 backdrop-blur-3xl border border-white/20 rounded-none p-8 w-full max-w-3xl shadow-2xl flex gap-8">
+      <div className="skeuo-panel p-8 w-full max-w-3xl shadow-2xl flex gap-8">
         
         {/* Left Image Preview */}
-        <div className="flex flex-col gap-4 items-center w-48 flex-shrink-0">
+        <div className="flex flex-col gap-4 items-center w-48 flex-shrink-0 relative z-10">
           <div className="w-full aspect-square border border-white/10 rounded-none bg-black/50 shadow-inner relative overflow-hidden flex items-center justify-center">
              {data.image && !previewError ? (
                <img src={data.image} onError={() => setPreviewError(true)} className="w-full h-full object-cover opacity-90 pointer-events-none" />
@@ -1664,7 +1726,7 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
           </div>
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold tracking-widest w-full transition-colors"
+            className="px-4 py-2 skeuo-button text-white rounded-none text-xs font-bold tracking-widest w-full transition-colors"
           >
             Change Image
           </button>
@@ -1680,7 +1742,7 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
         </div>
 
         {/* Right Form */}
-        <div className="flex-1 flex flex-col gap-5">
+        <div className="flex-1 flex flex-col gap-5 relative z-10">
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-2xl font-bold text-blue-400">Edit Slot</h2>
             <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
@@ -1771,8 +1833,8 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
           </div>
 
           <div className="mt-auto flex justify-end gap-3 pt-4">
-            <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs tracking-widest transition-colors">Cancel</button>
-            <button onClick={() => onSave(data)} className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs tracking-widest transition-all">Save</button>
+            <button onClick={onClose} className="px-5 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors">Cancel</button>
+            <button onClick={() => onSave(data)} className="px-6 py-2 skeuo-button-blue font-bold text-xs tracking-widest transition-all">Save</button>
           </div>
         </div>
 
@@ -1846,14 +1908,14 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900/95 backdrop-blur-3xl border border-white/20 rounded-none p-8 w-full max-w-2xl shadow-2xl flex flex-col gap-6 max-h-[90vh]">
+      <div className="skeuo-panel p-8 w-full max-w-2xl shadow-2xl flex flex-col gap-6 max-h-[90vh]">
         
-        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0 relative z-10">
           <h2 className="text-2xl font-bold text-blue-400">Global Settings</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
         </div>
 
-        <div className="overflow-y-auto pr-2 space-y-6">
+        <div className="overflow-y-auto pr-2 space-y-6 relative z-10">
           <div className="bg-white/5 rounded-none border border-white/10 p-5 space-y-6">
             <div>
               <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Resource Bars</label>
@@ -2072,20 +2134,6 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
                     className="w-full h-14 bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner mt-1"
                   />
                   
-                  {/* Dice selection */}
-                  <div className="flex items-center justify-between p-2.5 bg-black/40 border border-white/10 rounded-none mt-2">
-                    <span className="text-xs text-white/80 font-bold tracking-wider">DICE ROLL TYPE</span>
-                    <select
-                      value={characterDiceType}
-                      onChange={(e) => setCharacterDiceType(e.target.value as 'd6' | 'd8' | 'd12' | 'd20')}
-                      className="bg-gray-950 border border-white/20 text-white rounded-none px-3 py-1 text-xs font-mono font-black focus:outline-none focus:border-blue-500 shadow-md cursor-pointer"
-                    >
-                      <option value="d6">D6</option>
-                      <option value="d8">D8</option>
-                      <option value="d12">D12 (Default)</option>
-                      <option value="d20">D20</option>
-                    </select>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2166,11 +2214,11 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
           </div>
         </div>
 
-        <div className="mt-2 flex justify-end gap-3 flex-shrink-0">
-          <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs tracking-widest transition-colors">Cancel</button>
+        <div className="mt-2 flex justify-end gap-3 flex-shrink-0 relative z-10">
+          <button onClick={onClose} className="px-5 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors">Cancel</button>
           <button 
             onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax, showHp, showChakra, showOrange, maxOrange, showViolet, maxViolet, counterHp, counterChakra, counterOrange, counterViolet, labelHp, labelChakra, labelOrange, labelViolet, characterDiceType })} 
-            className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs tracking-widest transition-all"
+            className="px-6 py-2 skeuo-button-blue font-bold text-xs tracking-widest transition-all"
           >
             Save
           </button>
@@ -2182,48 +2230,223 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
 }
 
 const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean }> = ({ type, value, isRolling }) => {
+  const colors = isRolling 
+    ? (type === 'd6' ? { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(16,185,129,0.4)' } :
+       type === 'd8' ? { primary: '#f59e0b', light: '#fbbf24', dark: '#b45309', deepest: '#78350f', glow: 'rgba(245,158,11,0.4)' } :
+       type === 'd20' ? { primary: '#a855f7', light: '#c084fc', dark: '#7e22ce', deepest: '#581c87', glow: 'rgba(168,85,247,0.4)' } :
+       { primary: '#3b82f6', light: '#60a5fa', dark: '#1d4ed8', deepest: '#1e3a8a', glow: 'rgba(59,130,246,0.4)' })
+    : { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(52,211,153,0.7)' }; // Always vibrant green for resolved state!
+
   const getSvg = (colorClasses: string) => {
     switch (type) {
       case 'd6':
         return (
           <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
-            <rect x="10" y="10" width="80" height="80" rx="16" fill="none" stroke="currentColor" strokeWidth="4.5" />
-            <rect x="25" y="25" width="50" height="50" rx="8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" opacity="0.5" />
+            <defs>
+              <radialGradient id="d6-bg" cx="30%" cy="30%" r="70%">
+                <stop offset="0%" stopColor={colors.light} />
+                <stop offset="50%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </radialGradient>
+              <linearGradient id="d6-bevel" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+                <stop offset="30%" stopColor={colors.light} stopOpacity="0.4" />
+                <stop offset="70%" stopColor={colors.dark} stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.9" />
+              </linearGradient>
+              <linearGradient id="gloss-diag" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
+                <stop offset="40%" stopColor="#ffffff" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Beveled Outer Shadow */}
+            <rect x="5" y="5" width="90" height="90" rx="20" fill="rgba(0,0,0,0.4)" filter="blur(2px)" />
+            {/* Body */}
+            <rect x="6" y="6" width="88" height="88" rx="18" fill="url(#d6-bg)" stroke="url(#d6-bevel)" strokeWidth="4.5" />
+            {/* Inner detail border */}
+            <rect x="13" y="13" width="74" height="74" rx="13" fill="none" stroke={colors.light} strokeWidth="1.5" opacity="0.4" />
+            {/* Dashed background pattern */}
+            <rect x="23" y="23" width="54" height="54" rx="8" fill="none" stroke={colors.primary} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.3" />
+            {/* Soft inner corner shading to give sphere depth */}
+            <rect x="10" y="10" width="80" height="80" rx="14" fill="none" stroke="#000000" strokeWidth="2.5" opacity="0.2" />
+            {/* Gloss Overlays */}
+            <path d="M8,8 L92,8 Q92,45 50,50 Q8,45 8,8 Z" fill="url(#gloss-diag)" />
+            <path d="M8,8 L8,92 Q35,50 8,8 Z" fill="url(#gloss-diag)" opacity="0.5" />
           </svg>
         );
       case 'd8':
         return (
           <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
-            <polygon points="50,5 95,50 50,95 5,50" fill="none" stroke="currentColor" strokeWidth="4.5" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="currentColor" strokeWidth="3" />
-            <line x1="50" y1="5" x2="50" y2="95" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" opacity="0.6" />
+            <defs>
+              <linearGradient id="d8-tl" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={colors.light} />
+                <stop offset="100%" stopColor={colors.primary} />
+              </linearGradient>
+              <linearGradient id="d8-tr" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d8-bl" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d8-br" x1="1" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d8-bevel" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+                <stop offset="50%" stopColor={colors.light} stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.8" />
+              </linearGradient>
+              <linearGradient id="d8-gloss" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Shadow */}
+            <polygon points="50,3 97,48 50,97 3,48" fill="rgba(0,0,0,0.4)" filter="blur(2px)" />
+            {/* Facets */}
+            <polygon points="50,5 5,50 50,50" fill="url(#d8-tl)" />
+            <polygon points="50,5 95,50 50,50" fill="url(#d8-tr)" />
+            <polygon points="50,95 5,50 50,50" fill="url(#d8-bl)" />
+            <polygon points="50,95 95,50 50,50" fill="url(#d8-br)" />
+            {/* Bevel Outline */}
+            <polygon points="50,5 95,50 50,95 5,50" fill="none" stroke="url(#d8-bevel)" strokeWidth="4.5" />
+            {/* Facet Borders */}
+            <line x1="5" y1="50" x2="95" y2="50" stroke={colors.light} strokeWidth="1.5" opacity="0.6" />
+            <line x1="50" y1="5" x2="50" y2="95" stroke={colors.primary} strokeWidth="1.2" strokeDasharray="3 3" opacity="0.4" />
+            {/* Glare reflection */}
+            <path d="M50,5 L95,50 Q50,42 5,50 Z" fill="url(#d8-gloss)" />
           </svg>
         );
       case 'd20':
         return (
           <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
-            <polygon points="50,5 90,28 90,72 50,95 10,72 10,28" fill="none" stroke="currentColor" strokeWidth="4" />
-            <polygon points="50,25 82,65 18,65" fill="none" stroke="currentColor" strokeWidth="3" />
-            <line x1="50" y1="5" x2="50" y2="25" stroke="currentColor" strokeWidth="2" />
-            <line x1="90" y1="28" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
-            <line x1="90" y1="72" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
-            <line x1="10" y1="72" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
-            <line x1="10" y1="28" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
-            <line x1="50" y1="95" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
-            <line x1="50" y1="95" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
+            <defs>
+              <linearGradient id="d20-center" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d20-top-l" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={colors.light} />
+                <stop offset="100%" stopColor={colors.primary} />
+              </linearGradient>
+              <linearGradient id="d20-top-r" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d20-left" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d20-right" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d20-bot-l" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d20-bot-r" x1="1" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={colors.deepest} />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.9" />
+              </linearGradient>
+              <linearGradient id="d20-bevel" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+                <stop offset="50%" stopColor={colors.light} stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.8" />
+              </linearGradient>
+              <linearGradient id="d20-gloss" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Shadow */}
+            <polygon points="50,3 92,26 92,74 50,97 8,74 8,26" fill="rgba(0,0,0,0.4)" filter="blur(2px)" />
+            {/* Facets */}
+            <polygon points="50,5 10,28 50,25" fill="url(#d20-top-l)" />
+            <polygon points="50,5 90,28 50,25" fill="url(#d20-top-r)" />
+            <polygon points="10,28 10,72 18,65" fill="url(#d20-left)" />
+            <polygon points="90,28 90,72 82,65" fill="url(#d20-right)" />
+            <polygon points="50,95 10,72 18,65" fill="url(#d20-bot-l)" />
+            <polygon points="50,95 90,72 82,65" fill="url(#d20-bot-r)" />
+            {/* Center Facet */}
+            <polygon points="50,25 82,65 18,65" fill="url(#d20-center)" stroke={colors.light} strokeWidth="1" opacity="0.9" />
+            {/* Bevel Outline */}
+            <polygon points="50,5 90,28 90,72 50,95 10,72 10,28" fill="none" stroke="url(#d20-bevel)" strokeWidth="4.5" />
+            {/* Facet lines */}
+            <line x1="50" y1="5" x2="50" y2="25" stroke={colors.light} strokeWidth="1.5" opacity="0.6" />
+            <line x1="90" y1="28" x2="82" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="90" y1="72" x2="82" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="10" y1="72" x2="18" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="10" y1="28" x2="18" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="50" y1="95" x2="18" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="50" y1="95" x2="82" y2="65" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            {/* Glare overlay */}
+            <path d="M50,5 L90,28 Q50,40 10,28 Z" fill="url(#d20-gloss)" />
           </svg>
         );
       case 'd12':
       default:
         return (
           <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
-            <polygon points="50,5 95,38 78,90 22,90 5,38" fill="none" stroke="currentColor" strokeWidth="4" />
-            <polygon points="50,28 75,46 65,75 35,75 25,46" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" opacity="0.6" />
-            <line x1="50" y1="5" x2="50" y2="28" stroke="currentColor" strokeWidth="2.5" />
-            <line x1="95" y1="38" x2="75" y2="46" stroke="currentColor" strokeWidth="2.5" />
-            <line x1="78" y1="90" x2="65" y2="75" stroke="currentColor" strokeWidth="2.5" />
-            <line x1="22" y1="90" x2="35" y2="75" stroke="currentColor" strokeWidth="2.5" />
-            <line x1="5" y1="38" x2="25" y2="46" stroke="currentColor" strokeWidth="2.5" />
+            <defs>
+              <linearGradient id="d12-center" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d12-top-l" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={colors.light} />
+                <stop offset="100%" stopColor={colors.primary} />
+              </linearGradient>
+              <linearGradient id="d12-top-r" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d12-bot-l" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor={colors.primary} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d12-bot-r" x1="1" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={colors.dark} />
+                <stop offset="100%" stopColor={colors.deepest} />
+              </linearGradient>
+              <linearGradient id="d12-bot-c" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={colors.deepest} />
+                <stop offset="100%" stopColor={colors.dark} />
+              </linearGradient>
+              <linearGradient id="d12-bevel" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+                <stop offset="50%" stopColor={colors.light} stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.8" />
+              </linearGradient>
+              <linearGradient id="d12-gloss" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* Shadow */}
+            <polygon points="50,3 97,36 80,92 20,92 3,36" fill="rgba(0,0,0,0.4)" filter="blur(2px)" />
+            {/* Facets */}
+            <polygon points="50,5 5,38 25,46 50,28" fill="url(#d12-top-l)" />
+            <polygon points="50,5 95,38 75,46 50,28" fill="url(#d12-top-r)" />
+            <polygon points="5,38 22,90 35,75 25,46" fill="url(#d12-bot-l)" />
+            <polygon points="95,38 78,90 65,75 75,46" fill="url(#d12-bot-r)" />
+            <polygon points="22,90 78,90 65,75 35,75" fill="url(#d12-bot-c)" />
+            {/* Center Facet */}
+            <polygon points="50,28 75,46 65,75 35,75 25,46" fill="url(#d12-center)" stroke={colors.light} strokeWidth="1" opacity="0.9" />
+            {/* Bevel Outline */}
+            <polygon points="50,5 95,38 78,90 22,90 5,38" fill="none" stroke="url(#d12-bevel)" strokeWidth="4.5" />
+            {/* Facet Lines */}
+            <line x1="50" y1="5" x2="50" y2="28" stroke={colors.light} strokeWidth="1.5" opacity="0.6" />
+            <line x1="95" y1="38" x2="75" y2="46" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="78" y1="90" x2="65" y2="75" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="22" y1="90" x2="35" y2="75" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            <line x1="5" y1="38" x2="25" y2="46" stroke={colors.primary} strokeWidth="1" opacity="0.5" />
+            {/* Glare overlay */}
+            <path d="M50,5 L95,38 Q50,45 5,38 Z" fill="url(#d12-gloss)" />
           </svg>
         );
     }

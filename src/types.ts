@@ -9,6 +9,7 @@ export interface SlotData {
   chakraCost: number;
   noCost: boolean;
   isGreyedOut: boolean;
+  isHidden?: boolean;
   slotNumber: number;
   greenGaugeMax?: number;
   currentGreenGauge?: boolean[];

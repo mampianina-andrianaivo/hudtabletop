@@ -194,7 +194,7 @@ const SlotUI: React.FC<{
 
         <div className="flex justify-between items-center px-1 min-h-[36px]">
           <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noDice ? 0 : 1 }}>
-            <span className="text-xl font-black text-orange-400 drop-shadow-md text-center">
+            <span className="text-xl font-black text-emerald-400 drop-shadow-md text-center">
               {slot.diceTarget}
             </span>
           </div>
@@ -1502,7 +1502,7 @@ export default function App() {
                 {!currentSelectedSlot.noDice && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
                     <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Target</span>
-                    <span className="text-2xl font-black text-amber-500 drop-shadow-md">
+                    <span className="text-2xl font-black text-emerald-400 drop-shadow-md">
                       {currentSelectedSlot.diceTarget}
                     </span>
                   </div>
@@ -1739,7 +1739,7 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
                   value={data.diceTarget}
                   onChange={(e) => setData(prev => ({ ...prev, diceTarget: parseInt(e.target.value) || 0 }))}
                   disabled={data.noDice}
-                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-amber-500 text-xl font-bold text-center focus:outline-none focus:border-amber-500/50 shadow-inner h-[46px]"
+                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-emerald-400 text-xl font-bold text-center focus:outline-none focus:border-emerald-500/50 shadow-inner h-[46px]"
                 />
               </div>
 

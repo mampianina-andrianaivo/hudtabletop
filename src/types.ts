@@ -64,4 +64,8 @@ export interface GameState {
   slotCostColor?: 'red' | 'blue' | 'orange' | 'violet' | 'white';
   slotOffsetX?: number;
   characterDiceType?: 'd6' | 'd8' | 'd12' | 'd20';
+  geminiApiKey?: string;
+  geminiGlobalPrompt?: string;
+  imageService?: 'puter' | 'gemini';
+  puterModel?: string;
 }

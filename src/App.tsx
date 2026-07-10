@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GameState, SlotData } from './types';
-import { Heart, Droplet, Settings, Edit2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Heart, Droplet, Settings, Edit2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -37,6 +37,7 @@ const generateInitialSlots = (prefix: string, startIndex: number): SlotData[] =>
       noCost: false,
       isGreyedOut: false,
       slotNumber: startIndex + i,
+      costColor: 'blue'
     });
   }
   return slots;
@@ -75,12 +76,13 @@ const DEFAULT_STATE: GameState = {
   counterChakra: false,
   counterOrange: false,
   counterViolet: false,
-  labelHp: 'HP',
-  labelChakra: 'CHAKRA',
-  labelOrange: 'ORANGE',
-  labelViolet: 'VIOLET',
+  labelHp: 'XXX',
+  labelChakra: 'XXX',
+  labelOrange: 'XXX',
+  labelViolet: 'XXX',
   slotTextSize: 6,
   charStatsTextSize: 10,
+  characterDiceType: 'd12',
 };
 
 const SlotUI: React.FC<{ 
@@ -197,7 +199,14 @@ const SlotUI: React.FC<{
             </span>
           </div>
           <div className="flex items-center justify-center bg-black/40 h-9 w-12 rounded-none border border-white/5 shadow-inner transition-opacity duration-300" style={{ opacity: slot.noCost ? 0 : 1 }}>
-            <span className="text-xl font-black text-blue-400 drop-shadow-md text-center">
+            <span className={cn(
+              "text-xl font-black drop-shadow-md text-center",
+              (slot.costColor || 'blue') === 'blue' && "text-blue-400",
+              slot.costColor === 'red' && "text-red-400",
+              slot.costColor === 'orange' && "text-orange-400",
+              slot.costColor === 'violet' && "text-purple-400",
+              slot.costColor === 'white' && "text-white"
+            )}>
               {slot.chakraCost}
             </span>
           </div>
@@ -315,6 +324,42 @@ export default function App() {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ type: 'slot', slot: SlotData, side: 'left' | 'right' } | { type: 'character' } | null>(null);
+  
+  // Character dice rolling state
+  const [rollState, setRollState] = useState<'idle' | 'charging' | 'rolling' | 'rolled'>('idle');
+  const [pressProgress, setPressProgress] = useState(0);
+  const [rolledValue, setRolledValue] = useState<number | null>(null);
+  const [currentRollingValue, setCurrentRollingValue] = useState<number>(1);
+
+  const pressTimerRef = useRef<number | null>(null);
+  const rollAnimIntervalRef = useRef<number | null>(null);
+  const rollAnimTimeoutRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  const clearPressTimers = () => {
+    if (pressTimerRef.current) {
+      cancelAnimationFrame(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+
+  const clearRollTimers = () => {
+    if (rollAnimIntervalRef.current) {
+      clearInterval(rollAnimIntervalRef.current);
+      rollAnimIntervalRef.current = null;
+    }
+    if (rollAnimTimeoutRef.current) {
+      clearTimeout(rollAnimTimeoutRef.current);
+      rollAnimTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearPressTimers();
+      clearRollTimers();
+    };
+  }, []);
   
   const currentSelectedSlot = selectedItem && selectedItem.type === 'slot'
     ? (selectedItem.side === 'left' 
@@ -460,15 +505,80 @@ export default function App() {
     if (isEditMode) {
       setEditingSlot({ slot, side });
     } else {
-      setSelectedItem({ type: 'slot', slot, side });
+      setSelectedItem(prev => 
+        prev?.type === 'slot' && prev.slot.id === slot.id ? null : { type: 'slot', slot, side }
+      );
     }
   };
 
   const handleCharacterClick = () => {
     if (isEditMode) {
       setIsGlobalSettingsOpen(true);
-    } else {
-      setSelectedItem({ type: 'character' });
+    }
+  };
+
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isEditMode) return;
+    
+    if (rollState === 'rolled') {
+      setRollState('idle');
+      setRolledValue(null);
+      setPressProgress(0);
+      return;
+    }
+    if (rollState === 'rolling') {
+      return;
+    }
+
+    clearPressTimers();
+    clearRollTimers();
+
+    setRollState('charging');
+    setPressProgress(0);
+    startTimeRef.current = Date.now();
+
+    const tick = () => {
+      const elapsed = Date.now() - startTimeRef.current;
+      const progress = Math.min(100, (elapsed / 2000) * 100);
+      setPressProgress(progress);
+
+      if (elapsed >= 2000) {
+        // Trigger roll
+        clearPressTimers();
+        setRollState('rolling');
+        setPressProgress(100);
+
+        const diceType = gameState.characterDiceType || 'd12';
+        const maxVal = diceType === 'd6' ? 6 : diceType === 'd8' ? 8 : diceType === 'd12' ? 12 : 20;
+
+        rollAnimIntervalRef.current = window.setInterval(() => {
+          const tempVal = Math.floor(Math.random() * maxVal) + 1;
+          setCurrentRollingValue(tempVal);
+        }, 60);
+
+        rollAnimTimeoutRef.current = window.setTimeout(() => {
+          if (rollAnimIntervalRef.current) {
+            clearInterval(rollAnimIntervalRef.current);
+            rollAnimIntervalRef.current = null;
+          }
+          
+          const finalVal = Math.floor(Math.random() * maxVal) + 1;
+          setRolledValue(finalVal);
+          setRollState('rolled');
+        }, 1000);
+      } else {
+        pressTimerRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    pressTimerRef.current = requestAnimationFrame(tick);
+  };
+
+  const handlePressEnd = () => {
+    if (rollState === 'charging') {
+      clearPressTimers();
+      setRollState('idle');
+      setPressProgress(0);
     }
   };
 
@@ -518,7 +628,15 @@ export default function App() {
   };
 
   // --- Render Helpers ---
+  const colsOrange = (gameState.showOrange && !gameState.counterOrange) ? Math.ceil((gameState.maxOrange || 10) / 10) : 0;
+  const colsViolet = (gameState.showViolet && !gameState.counterViolet) ? Math.ceil((gameState.maxViolet || 10) / 10) : 0;
+  const effectiveColsOrange = gameState.showOrange ? (gameState.counterOrange ? 2 : colsOrange) : 0;
+  const effectiveColsViolet = gameState.showViolet ? (gameState.counterViolet ? 2 : colsViolet) : 0;
+  const maxSideCols = Math.max(effectiveColsOrange, effectiveColsViolet);
   
+  // w-9 is 36px, gap is 6px, padding is 16px. Total approx 42px per col + padding.
+  const sideWidth = maxSideCols > 0 ? `${maxSideCols * 42 + 16}px` : '1rem';
+
   return (
     <div 
       className={cn(
@@ -588,60 +706,73 @@ export default function App() {
               {gameState.isLightMode ? <Moon className="w-4 h-4 text-sky-300" /> : <Sun className="w-4 h-4 text-amber-400" />}
             </button>
 
-            {/* Tuiles (Slots) scale and position controls */}
-            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
-              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Slots</span>
-              <div className="flex items-center">
+            {!isEditMode && (
+              <>
+                {/* Reset Viewport */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGameState(prev => ({ 
+                      ...prev, 
+                      slotScale: 1, 
+                      slotOffsetY: 0, 
+                      characterScale: 1, 
+                      characterOffsetY: 0, 
+                      slotTextSize: 6, 
+                      charStatsTextSize: 10, 
+                      slotOffsetX: 0 
+                    }));
+                  }}
+                  title="Reset Viewport"
+                  className="w-9 h-9 flex items-center justify-center border border-white/20 bg-white/10 hover:bg-white/25 text-white/70 hover:text-white rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+
+                {/* Tuiles (Slots) scale and position controls */}
+            <div className="flex items-center h-9 bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 flex items-center h-full text-[9px] font-black tracking-widest text-white/50 select-none">Slots</span>
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotScale: Math.max(0.5, Number(((prev.slotScale ?? 1) - 0.05).toFixed(2))) }));
                   }}
                   title="Decrease slots size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
-                  {Math.round((gameState.slotScale ?? 1) * 100)}%
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotScale: Math.min(2.0, Number(((prev.slotScale ?? 1) + 0.05).toFixed(2))) }));
                   }}
                   title="Increase slots size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotOffsetY: (prev.slotOffsetY ?? 0) - 5 }));
                   }}
                   title="Move slots up"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
                 </button>
-
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
-                  {(gameState.slotOffsetY ?? 0) > 0 ? `+${gameState.slotOffsetY}px` : `${gameState.slotOffsetY ?? 0}px`}
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotOffsetY: (prev.slotOffsetY ?? 0) + 5 }));
                   }}
                   title="Move slots down"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <ArrowDown className="w-3.5 h-3.5" />
                 </button>
@@ -649,31 +780,26 @@ export default function App() {
             </div>
 
             {/* Slot Font Size +/- Controls */}
-            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
-              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Slot Text</span>
-              <div className="flex items-center">
+            <div className="flex items-center h-9 bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 flex items-center h-full text-[9px] font-black tracking-widest text-white/50 select-none">Slot Text</span>
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotTextSize: Math.max(4, (prev.slotTextSize ?? 6) - 1) }));
                   }}
                   title="Decrease slot text size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.2rem] text-center select-none">
-                  {gameState.slotTextSize ?? 6}px
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, slotTextSize: Math.min(24, (prev.slotTextSize ?? 6) + 1) }));
                   }}
                   title="Increase slot text size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -681,31 +807,26 @@ export default function App() {
             </div>
 
             {/* Character Stats Font Size +/- Controls */}
-            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
-              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Char Stats</span>
-              <div className="flex items-center">
+            <div className="flex items-center h-9 bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 flex items-center h-full text-[9px] font-black tracking-widest text-white/50 select-none">Char Stats</span>
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, charStatsTextSize: Math.max(5, (prev.charStatsTextSize ?? 10) - 1) }));
                   }}
                   title="Decrease character stats text size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.2rem] text-center select-none">
-                  {gameState.charStatsTextSize ?? 10}px
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, charStatsTextSize: Math.min(30, (prev.charStatsTextSize ?? 10) + 1) }));
                   }}
                   title="Increase character stats text size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -713,101 +834,114 @@ export default function App() {
             </div>
 
             {/* Perso (Character) scale and position controls */}
-            <div className="flex items-center bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
-              <span className="px-2.5 py-2 text-[9px] font-black tracking-widest text-white/50 select-none">Char</span>
-              <div className="flex items-center">
+            <div className="flex items-center h-9 bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+              <span className="px-2.5 flex items-center h-full text-[9px] font-black tracking-widest text-white/50 select-none">Char</span>
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, characterScale: Math.max(0.5, Number(((prev.characterScale ?? 1) - 0.05).toFixed(2))) }));
                   }}
                   title="Decrease character size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
-                  {Math.round((gameState.characterScale ?? 1) * 100)}%
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, characterScale: Math.min(2.0, Number(((prev.characterScale ?? 1) + 0.05).toFixed(2))) }));
                   }}
                   title="Increase character size"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-center h-full">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, characterOffsetY: (prev.characterOffsetY ?? 0) - 5 }));
                   }}
                   title="Move character up"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
                 </button>
-
-                <span className="px-2 text-[10px] font-black tracking-widest text-white/80 min-w-[2.5rem] text-center select-none">
-                  {(gameState.characterOffsetY ?? 0) > 0 ? `+${gameState.characterOffsetY}px` : `${gameState.characterOffsetY ?? 0}px`}
-                </span>
-
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setGameState(prev => ({ ...prev, characterOffsetY: (prev.characterOffsetY ?? 0) + 5 }));
                   }}
                   title="Move character down"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                  className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
                 >
                   <ArrowDown className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Reset Layout Controls */}
-            {((gameState.slotScale ?? 1) !== 1 || (gameState.slotOffsetY ?? 0) !== 0 || (gameState.characterScale ?? 1) !== 1 || (gameState.characterOffsetY ?? 0) !== 0 || (gameState.slotTextSize ?? 6) !== 6 || (gameState.charStatsTextSize ?? 10) !== 10) && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setGameState(prev => ({ ...prev, slotScale: 1, slotOffsetY: 0, characterScale: 1, characterOffsetY: 0, slotTextSize: 6, charStatsTextSize: 10 }));
-                }}
-                title="Reset Viewport"
-                className="px-3 py-2 border border-white/20 bg-white/10 hover:bg-white/25 text-white/70 hover:text-white rounded-none backdrop-blur-md text-[10px] font-bold tracking-widest transition-all shadow-lg outline-none"
-              >
-                Reset
-              </button>
+                {/* Slot Gap (Spacing) controls */}
+                <div className="flex items-center h-9 bg-white/10 border border-white/20 backdrop-blur-md shadow-lg rounded-none divide-x divide-white/10">
+                  <span className="px-2.5 flex items-center h-full text-[9px] font-black tracking-widest text-white/50 select-none">Slot Gap</span>
+                  <div className="flex items-center h-full">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Minus = decrease space (bring closer) -> slotOffsetX increases
+                        setGameState(prev => ({ ...prev, slotOffsetX: Math.min(200, (prev.slotOffsetX ?? 0) + 10) }));
+                      }}
+                      title="Decrease space between slots"
+                      className="w-8 h-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/5 transition-all outline-none"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      disabled={(gameState.slotOffsetX ?? 0) <= 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Plus = increase space (spread apart) -> slotOffsetX decreases (stopped at 0, which is initial default)
+                        setGameState(prev => ({ ...prev, slotOffsetX: Math.max(0, (prev.slotOffsetX ?? 0) - 10) }));
+                      }}
+                      title={(gameState.slotOffsetX ?? 0) <= 0 ? "Initial default gap reached" : "Increase space between slots"}
+                      className={cn(
+                        "w-8 h-full flex items-center justify-center transition-all outline-none",
+                        (gameState.slotOffsetX ?? 0) > 0 
+                          ? "text-white/70 hover:text-white hover:bg-white/5" 
+                          : "text-white/20 cursor-not-allowed bg-black/10"
+                      )}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
             
             {isEditMode && (
               <div className="flex items-center gap-3 pl-3 border-l border-white/10">
                 <button
                   onClick={(e) => { e.stopPropagation(); setIsResetConfirmOpen(true); }}
-                  className="bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                  title="Reset Everything"
+                  className="w-9 h-9 flex items-center justify-center bg-red-600/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Reset
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleExport(); }}
-                  className="bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                  title="Export"
+                  className="w-9 h-9 flex items-center justify-center bg-blue-600/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
                 >
                   <Download className="w-4 h-4" />
-                  Export
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); importFileRef.current?.click(); }}
-                  className="bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 px-4 py-2 rounded-none backdrop-blur-md text-xs font-bold tracking-widest transition-all flex items-center gap-2 shadow-lg outline-none"
+                  title="Import"
+                  className="w-9 h-9 flex items-center justify-center bg-green-600/20 hover:bg-green-500/30 border border-green-500/50 text-green-400 rounded-none backdrop-blur-md transition-all shadow-lg outline-none"
                 >
                   <Upload className="w-4 h-4" />
-                  Import
                 </button>
                 <input
                   type="file"
@@ -824,12 +958,12 @@ export default function App() {
 
       {/* Main HUD Area */}
       <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] min-h-0 relative">
-        <div className="flex flex-row items-center justify-center gap-12 h-full w-full max-w-[90rem]">
+        <div className="flex flex-row items-center justify-center h-full w-full max-w-[90rem] gap-12">
           {/* Left Slots */}
           <div 
-            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200"
+            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
             style={{
-              transform: `scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
+              transform: `translateX(${gameState.slotOffsetX ?? 0}px) scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
               transformOrigin: 'center center'
             }}
           >
@@ -849,7 +983,7 @@ export default function App() {
 
           {/* Center Area */}
           <div 
-            className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200"
+            className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200 relative z-20"
             style={{
               transform: `scale(${gameState.characterScale ?? 1}) translateY(${gameState.characterOffsetY ?? 0}px)`,
               transformOrigin: 'center center'
@@ -858,7 +992,7 @@ export default function App() {
             {/* Hearts (HP / Red bars) */}
             {(gameState.showHp ?? true) && (
               gameState.counterHp ? (
-                <div className="flex items-center justify-center gap-6 mb-3 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-6 mb-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); decrementHp(); }}
                     className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 font-bold text-lg cursor-pointer"
@@ -876,13 +1010,13 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col-reverse gap-y-1 mb-3 w-56 sm:w-60 md:w-64 select-none">
+                <div className="flex flex-col-reverse items-center justify-center gap-y-1 mb-5 w-56 sm:w-60 md:w-64 select-none">
                   {chunkArray(gameState.currentHp, 5).map((row, rowIdx) => (
-                    <div key={rowIdx} className="grid grid-cols-5 gap-x-[3px] w-full">
+                    <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
                       {row.map((isActive, idx) => {
                         const globalIdx = rowIdx * 5 + idx;
                         return (
-                          <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleHp(globalIdx); }} className="outline-none w-full">
+                          <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleHp(globalIdx); }} className="outline-none" style={{ width: 'calc(20% - 2.4px)' }}>
                             <div 
                               className={cn(
                                 "h-[28px] rounded-none transition-all cursor-pointer border border-white/20 shadow-inner w-full",
@@ -901,11 +1035,15 @@ export default function App() {
             )}
 
             {/* Middle row containing: Left side bars, Character card, Right side bars */}
-            <div className="flex flex-row items-stretch justify-center gap-4">
+            <div className="flex flex-row items-stretch justify-center w-full max-w-[60rem]">
               {/* Left side: Orange bars */}
-              {(gameState.showOrange ?? false) && (
-                gameState.counterOrange ? (
-                  <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem] px-4" onClick={(e) => e.stopPropagation()}>
+              <div 
+                className="flex justify-end pr-2 md:pr-4 flex-shrink-0" 
+                style={{ width: sideWidth, minWidth: sideWidth }}
+              >
+                {(gameState.showOrange ?? false) && (
+                  gameState.counterOrange ? (
+                    <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementOrange(); }}
                       className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-amber-500/20 border-amber-500/50 text-amber-500 hover:bg-amber-500/30 font-bold text-lg cursor-pointer"
@@ -925,17 +1063,16 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="relative flex flex-row-reverse gap-x-1.5 select-none h-full px-4">
+                  <div className="relative flex flex-row-reverse items-center justify-center gap-x-1.5 select-none h-full">
                     {chunkArray(gameState.currentOrange || Array(gameState.maxOrange || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
-                        className="grid gap-y-[3px] h-full w-8 sm:w-9"
-                        style={{ gridTemplateRows: 'repeat(10, minmax(0, 1fr))' }}
+                        className="flex flex-col justify-center gap-y-[3px] w-8 sm:w-9"
                       >
                         {column.map((isActive, idx) => {
                           const globalIdx = colIdx * 10 + idx;
                           return (
-                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleOrange(globalIdx); }} className="outline-none w-full h-full">
+                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleOrange(globalIdx); }} className="outline-none w-full h-[24px]">
                               <div 
                                 className={cn(
                                   "w-full h-full rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
@@ -952,6 +1089,7 @@ export default function App() {
                   </div>
                 )
               )}
+              </div>
 
               {/* Character Wrapper with inner overlapping labels */}
               <div className="relative w-56 sm:w-60 md:w-64 aspect-[1/2] flex-shrink-0">
@@ -996,8 +1134,13 @@ export default function App() {
                 {/* Character Card Main Container (with overflow-hidden) */}
                 <div 
                   onClick={(e) => { e.stopPropagation(); handleCharacterClick(); }}
+                  onMouseDown={handlePressStart}
+                  onMouseUp={handlePressEnd}
+                  onMouseLeave={handlePressEnd}
+                  onTouchStart={handlePressStart}
+                  onTouchEnd={handlePressEnd}
                   className={cn(
-                    "w-full h-full bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all"
+                    "w-full h-full bg-white/5 rounded-none backdrop-blur-2xl relative shadow-2xl overflow-hidden group cursor-pointer transition-all select-none"
                   )}
                 >
                   {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
@@ -1091,13 +1234,102 @@ export default function App() {
                       ))
                     )}
                   </div>
+
+                  {/* Character Dice Roll Overlay */}
+                  {rollState !== 'idle' && (
+                    <div 
+                      className="absolute inset-0 bg-[#080b11]/95 z-50 flex flex-col items-center justify-center p-4 transition-all duration-300 animate-fade-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (rollState === 'rolled') {
+                          setRollState('idle');
+                          setRolledValue(null);
+                        }
+                      }}
+                    >
+                      {rollState === 'charging' && (
+                        <div className="flex flex-col items-center justify-center gap-6">
+                          <div className="relative w-24 h-24 flex items-center justify-center">
+                            {/* Circular SVG loader */}
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="38"
+                                className="stroke-white/5"
+                                strokeWidth="6"
+                                fill="transparent"
+                              />
+                              <circle
+                                cx="48"
+                                cy="48"
+                                r="38"
+                                className="stroke-blue-500 transition-all duration-75"
+                                strokeWidth="6"
+                                fill="transparent"
+                                strokeDasharray={2 * Math.PI * 38}
+                                strokeDashoffset={2 * Math.PI * 38 * (1 - pressProgress / 100)}
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <span className="absolute text-xs font-mono font-black text-white">
+                              {Math.round(pressProgress)}%
+                            </span>
+                          </div>
+                          <div className="h-12 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] text-blue-400 font-bold tracking-widest uppercase animate-pulse">
+                              Charging Roll...
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {rollState === 'rolling' && (
+                        <div className="flex flex-col items-center justify-center gap-6">
+                          <DiceShape 
+                            type={gameState.characterDiceType || 'd12'} 
+                            value={currentRollingValue} 
+                            isRolling={true} 
+                          />
+                          <div className="h-12 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] text-blue-400 font-bold tracking-widest uppercase animate-pulse">
+                              Rolling {gameState.characterDiceType?.toUpperCase() || 'D12'}...
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {rollState === 'rolled' && (
+                        <div className="flex flex-col items-center justify-center gap-6 animate-fade-in">
+                          <DiceShape 
+                            type={gameState.characterDiceType || 'd12'} 
+                            value={rolledValue ?? 1} 
+                            isRolling={false} 
+                          />
+                          <div className="h-12 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] text-emerald-400 font-black tracking-widest uppercase block mb-0.5">
+                              Result
+                            </span>
+                            <span className="text-white/50 text-[9px] font-bold tracking-wider uppercase animate-pulse">
+                              Click to clear
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               </div>
 
               {/* Right side: Violet bars */}
-              {(gameState.showViolet ?? false) && (
-                gameState.counterViolet ? (
-                  <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem] px-4" onClick={(e) => e.stopPropagation()}>
+              <div 
+                className="flex justify-start pl-2 md:pl-4 flex-shrink-0"
+                style={{ width: sideWidth, minWidth: sideWidth }}
+              >
+                {(gameState.showViolet ?? false) && (
+                  gameState.counterViolet ? (
+                    <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementViolet(); }}
                       className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-purple-500/20 border-purple-500/50 text-purple-400 hover:bg-purple-500/30 font-bold text-lg cursor-pointer"
@@ -1117,17 +1349,16 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="relative flex flex-row gap-x-1.5 select-none h-full px-4">
+                  <div className="relative flex flex-row items-center justify-center gap-x-1.5 select-none h-full">
                     {chunkArray(gameState.currentViolet || Array(gameState.maxViolet || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
-                        className="grid gap-y-[3px] h-full w-8 sm:w-9"
-                        style={{ gridTemplateRows: 'repeat(10, minmax(0, 1fr))' }}
+                        className="flex flex-col justify-center gap-y-[3px] w-8 sm:w-9"
                       >
                         {column.map((isActive, idx) => {
                           const globalIdx = colIdx * 10 + idx;
                           return (
-                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleViolet(globalIdx); }} className="outline-none w-full h-full">
+                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleViolet(globalIdx); }} className="outline-none w-full h-[24px]">
                               <div 
                                 className={cn(
                                   "w-full h-full rounded-none transition-all cursor-pointer border border-white/20 shadow-inner",
@@ -1144,12 +1375,13 @@ export default function App() {
                   </div>
                 )
               )}
+              </div>
             </div>
 
             {/* Chakra (Blue bars) */}
             {(gameState.showChakra ?? true) && (
               gameState.counterChakra ? (
-                <div className="flex items-center justify-center gap-6 mt-3 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-6 mt-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); decrementChakra(); }}
                     className="w-10 h-10 flex items-center justify-center border rounded-none backdrop-blur-md transition-all outline-none bg-blue-500/20 border-blue-500/50 text-blue-400 hover:bg-blue-500/30 font-bold text-lg cursor-pointer"
@@ -1167,13 +1399,13 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-y-1 mt-3 w-56 sm:w-60 md:w-64 select-none">
+                <div className="flex flex-col items-center justify-center gap-y-1 mt-5 w-56 sm:w-60 md:w-64 select-none">
                   {chunkArray(gameState.currentChakra, 5).map((row, rowIdx) => (
-                    <div key={rowIdx} className="grid grid-cols-5 gap-x-[3px] w-full">
+                    <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
                       {row.map((isActive, idx) => {
                         const globalIdx = rowIdx * 5 + idx;
                         return (
-                          <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleChakra(globalIdx); }} className="outline-none w-full">
+                          <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleChakra(globalIdx); }} className="outline-none" style={{ width: 'calc(20% - 2.4px)' }}>
                             <div 
                               className={cn(
                                 "h-[28px] rounded-none transition-all cursor-pointer border border-white/20 shadow-inner w-full",
@@ -1195,9 +1427,9 @@ export default function App() {
 
           {/* Right Slots */}
           <div 
-            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200"
+            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
             style={{
-              transform: `scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
+              transform: `translateX(-${gameState.slotOffsetX ?? 0}px) scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
               transformOrigin: 'center center'
             }}
           >
@@ -1278,7 +1510,14 @@ export default function App() {
                 {!currentSelectedSlot.noCost && (
                   <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
                     <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Cost</span>
-                    <span className="text-2xl font-black text-blue-500 drop-shadow-md">{currentSelectedSlot.chakraCost}</span>
+                    <span className={cn(
+                      "text-2xl font-black drop-shadow-md",
+                      (!currentSelectedSlot.costColor || currentSelectedSlot.costColor === 'blue') && "text-blue-500",
+                      currentSelectedSlot.costColor === 'red' && "text-red-500",
+                      currentSelectedSlot.costColor === 'orange' && "text-amber-500",
+                      currentSelectedSlot.costColor === 'violet' && "text-purple-500",
+                      currentSelectedSlot.costColor === 'white' && "text-white"
+                    )}>{currentSelectedSlot.chakraCost}</span>
                   </div>
                 )}
               </div>
@@ -1289,7 +1528,7 @@ export default function App() {
             <div className="text-blue-400 font-bold tracking-wider text-sm">Informations</div>
             <div className="text-gray-400 text-sm italic mt-1 flex items-center gap-2">
               <Info className="w-4 h-4 opacity-70" />
-              Select a slot or the character to view details. Double-click to grey out a slot.
+              Select a slot to view details. Double-click to grey out a slot.
             </div>
           </div>
         )}
@@ -1505,14 +1744,28 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
               </div>
 
               <div className={cn("flex-1 space-y-2 transition-opacity duration-300", data.noCost && "opacity-30 grayscale pointer-events-none")}>
-                <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Chakra Cost</label>
-                <input 
-                  type="number" 
-                  value={data.chakraCost}
-                  onChange={(e) => setData(prev => ({ ...prev, chakraCost: parseInt(e.target.value) || 0 }))}
-                  disabled={data.noCost}
-                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-blue-500 text-xl font-bold text-center focus:outline-none focus:border-blue-500/50 shadow-inner h-[46px]"
-                />
+                <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Cost Value</label>
+                <div className="flex gap-2 h-[46px]">
+                  <input 
+                    type="number" 
+                    value={data.chakraCost}
+                    onChange={(e) => setData(prev => ({ ...prev, chakraCost: parseInt(e.target.value) || 0 }))}
+                    disabled={data.noCost}
+                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white text-xl font-bold text-center focus:outline-none shadow-inner"
+                  />
+                  <select 
+                    value={data.costColor || 'blue'}
+                    onChange={(e) => setData(prev => ({ ...prev, costColor: e.target.value as any }))}
+                    disabled={data.noCost}
+                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm font-bold focus:outline-none shadow-inner"
+                  >
+                    <option value="blue">Blue</option>
+                    <option value="red">Red</option>
+                    <option value="orange">Orange</option>
+                    <option value="violet">Violet</option>
+                    <option value="white">White</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -1552,6 +1805,8 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   const [hudColor, setHudColor] = useState(gameState.hudColor || '#1a1f2e');
   const [useStatBars, setUseStatBars] = useState(gameState.useStatBars ?? false);
   const [statBarsMax, setStatBarsMax] = useState(gameState.statBarsMax ?? 100);
+  const [slotCostColor, setSlotCostColor] = useState(gameState.slotCostColor || 'blue');
+  const [characterDiceType, setCharacterDiceType] = useState(gameState.characterDiceType || 'd12');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [charPreviewError, setCharPreviewError] = useState(false);
 
@@ -1816,6 +2071,21 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
                     placeholder="Description, character notes..."
                     className="w-full h-14 bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner mt-1"
                   />
+                  
+                  {/* Dice selection */}
+                  <div className="flex items-center justify-between p-2.5 bg-black/40 border border-white/10 rounded-none mt-2">
+                    <span className="text-xs text-white/80 font-bold tracking-wider">DICE ROLL TYPE</span>
+                    <select
+                      value={characterDiceType}
+                      onChange={(e) => setCharacterDiceType(e.target.value as 'd6' | 'd8' | 'd12' | 'd20')}
+                      className="bg-gray-950 border border-white/20 text-white rounded-none px-3 py-1 text-xs font-mono font-black focus:outline-none focus:border-blue-500 shadow-md cursor-pointer"
+                    >
+                      <option value="d6">D6</option>
+                      <option value="d8">D8</option>
+                      <option value="d12">D12 (Default)</option>
+                      <option value="d20">D20</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1899,7 +2169,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
         <div className="mt-2 flex justify-end gap-3 flex-shrink-0">
           <button onClick={onClose} className="px-5 py-2 text-white/50 hover:text-white font-bold text-xs tracking-widest transition-colors">Cancel</button>
           <button 
-            onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax, showHp, showChakra, showOrange, maxOrange, showViolet, maxViolet, counterHp, counterChakra, counterOrange, counterViolet, labelHp, labelChakra, labelOrange, labelViolet })} 
+            onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax, showHp, showChakra, showOrange, maxOrange, showViolet, maxViolet, counterHp, counterChakra, counterOrange, counterViolet, labelHp, labelChakra, labelOrange, labelViolet, characterDiceType })} 
             className="px-6 py-2 bg-blue-600/80 hover:bg-blue-500/80 border border-blue-500/50 text-white rounded-none font-bold text-xs tracking-widest transition-all"
           >
             Save
@@ -1910,4 +2180,84 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
     </div>
   );
 }
+
+const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean }> = ({ type, value, isRolling }) => {
+  const getSvg = (colorClasses: string) => {
+    switch (type) {
+      case 'd6':
+        return (
+          <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
+            <rect x="10" y="10" width="80" height="80" rx="16" fill="none" stroke="currentColor" strokeWidth="4.5" />
+            <rect x="25" y="25" width="50" height="50" rx="8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" opacity="0.5" />
+          </svg>
+        );
+      case 'd8':
+        return (
+          <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
+            <polygon points="50,5 95,50 50,95 5,50" fill="none" stroke="currentColor" strokeWidth="4.5" />
+            <line x1="5" y1="50" x2="95" y2="50" stroke="currentColor" strokeWidth="3" />
+            <line x1="50" y1="5" x2="50" y2="95" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" opacity="0.6" />
+          </svg>
+        );
+      case 'd20':
+        return (
+          <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
+            <polygon points="50,5 90,28 90,72 50,95 10,72 10,28" fill="none" stroke="currentColor" strokeWidth="4" />
+            <polygon points="50,25 82,65 18,65" fill="none" stroke="currentColor" strokeWidth="3" />
+            <line x1="50" y1="5" x2="50" y2="25" stroke="currentColor" strokeWidth="2" />
+            <line x1="90" y1="28" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
+            <line x1="90" y1="72" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
+            <line x1="10" y1="72" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
+            <line x1="10" y1="28" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
+            <line x1="50" y1="95" x2="18" y2="65" stroke="currentColor" strokeWidth="2" />
+            <line x1="50" y1="95" x2="82" y2="65" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        );
+      case 'd12':
+      default:
+        return (
+          <svg viewBox="0 0 100 100" className={cn("w-24 h-24 transition-all duration-300", colorClasses)}>
+            <polygon points="50,5 95,38 78,90 22,90 5,38" fill="none" stroke="currentColor" strokeWidth="4" />
+            <polygon points="50,28 75,46 65,75 35,75 25,46" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" opacity="0.6" />
+            <line x1="50" y1="5" x2="50" y2="28" stroke="currentColor" strokeWidth="2.5" />
+            <line x1="95" y1="38" x2="75" y2="46" stroke="currentColor" strokeWidth="2.5" />
+            <line x1="78" y1="90" x2="65" y2="75" stroke="currentColor" strokeWidth="2.5" />
+            <line x1="22" y1="90" x2="35" y2="75" stroke="currentColor" strokeWidth="2.5" />
+            <line x1="5" y1="38" x2="25" y2="46" stroke="currentColor" strokeWidth="2.5" />
+          </svg>
+        );
+    }
+  };
+
+  // Dynamic colors & animations based on whether it is rolling or resolved (always green + pulsing lueur)
+  const colorClass = isRolling 
+    ? (type === 'd6' ? 'text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.6)]' :
+       type === 'd8' ? 'text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.6)]' :
+       type === 'd20' ? 'text-purple-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]' :
+       'text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]')
+    : 'text-emerald-400 drop-shadow-[0_0_25px_rgba(52,211,153,0.95)]';
+
+  return (
+    <div className="relative flex flex-col items-center justify-center">
+      {/* Dice type displayed above the die */}
+      <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-400/90 uppercase mb-2 bg-emerald-950/40 px-2.5 py-0.5 border border-emerald-500/20 rounded-none select-none">
+        {type}
+      </span>
+
+      <div className="relative w-24 h-24 flex items-center justify-center">
+        {/* SVG Shape background */}
+        <div className={cn(
+          "absolute inset-0 flex items-center justify-center",
+          isRolling ? "animate-spin" : "animate-pulse"
+        )}>
+          {getSvg(colorClass)}
+        </div>
+        {/* Number inside */}
+        <span className="absolute text-3xl font-black text-white select-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] z-10">
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+};
 

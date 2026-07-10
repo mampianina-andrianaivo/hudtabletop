@@ -12,6 +12,7 @@ export interface SlotData {
   slotNumber: number;
   greenGaugeMax?: number;
   currentGreenGauge?: boolean[];
+  costColor?: 'red' | 'blue' | 'orange' | 'violet' | 'white';
 }
 
 export interface CustomStat {
@@ -59,4 +60,7 @@ export interface GameState {
   labelViolet?: string;
   slotTextSize?: number;
   charStatsTextSize?: number;
+  slotCostColor?: 'red' | 'blue' | 'orange' | 'violet' | 'white';
+  slotOffsetX?: number;
+  characterDiceType?: 'd6' | 'd8' | 'd12' | 'd20';
 }

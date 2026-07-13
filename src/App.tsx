@@ -6,8 +6,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GoogleGenAI } from '@google/genai';
-import { GameState, SlotData } from './types';
-import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw } from 'lucide-react';
+import { GameState, SlotData, CustomStat, Requirement } from './types';
+import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -54,10 +54,13 @@ const DEFAULT_STATE: GameState = {
   characterDescription: '',
   customStats: Array(10).fill(null).map(() => ({ name: '', value: '', isVisible: false })),
   playerNotes: '',
+  gmNotes1: '',
+  gmNotes1b: '',
+  gmNotes2: '',
+  requirements: [{ id: 'default', text: 'Default Requirement', isActive: true }],
   leftSlots: generateInitialSlots('left', 1),
   rightSlots: generateInitialSlots('right', 7),
   hudColor: '#1a1f2e',
-  isLightMode: false,
   slotScale: 1,
   slotOffsetY: 0,
   characterScale: 1,
@@ -86,6 +89,8 @@ const DEFAULT_STATE: GameState = {
   characterDiceType: 'd12',
   imageService: 'puter',
   puterModel: 'flux-schnell',
+  gmCustomDiceMin: 1,
+  gmCustomDiceMax: 100,
 };
 
 const SlotUI: React.FC<{ 
@@ -151,7 +156,7 @@ const SlotUI: React.FC<{
           onClick={(e) => { e.stopPropagation(); onClick(slot, side); }}
           onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(slot, side); }}
           className={cn(
-            "relative skeuo-frame-slot rounded-none backdrop-blur-xl transition-all flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-square",
+            "relative skeuo-frame-slot rounded-none backdrop-blur-xl transition-all flex items-center justify-center cursor-pointer hover:bg-white/10 w-full overflow-hidden group aspect-[3/4]",
             slot.isGreyedOut && "opacity-30 grayscale"
           )}
         >
@@ -174,12 +179,20 @@ const SlotUI: React.FC<{
             isEditMode && "border-amber-500 shadow-[inset_0_0_8px_rgba(245,158,11,0.5)]"
           )} />
 
+          {slot.name && (
+            <div 
+              style={{ fontSize: `${textSize + 1.5}px` }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-b from-slate-950 to-slate-900 border-b border-x border-white/20 text-white font-bold tracking-widest z-10 px-2.5 py-1 pointer-events-none uppercase select-none text-center max-w-[95%] truncate whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.15),2px_2px_6px_rgba(0,0,0,0.6)] rounded-b-md"
+            >
+              {slot.name}
+            </div>
+          )}
+
           <div 
             style={{ fontSize: `${textSize + 1.5}px` }}
-            className="absolute bottom-0 left-0 bg-gradient-to-r from-slate-950 to-slate-900 border-t border-r border-white/20 text-white font-mono font-bold tracking-widest z-10 px-2.5 py-1 pointer-events-none flex items-center gap-1.5 select-none whitespace-nowrap max-w-[95%] overflow-hidden text-ellipsis shadow-[inset_0_1px_0_rgba(255,255,255,0.15),2px_-2px_6px_rgba(0,0,0,0.6)] rounded-tr-md"
+            className="absolute bottom-0 left-0 bg-gradient-to-r from-slate-950 to-slate-900 border-t border-r border-white/20 text-white font-mono font-bold tracking-widest z-10 px-2.5 py-1 pointer-events-none flex items-center gap-1.5 select-none shadow-[inset_0_1px_0_rgba(255,255,255,0.15),2px_-2px_6px_rgba(0,0,0,0.6)] rounded-tr-md"
           >
             <span className="text-emerald-400 font-black">#{slot.slotNumber}</span>
-            {slot.name && <span className="text-white/95 font-semibold">{slot.name}</span>}
           </div>
           
           <div className="w-full h-full flex flex-col relative">
@@ -275,7 +288,7 @@ export default function App() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gameState));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "tabletop-hud-save.json");
+    downloadAnchorNode.setAttribute("download", "character.json");
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -340,6 +353,26 @@ export default function App() {
   }, [gameState, isLoaded]);
 
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isGmMode, setIsGmMode] = useState(false);
+  const [isGmSettingsOpen, setIsGmSettingsOpen] = useState(false);
+  const [isGmCustomDiceSettingsOpen, setIsGmCustomDiceSettingsOpen] = useState(false);
+  const [gmNotesTab, setGmNotesTab] = useState<'a' | 'b'>('a');
+  const [encounterRolls, setEncounterRolls] = useState<Requirement[][]>([]);
+  const [gmCheckedEncounters, setGmCheckedEncounters] = useState<boolean[]>([]);
+  const [gmDiceResult, setGmDiceResult] = useState<{ type: string, value: number, time: number } | null>(null);
+  const [gmRollingDiceType, setGmRollingDiceType] = useState<number>(20);
+  
+  // GM dice roll state
+  const [gmRollState, setGmRollState] = useState<'idle' | 'rolling' | 'rolled'>('idle');
+  const gmRollAnimTimeoutRef = useRef<number | null>(null);
+
+  const clearGmRollTimers = () => {
+    if (gmRollAnimTimeoutRef.current) {
+      clearTimeout(gmRollAnimTimeoutRef.current);
+      gmRollAnimTimeoutRef.current = null;
+    }
+  };
+  
   const [selectedItem, setSelectedItem] = useState<{ type: 'slot', slot: SlotData, side: 'left' | 'right' } | { type: 'character' } | null>(null);
   
   // Character dice rolling state
@@ -387,8 +420,10 @@ export default function App() {
   // Modals state
   const [editingSlot, setEditingSlot] = useState<{ slot: SlotData; side: 'left' | 'right' } | null>(null);
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
+  const [isQuickStatsOpen, setIsQuickStatsOpen] = useState(false);
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isGmResetConfirmOpen, setIsGmResetConfirmOpen] = useState(false);
 
   if (!isLoaded) {
     return (
@@ -519,6 +554,22 @@ export default function App() {
     setIsResetConfirmOpen(false);
   };
 
+  const handleGmReset = () => {
+    setGameState(prev => ({
+      ...prev,
+      gmNotes1: '',
+      gmNotes1b: '',
+      gmNotes2: '',
+      gmCustomDiceMin: 1,
+      gmCustomDiceMax: 100,
+      requirements: DEFAULT_STATE.requirements || [{ id: 'default', text: 'Default Requirement', isActive: true }]
+    }));
+    setEncounterRolls([]);
+    setGmCheckedEncounters([]);
+    setGmDiceResult(null);
+    setIsGmResetConfirmOpen(false);
+  };
+
   const handleSlotClick = (slot: SlotData, side: 'left' | 'right') => {
     if (isEditMode) {
       setEditingSlot({ slot, side });
@@ -571,10 +622,10 @@ export default function App() {
 
     const tick = () => {
       const elapsed = Date.now() - startTimeRef.current;
-      const progress = Math.min(100, (elapsed / 2000) * 100);
+      const progress = Math.min(100, (elapsed / 500) * 100);
       setPressProgress(progress);
 
-      if (elapsed >= 2000) {
+      if (elapsed >= 500) {
         // Trigger roll
         clearPressTimers();
         setRollState('rolling');
@@ -612,6 +663,132 @@ export default function App() {
       setRollState('idle');
       setPressProgress(0);
     }
+  };
+
+  const handleGmDiceRoll = (sides: number) => {
+    clearGmRollTimers();
+
+    setGmRollingDiceType(sides);
+    setGmRollState('rolling');
+    setGmDiceResult(null);
+
+    gmRollAnimTimeoutRef.current = window.setTimeout(() => {
+      let finalVal: number;
+      if (sides === -1) {
+        const min = gameState.gmCustomDiceMin ?? 1;
+        const max = gameState.gmCustomDiceMax ?? 100;
+        finalVal = Math.floor(Math.random() * (max - min + 1)) + min;
+      } else {
+        finalVal = Math.floor(Math.random() * sides) + 1;
+      }
+      
+      const newResult = {
+        type: sides === -1 ? `d${gameState.gmCustomDiceMin}-${gameState.gmCustomDiceMax}` : `d${sides}`,
+        value: finalVal,
+        time: Date.now()
+      };
+      setGmDiceResult(newResult);
+      setGmRollState('rolled');
+    }, 1000);
+  };
+
+  const generateEncounter = (level: 'Easy' | 'Hard' | 'Boss' | 'God') => {
+    const allActive = gameState.requirements?.filter(r => r.isActive) || [];
+    const principals = allActive.filter(r => !r.isSub);
+    const subs = allActive.filter(r => !!r.isSub);
+    
+    if (principals.length === 0) return;
+
+    const linesCount = level === 'Easy' ? 2 : level === 'Hard' ? 3 : level === 'Boss' ? 5 : 6;
+    const subsToAdd = level === 'Easy' ? 0 : level === 'Hard' ? 1 : 2;
+    
+    const lineIndices = Array.from({ length: linesCount }, (_, i) => i);
+    const subLineIndices = new Set<number>();
+    while (subLineIndices.size < Math.min(subsToAdd, linesCount) && subs.length > 0) {
+      subLineIndices.add(lineIndices[Math.floor(Math.random() * lineIndices.length)]);
+    }
+
+    const newRolls: Requirement[][] = [];
+
+    for (let i = 0; i < linesCount; i++) {
+      const line: Requirement[] = [];
+      const usedPrincipalIds = new Set<string>();
+      const hasSub = subLineIndices.has(i);
+      const subPointIdx = hasSub ? Math.floor(Math.random() * 3) : -1;
+
+      for (let j = 0; j < 3; j++) {
+        // Try to pick a principal that hasn't been used on this line yet
+        let availablePrincipals = principals.filter(p => !usedPrincipalIds.has(p.id));
+        // Fallback if all have been used (though unlikely given 3 slots and typically more requirements)
+        if (availablePrincipals.length === 0) availablePrincipals = principals;
+        
+        const principal = availablePrincipals[Math.floor(Math.random() * availablePrincipals.length)];
+        usedPrincipalIds.add(principal.id);
+
+        if (j === subPointIdx && subs.length > 0) {
+          const sub = subs[Math.floor(Math.random() * subs.length)];
+          line.push({
+            ...principal,
+            text: `${principal.text}+${sub.text}`
+          });
+        } else {
+          line.push(principal);
+        }
+      }
+      newRolls.push(line);
+    }
+    setEncounterRolls(newRolls);
+    setGmCheckedEncounters(new Array(linesCount).fill(false));
+  };
+
+  const exportGmJson = () => {
+    const data = {
+      gmNotes1: gameState.gmNotes1,
+      gmNotes1b: gameState.gmNotes1b,
+      gmNotes2: gameState.gmNotes2,
+      gmCustomDiceMin: gameState.gmCustomDiceMin,
+      gmCustomDiceMax: gameState.gmCustomDiceMax,
+      requirements: gameState.requirements
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gamemaster.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importGmJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        setGameState(prev => ({
+          ...prev,
+          gmNotes1: data.gmNotes1 || prev.gmNotes1,
+          gmNotes1b: data.gmNotes1b || prev.gmNotes1b,
+          gmNotes2: data.gmNotes2 || prev.gmNotes2,
+          gmCustomDiceMin: data.gmCustomDiceMin !== undefined ? data.gmCustomDiceMin : prev.gmCustomDiceMin,
+          gmCustomDiceMax: data.gmCustomDiceMax !== undefined ? data.gmCustomDiceMax : prev.gmCustomDiceMax,
+          requirements: data.requirements || prev.requirements
+        }));
+      } catch (err) {
+        console.error('Failed to import GM data', err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const copyEncountersToClipboard = () => {
+    const text = encounterRolls.map((line, idx) => {
+      const lineText = line.map(req => req.text).join(' → ');
+      return `#${idx + 1} ${lineText}`;
+    }).join('\n');
+    navigator.clipboard.writeText(text);
   };
 
   const toggleSlotGreyedOut = (slotId: string, side: 'left' | 'right') => {
@@ -672,8 +849,7 @@ export default function App() {
   return (
     <div 
       className={cn(
-        "h-[100dvh] w-full bg-[#05070a] text-white flex items-center justify-center font-sans overflow-hidden select-none transition-all duration-500",
-        gameState.isLightMode && "invert hue-rotate-180 light-mode"
+        "h-[100dvh] w-full bg-[#05070a] text-white flex items-center justify-center font-sans overflow-hidden select-none transition-all duration-500"
       )}
       style={{ background: `radial-gradient(circle at center, ${gameState.hudColor || '#1a1f2e'} 0%, #05070a 100%)` }}
       onClick={() => setSelectedItem(null)}
@@ -690,6 +866,7 @@ export default function App() {
       {/* Header / Controls */}
       <div className="absolute top-6 left-8 flex flex-row items-center z-50 gap-3">
         {/* Immersive Mode Toggle (Always visible, placed BEFORE edit mode button) */}
+        {!isGmMode && (
         <button
           onClick={(e) => { 
             e.stopPropagation(); 
@@ -710,9 +887,10 @@ export default function App() {
         >
           {gameState.isImmersiveMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
         </button>
+        )}
 
         {/* Other Controls (Hidden when in Immersive Mode) */}
-        {!gameState.isImmersiveMode && (
+        {!gameState.isImmersiveMode && !isGmMode && (
           <>
             {/* Edit Mode Button (Icon-only: Pencil or Green Checkmark) */}
             <button
@@ -724,18 +902,6 @@ export default function App() {
               )}
             >
               {isEditMode ? <Check className="w-4 h-4 text-emerald-400 font-bold" /> : <Edit2 className="w-4 h-4" />}
-            </button>
-
-            {/* Light/Dark Mode Toggle (Icon-only) */}
-            <button
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                setGameState(prev => ({ ...prev, isLightMode: !prev.isLightMode })); 
-              }}
-              title={gameState.isLightMode ? "Switch to Dark Mode" : "Switch to Light Mode"}
-              className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button text-white outline-none"
-            >
-              {gameState.isLightMode ? <Moon className="w-4 h-4 text-sky-300" /> : <Sun className="w-4 h-4 text-amber-400" />}
             </button>
 
             {!isEditMode && (
@@ -1108,12 +1274,12 @@ export default function App() {
                     {chunkArray(gameState.currentOrange || Array(gameState.maxOrange || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
-                        className="flex flex-col justify-center gap-y-[3px] w-8 sm:w-9"
+                        className="flex flex-col justify-center gap-y-[3px] w-6 sm:w-7"
                       >
                         {column.map((isActive, idx) => {
                           const globalIdx = colIdx * 10 + idx;
                           return (
-                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleOrange(globalIdx); }} className="outline-none w-full h-[24px]">
+                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleOrange(globalIdx); }} className="outline-none w-full h-[36px]">
                               <div 
                                 className={cn(
                                   "w-full h-full rounded-none transition-all cursor-pointer",
@@ -1215,7 +1381,9 @@ export default function App() {
                   )}
                   
                   <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-50 pointer-events-none px-4 pt-6 text-center">
-                    <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg mb-2">{gameState.characterName}</span>
+                    <div className="flex items-center gap-2 mb-2 pointer-events-auto">
+                      <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg">{gameState.characterName}</span>
+                    </div>
                     <div 
                       className="flex gap-1 pointer-events-auto p-2 -mt-2 bg-black/20 rounded-lg backdrop-blur-md"
                       onClick={(e) => e.stopPropagation()}
@@ -1251,60 +1419,89 @@ export default function App() {
                   </div>
 
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-20 pointer-events-none flex flex-col gap-2 pt-10">
-                    {gameState.useStatBars ? (
-                      <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-2 items-center w-full">
-                        {gameState.customStats.filter(s => s.isVisible && s.name).map((stat, idx) => {
-                          const numMatch = stat.value.match(/\d+(\.\d+)?/);
-                          const numValue = numMatch ? parseFloat(numMatch[0]) : 0;
-                          const maxVal = gameState.statBarsMax || 100;
-                          const percent = Math.min(100, Math.max(0, (numValue / maxVal) * 100));
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1.5 items-center w-full">
+                      {gameState.customStats.map((stat, idx) => {
+                        if (!stat.isVisible || !stat.name) return null;
+                        
+                        const isStats2 = idx >= 5;
+                        const useStatBars = isStats2 ? gameState.useStatBars2 : gameState.useStatBars;
+                        const statBarsMax = isStats2 ? (gameState.statBarsMax2 || 12) : (gameState.statBarsMax || 12);
+                        
+                        const numMatch = stat.value.match(/\d+(\.\d+)?/);
+                        const baseValue = numMatch ? parseFloat(numMatch[0]) : 0;
+                        const hasMod = typeof stat.modifier === 'number' && stat.modifier !== 0 && numMatch;
+                        const totalVal = Math.max(0, baseValue + (stat.modifier || 0));
 
-                           return (
+                        if (useStatBars) {
+                          const percent = Math.min(100, Math.max(0, (totalVal / statBarsMax) * 100));
+                          return (
                             <React.Fragment key={idx}>
-                              {/* Stat Name */}
                               <span 
                                 style={{ fontSize: `${gameState.charStatsTextSize ?? 10}px` }}
                                 className="text-white font-bold tracking-widest whitespace-nowrap"
                               >
                                 {stat.name}
                               </span>
-
-                              {/* Stat Bar */}
                               <div className="h-1.5 bg-black/40 border border-white/5 relative overflow-hidden w-full">
                                 <div 
                                   className="h-full bg-white transition-all duration-300"
                                   style={{ width: `${percent}%` }}
                                 />
                               </div>
-
-                              {/* Stat Value */}
-                              <span 
+                              <div 
                                 style={{ fontSize: `${(gameState.charStatsTextSize ?? 10) + 2}px` }}
-                                className="text-white font-black text-right whitespace-nowrap min-w-[1.5rem]"
+                                className="font-black text-right whitespace-nowrap min-w-[1.5rem] flex items-center justify-end gap-0.5"
                               >
-                                {stat.value}
-                              </span>
+                                <span className="text-white">{totalVal}</span>
+                                {hasMod && (
+                                  <span className={stat.modifier! > 0 ? "text-green-400" : "text-red-400"}>
+                                    {stat.modifier! > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                  </span>
+                                )}
+                              </div>
                             </React.Fragment>
                           );
-                        })}
+                        } else {
+                          return (
+                            <div key={idx} className="col-span-3 flex justify-between items-end w-full">
+                              <span 
+                                style={{ fontSize: `${gameState.charStatsTextSize ?? 10}px` }}
+                                className="text-white font-bold tracking-widest"
+                              >
+                                {stat.name}
+                              </span>
+                              <div 
+                                style={{ fontSize: `${(gameState.charStatsTextSize ?? 10) + 4}px` }}
+                                className="font-black flex items-center gap-0.5"
+                              >
+                                <span className="text-white">{totalVal}</span>
+                                {hasMod && (
+                                  <span className={stat.modifier! > 0 ? "text-green-400" : "text-red-400"}>
+                                    {stat.modifier! > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                    {!isEditMode && (
+                      <div className="w-full flex justify-center mt-2 pointer-events-auto">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setIsQuickStatsOpen(true); }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onMouseUp={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onPointerUp={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded-full bg-black/40 border border-white/10 hover:bg-black/60 text-white/50 hover:text-white transition-colors backdrop-blur-sm"
+                          title="Quick Stats"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    ) : (
-                      gameState.customStats.filter(s => s.isVisible && s.name).map((stat, idx) => (
-                        <div key={idx} className="flex justify-between items-end w-full">
-                          <span 
-                            style={{ fontSize: `${gameState.charStatsTextSize ?? 10}px` }}
-                            className="text-white font-bold tracking-widest"
-                          >
-                            {stat.name}
-                          </span>
-                          <span 
-                            style={{ fontSize: `${(gameState.charStatsTextSize ?? 10) + 4}px` }}
-                            className="text-white font-black"
-                          >
-                            {stat.value}
-                          </span>
-                        </div>
-                      ))
                     )}
                   </div>
 
@@ -1322,33 +1519,9 @@ export default function App() {
                     >
                       {rollState === 'charging' && (
                         <div className="flex flex-col items-center justify-center gap-6">
-                          <div className="relative w-24 h-24 flex items-center justify-center">
-                            {/* Circular SVG loader */}
-                            <svg className="w-full h-full transform -rotate-90">
-                              <circle
-                                cx="48"
-                                cy="48"
-                                r="38"
-                                className="stroke-white/5"
-                                strokeWidth="6"
-                                fill="transparent"
-                              />
-                              <circle
-                                cx="48"
-                                cy="48"
-                                r="38"
-                                className="stroke-blue-500 transition-all duration-75"
-                                strokeWidth="6"
-                                fill="transparent"
-                                strokeDasharray={2 * Math.PI * 38}
-                                strokeDashoffset={2 * Math.PI * 38 * (1 - pressProgress / 100)}
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                            <span className="absolute text-xs font-mono font-black text-white">
-                              {Math.round(pressProgress)}%
-                            </span>
-                          </div>
+                          <span className="text-4xl font-mono font-black text-blue-400 drop-shadow-[0_0_12px_rgba(59,130,246,0.5)]">
+                            {Math.round(pressProgress)}%
+                          </span>
                           <div className="h-12 flex flex-col items-center justify-center text-center">
                             <span className="text-[10px] text-blue-400 font-bold tracking-widest uppercase animate-pulse">
                               Charging Roll...
@@ -1426,12 +1599,12 @@ export default function App() {
                     {chunkArray(gameState.currentViolet || Array(gameState.maxViolet || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
-                        className="flex flex-col justify-center gap-y-[3px] w-8 sm:w-9"
+                        className="flex flex-col justify-center gap-y-[3px] w-6 sm:w-7"
                       >
                         {column.map((isActive, idx) => {
                           const globalIdx = colIdx * 10 + idx;
                           return (
-                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleViolet(globalIdx); }} className="outline-none w-full h-[24px]">
+                            <button key={globalIdx} onClick={(e) => { e.stopPropagation(); toggleViolet(globalIdx); }} className="outline-none w-full h-[36px]">
                               <div 
                                 className={cn(
                                   "w-full h-full rounded-none transition-all cursor-pointer",
@@ -1633,7 +1806,491 @@ export default function App() {
       </div>
 
 
+      {isGmMode && (
+        <div 
+          className="absolute inset-0 z-40 bg-[#05070a]/95 backdrop-blur-xl flex flex-col p-8 pb-20 overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex gap-8 h-full max-w-7xl mx-auto w-full">
+            {/* Left Note Panel */}
+            <div className="flex-1 skeuo-panel p-6 flex flex-col h-full overflow-hidden">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-4 items-center">
+                  <h2 className="text-purple-400 font-bold tracking-widest uppercase text-sm">
+                    GM Notes 1
+                  </h2>
+                  <div className="flex bg-black/40 rounded-sm p-0.5 border border-white/5">
+                    <button 
+                      onClick={() => setGmNotesTab('a')}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] font-black tracking-widest uppercase transition-all rounded-sm",
+                        gmNotesTab === 'a' ? "bg-purple-500/20 text-purple-400" : "text-white/30 hover:text-white/50"
+                      )}
+                    >
+                      Tab A
+                    </button>
+                    <button 
+                      onClick={() => setGmNotesTab('b')}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] font-black tracking-widest uppercase transition-all rounded-sm",
+                        gmNotesTab === 'b' ? "bg-purple-500/20 text-purple-400" : "text-white/30 hover:text-white/50"
+                      )}
+                    >
+                      Tab B
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+              <textarea 
+                className="flex-1 bg-transparent resize-none text-white/90 focus:outline-none font-mono text-sm leading-relaxed"
+                spellCheck={false}
+                value={gmNotesTab === 'a' ? (gameState.gmNotes1 || '') : (gameState.gmNotes1b || '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setGameState(prev => ({ 
+                    ...prev, 
+                    [gmNotesTab === 'a' ? 'gmNotes1' : 'gmNotes1b']: val 
+                  }));
+                }}
+                placeholder="Write your notes here..."
+              />
+            </div>
+
+            {/* Middle Roll Panel */}
+            <div className="flex-[1.5] flex flex-col gap-6 h-full overflow-hidden">
+               <div className="skeuo-panel p-6 flex flex-col items-center">
+                 <div className="w-full flex justify-between items-center mb-6">
+                   <h2 className="text-blue-400 font-bold tracking-widest uppercase text-sm">Dice Rolls</h2>
+                   <button 
+                     onClick={() => setGmDiceResult(null)}
+                     className="text-[10px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
+                   >
+                     Clear
+                   </button>
+                 </div>
+                 <div className="flex flex-wrap justify-center gap-4 mb-8">
+                   {[6, 8, 12, 20].map(sides => (
+                     <button
+                       key={sides}
+                       onClick={() => handleGmDiceRoll(sides)}
+                       className="w-16 h-16 skeuo-button font-bold text-lg flex items-center justify-center rounded-lg relative overflow-hidden group"
+                     >
+                       <span className="relative z-10">d{sides}</span>
+                     </button>
+                   ))}
+                    <div className="flex items-center gap-2">
+                       <button 
+                         onClick={() => setIsGmCustomDiceSettingsOpen(true)}
+                         className="p-2 rounded-full hover:bg-white/10 text-white/30 hover:text-white transition-colors"
+                       >
+                         <Settings className="w-5 h-5" />
+                       </button>
+                       <button
+                         onClick={() => handleGmDiceRoll(-1)}
+                         className="w-16 h-16 skeuo-button font-bold text-lg flex items-center justify-center rounded-lg relative overflow-hidden group"
+                       >
+                         <span className="relative z-10 text-xs uppercase tracking-tighter">Cust</span>
+                       </button>
+                    </div>
+                  </div>
+                 
+                  <div className="h-32 flex items-stretch px-4 gap-0 bg-black/20 border-t border-white/5">
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      {gmRollState === 'rolling' ? (
+                        <div className="flex flex-col items-center animate-pulse">
+                          <span className="text-3xl font-mono font-black text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.5)]">
+                            ROLLING...
+                          </span>
+                          <span className="text-[9px] text-purple-400/60 font-bold uppercase tracking-[0.3em] mt-1">Acquiring Result</span>
+                        </div>
+                      ) : gmRollState === 'rolled' && gmDiceResult ? (
+                        <div key={gmDiceResult.time} className="flex flex-col items-center animate-in zoom-in fade-in duration-300">
+                          <span className="text-6xl font-black text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.4)] leading-none">
+                            {gmDiceResult.value}
+                          </span>
+                          <span className="text-[10px] text-emerald-400/50 font-black uppercase tracking-[0.4em] mt-2">{gmDiceResult.type}</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center opacity-20 group-hover:opacity-40 transition-opacity">
+                          <span className="text-4xl font-mono font-black text-white italic tracking-tighter">READY</span>
+                          <span className="text-[9px] font-bold uppercase tracking-[0.4em] mt-1">Select Dice</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="flex-1 skeuo-panel p-6 flex flex-col overflow-hidden">
+                 <div className="flex justify-between items-center mb-4">
+                   <h2 className="text-emerald-400 font-bold tracking-widest uppercase text-sm">Encounter Result</h2>
+                   <div className="flex items-center gap-4">
+                     <button 
+                       onClick={copyEncountersToClipboard}
+                       className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                       title="Copy to Clipboard"
+                     >
+                       <Copy className="w-4 h-4" />
+                     </button>
+                     <button 
+                       onClick={() => setEncounterRolls([])}
+                       className="text-[10px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
+                     >
+                       Clear
+                     </button>
+                   </div>
+                 </div>
+                 
+                 <div className="flex-1 bg-black/40 border border-white/5 p-4 overflow-y-auto space-y-2">
+                   {encounterRolls.map((line, lineIdx) => (
+                     <div key={lineIdx} className="flex gap-2 items-center">
+                       <span className="text-[10px] font-black text-white/20 w-5">#{lineIdx + 1}</span>
+                       <div className="flex-1 flex gap-2">
+                        {line.map((req, reqIdx) => {
+                          const parts = req.text.split('+');
+                          return (
+                            <div key={reqIdx} className="flex-1 bg-white/5 border border-white/10 p-1.5 text-center text-[10px] font-bold text-white/90 truncate rounded-sm">
+                              {parts[0]}
+                              {parts[1] && <span className="text-orange-500">+{parts[1]}</span>}
+                            </div>
+                          );
+                        })}
+                       </div>
+                       <input 
+                         type="checkbox"
+                         checked={gmCheckedEncounters[lineIdx]}
+                         onChange={() => {
+                           const newChecked = [...gmCheckedEncounters];
+                           newChecked[lineIdx] = !newChecked[lineIdx];
+                           setGmCheckedEncounters(newChecked);
+                         }}
+                         className="accent-emerald-500 w-4 h-4 cursor-pointer"
+                       />
+                     </div>
+                   ))}
+                   {encounterRolls.length === 0 && (
+                     <div className="h-full flex items-center justify-center text-white/20 font-bold tracking-widest text-xs uppercase italic">No encounter rolled</div>
+                   )}
+                 </div>
+               </div>
+            </div>
+
+            {/* Right Panel: Encounters Setup & Notes 2 */}
+            <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
+               <div className="flex-1 skeuo-panel p-6 flex flex-col overflow-hidden">
+                 <div className="flex justify-between items-center mb-6">
+                   <h2 className="text-red-400 font-bold tracking-widest uppercase text-sm">Encounters Setup</h2>
+                   <div className="flex items-center gap-4">
+                     <button
+                       onClick={() => setIsGmSettingsOpen(true)}
+                       className="p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors outline-none"
+                       title="Encounter Settings"
+                     >
+                       <Settings className="w-5 h-5" />
+                     </button>
+                   </div>
+                 </div>
+                 
+                 {/* Requirement toggles */}
+                 <div className="flex-1 overflow-y-auto pr-2 mb-6">
+                   <div className="flex flex-wrap gap-2">
+                    {(gameState.requirements || []).map(req => (
+                      <label key={req.id} className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-black/60 transition-colors">
+                        <input 
+                          type="checkbox"
+                          checked={req.isActive}
+                          onChange={() => {
+                            setGameState(prev => {
+                              const reqs = prev.requirements || [];
+                              return {
+                                ...prev,
+                                requirements: reqs.map(r => r.id === req.id ? { ...r, isActive: !r.isActive } : r)
+                              }
+                            });
+                          }}
+                          className="accent-red-500 w-3.5 h-3.5"
+                        />
+                        <span className={cn("text-[10px] font-bold tracking-widest select-none uppercase", req.isActive ? "text-white" : "text-white/30")}>{req.text}</span>
+                        {req.isSub && <span className="text-[8px] text-amber-500/50 font-black">SUB</span>}
+                      </label>
+                    ))}
+                   </div>
+                 </div>
+                 
+                 <div className="flex gap-2">
+                   <button onClick={() => generateEncounter('Easy')} className="flex-1 py-2 skeuo-button font-bold text-[10px] tracking-widest uppercase">Easy</button>
+                   <button onClick={() => generateEncounter('Hard')} className="flex-1 py-2 skeuo-button font-bold text-[10px] tracking-widest uppercase">Hard</button>
+                   <button onClick={() => generateEncounter('Boss')} className="flex-1 py-2 skeuo-button font-bold text-[10px] tracking-widest uppercase text-amber-400">Boss</button>
+                   <button onClick={() => generateEncounter('God')} className="flex-1 py-2 skeuo-button font-bold text-[10px] tracking-widest uppercase text-red-400">God</button>
+                 </div>
+               </div>
+
+               <div className="h-[40%] skeuo-panel p-6 flex flex-col min-h-0 overflow-hidden">
+                 <h2 className="text-purple-400 font-bold tracking-widest uppercase mb-4 text-sm flex items-center justify-between">
+                   GM Notes 2
+                 </h2>
+                 <textarea 
+                   className="flex-1 bg-transparent resize-none text-white/90 focus:outline-none font-mono text-sm leading-relaxed"
+                   spellCheck={false}
+                   value={gameState.gmNotes2 || ''}
+                   onChange={(e) => setGameState(prev => ({ ...prev, gmNotes2: e.target.value }))}
+                   placeholder="Secondary notes..."
+                 />
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute bottom-6 right-8 z-50 flex items-center gap-2">
+        {isGmMode && (
+          <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-none shadow-lg">
+            <button 
+              onClick={exportGmJson}
+              className="p-1.5 rounded-sm hover:bg-white/10 text-white/50 hover:text-emerald-400 transition-colors cursor-pointer"
+              title="Export GM Data"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => document.getElementById('gm-import-input')?.click()}
+              className="p-1.5 rounded-sm hover:bg-white/10 text-white/50 hover:text-blue-400 transition-colors cursor-pointer"
+              title="Import GM Data"
+            >
+              <Upload className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setIsGmResetConfirmOpen(true)}
+              className="p-1.5 rounded-sm hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors cursor-pointer"
+              title="Reset GM Mode Settings"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <input 
+              id="gm-import-input"
+              type="file" 
+              accept=".json" 
+              className="hidden" 
+              onChange={importGmJson}
+            />
+          </div>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); setIsGmMode(!isGmMode); setIsEditMode(false); }}
+          title={isGmMode ? "Exit GM Mode" : "Enter GM Mode"}
+          className={cn(
+            "px-4 py-2 flex items-center justify-center rounded-none font-bold tracking-widest text-xs uppercase outline-none transition-all cursor-pointer",
+            isGmMode ? "bg-gradient-to-b from-purple-800 to-purple-950 border border-purple-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-purple-400" : "skeuo-button text-white/50 hover:text-white"
+          )}
+        >
+          GM Mode
+        </button>
+      </div>
+
       {/* Modals */}
+      {isGmCustomDiceSettingsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="skuo-modal max-w-sm w-full p-6 animate-in zoom-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-blue-400 font-bold tracking-widest uppercase">Custom Dice Range</h3>
+                <button onClick={() => setIsGmCustomDiceSettingsOpen(false)} className="text-white/30 hover:text-white"><X className="w-5 h-5" /></button>
+             </div>
+             
+             <div className="space-y-8">
+               <div className="flex flex-col gap-6">
+                  <div>
+                    <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 block text-center">Min Value</label>
+                    <div className="flex items-center justify-center gap-4">
+                      <button 
+                        onClick={() => setGameState(prev => ({ ...prev, gmCustomDiceMin: Math.max(0, (prev.gmCustomDiceMin ?? 1) - 1) }))}
+                        className="w-10 h-10 skeuo-button flex items-center justify-center rounded-full"
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                      <input 
+                        type="number"
+                        value={gameState.gmCustomDiceMin ?? 1}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGameState(prev => ({ ...prev, gmCustomDiceMin: isNaN(val) ? 0 : val }));
+                        }}
+                        className="w-20 text-center text-3xl font-mono font-black text-white bg-black/40 py-2 border border-white/5 rounded-lg outline-none focus:border-blue-500/30"
+                      />
+                      <button 
+                        onClick={() => setGameState(prev => ({ ...prev, gmCustomDiceMin: (prev.gmCustomDiceMin ?? 1) + 1 }))}
+                        className="w-10 h-10 skeuo-button flex items-center justify-center rounded-full"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 block text-center">Max Value</label>
+                    <div className="flex items-center justify-center gap-4">
+                      <button 
+                        onClick={() => setGameState(prev => ({ ...prev, gmCustomDiceMax: Math.max((gameState.gmCustomDiceMin ?? 0) + 1, (prev.gmCustomDiceMax ?? 100) - 1) }))}
+                        className="w-10 h-10 skeuo-button flex items-center justify-center rounded-full"
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                      <input 
+                        type="number"
+                        value={gameState.gmCustomDiceMax ?? 100}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGameState(prev => ({ ...prev, gmCustomDiceMax: isNaN(val) ? 0 : val }));
+                        }}
+                        className="w-20 text-center text-3xl font-mono font-black text-white bg-black/40 py-2 border border-white/5 rounded-lg outline-none focus:border-blue-500/30"
+                      />
+                      <button 
+                        onClick={() => setGameState(prev => ({ ...prev, gmCustomDiceMax: (prev.gmCustomDiceMax ?? 100) + 1 }))}
+                        className="w-10 h-10 skeuo-button flex items-center justify-center rounded-full"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+               </div>
+               
+               {((gameState.gmCustomDiceMax ?? 100) <= (gameState.gmCustomDiceMin ?? 0)) && (
+                 <p className="text-red-500 text-[10px] font-bold uppercase tracking-widest animate-pulse">Max must be greater than min</p>
+               )}
+               
+               <button 
+                 onClick={() => setIsGmCustomDiceSettingsOpen(false)}
+                 disabled={((gameState.gmCustomDiceMax ?? 100) <= (gameState.gmCustomDiceMin ?? 0))}
+                 className="w-full py-3 skeuo-button font-bold tracking-widest uppercase text-sm disabled:opacity-50"
+               >
+                 Save Settings
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+      {isGmSettingsOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="skeuo-panel p-6 w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-red-400 tracking-widest uppercase">Encounter Requirements</h2>
+              <button onClick={() => setIsGmSettingsOpen(false)} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+            </div>
+            
+            <div className="overflow-y-auto pr-2 flex-1 space-y-3">
+              {(gameState.requirements || []).length === 0 ? (
+                <div className="text-white/50 text-sm text-center py-4">No requirements defined.</div>
+              ) : (
+                (gameState.requirements || []).map((req, idx) => (
+                  <div key={req.id} className="flex gap-2 items-center bg-black/30 p-2 border border-white/5">
+                     <label className="flex items-center gap-1 cursor-pointer select-none px-1" title="Is Sub?">
+                       <input 
+                         type="checkbox"
+                         checked={req.isSub || false}
+                         onChange={(e) => {
+                           setGameState(prev => {
+                             const reqs = [...(prev.requirements || [])];
+                             reqs[idx] = { ...reqs[idx], isSub: e.target.checked };
+                             return { ...prev, requirements: reqs };
+                           })
+                         }}
+                         className="accent-amber-500 w-3.5 h-3.5"
+                       />
+                       <span className="text-[8px] font-black text-white/30 uppercase">Sub</span>
+                     </label>
+                     <input
+                       type="text"
+                       value={req.text}
+                       onChange={(e) => {
+                         setGameState(prev => {
+                           const reqs = [...(prev.requirements || [])];
+                           reqs[idx] = { ...reqs[idx], text: e.target.value };
+                           return { ...prev, requirements: reqs };
+                         })
+                       }}
+                       className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-white/20 px-2 font-bold"
+                       placeholder="Requirement name..."
+                     />
+                     {idx > 0 && (
+                       <>
+                         <div className="flex flex-col gap-1">
+                           <button 
+                             onClick={() => {
+                               if (idx === 1) return; // Cannot move above 0
+                               setGameState(prev => {
+                                 const reqs = [...(prev.requirements || [])];
+                                 const temp = reqs[idx];
+                                 reqs[idx] = reqs[idx - 1];
+                                 reqs[idx - 1] = temp;
+                                 return { ...prev, requirements: reqs };
+                               })
+                             }}
+                             className={cn("text-white/50 transition-colors", idx === 1 ? "opacity-20 cursor-not-allowed" : "hover:text-white")}
+                           >
+                             <ArrowUp className="w-3 h-3" />
+                           </button>
+                           <button 
+                             onClick={() => {
+                               setGameState(prev => {
+                                 const reqs = [...(prev.requirements || [])];
+                                 if (idx === reqs.length - 1) return prev;
+                                 const temp = reqs[idx];
+                                 reqs[idx] = reqs[idx + 1];
+                                 reqs[idx + 1] = temp;
+                                 return { ...prev, requirements: reqs };
+                               })
+                             }}
+                             className={cn("text-white/50 transition-colors", idx === (gameState.requirements || []).length - 1 ? "opacity-20 cursor-not-allowed" : "hover:text-white")}
+                           >
+                             <ArrowDown className="w-3 h-3" />
+                           </button>
+                         </div>
+                         <button
+                           onClick={() => {
+                             setGameState(prev => {
+                               const reqs = [...(prev.requirements || [])];
+                               reqs.splice(idx, 1);
+                               return { ...prev, requirements: reqs };
+                             })
+                           }}
+                           className="p-2 text-white/30 hover:text-red-400 transition-colors"
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </button>
+                       </>
+                     )}
+                  </div>
+                ))
+              )}
+              
+              <button
+                onClick={() => {
+                  setGameState(prev => {
+                    const reqs = [...(prev.requirements || [])];
+                    if (reqs.length === 0) {
+                      reqs.push({ id: Math.random().toString(36).substring(7), text: 'Default Requirement', isActive: true });
+                    }
+                    reqs.push({ id: Math.random().toString(36).substring(7), text: '', isActive: true });
+                    return { ...prev, requirements: reqs };
+                  })
+                }}
+                className="w-full py-3 border border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/50 transition-all font-bold tracking-widest text-xs flex items-center justify-center gap-2 mt-4"
+              >
+                <Plus className="w-4 h-4" /> ADD REQUIREMENT
+              </button>
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setIsGmSettingsOpen(false)}
+                className="px-6 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isResetConfirmOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="skeuo-panel p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 text-center">
@@ -1659,13 +2316,38 @@ export default function App() {
         </div>
       )}
 
+      {isGmResetConfirmOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="skeuo-panel p-6 w-full max-w-md shadow-2xl flex flex-col gap-4 text-center">
+            <h2 className="text-xl font-bold text-red-400 tracking-widest relative z-10">Attention / Warning</h2>
+            <p className="text-gray-300 text-sm relative z-10">
+              Êtes-vous sûr de vouloir effacer les données du Mode MJ ? Cela réinitialisera toutes les notes MJ, les limites de dés personnalisés et les requis.
+            </p>
+            <div className="flex justify-center gap-4 mt-4 relative z-10">
+              <button 
+                onClick={() => setIsGmResetConfirmOpen(false)}
+                className="px-6 py-2 skeuo-button font-bold text-xs tracking-widest"
+              >
+                Annuler / Cancel
+              </button>
+              <button 
+                onClick={handleGmReset}
+                className="px-6 py-2 skeuo-button-red font-bold text-xs tracking-widest"
+              >
+                Effacer / Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingSlot && (
         <EditSlotModal 
           slot={editingSlot.slot} 
           geminiApiKey={gameState.geminiApiKey}
           geminiGlobalPrompt={gameState.geminiGlobalPrompt}
           imageService={gameState.imageService || 'puter'}
-          puterModel={gameState.puterModel || 'flux'}
+          puterModel={gameState.puterModel || 'flux-schnell'}
           onClose={() => setEditingSlot(null)}
           onSave={(updated) => updateSlot(updated, editingSlot.side)}
         />
@@ -1699,6 +2381,17 @@ export default function App() {
               };
             });
             setIsGlobalSettingsOpen(false);
+          }}
+        />
+      )}
+
+      {isQuickStatsOpen && (
+        <StatModifierModal 
+          customStats={gameState.customStats}
+          onClose={() => setIsQuickStatsOpen(false)}
+          onSave={(newStats) => {
+            setGameState(prev => ({ ...prev, customStats: newStats }));
+            setIsQuickStatsOpen(false);
           }}
         />
       )}
@@ -1834,20 +2527,84 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
       } else {
         // Use Puter.js
         const puter = await loadPuterScript();
-        const modelToUse = puterModel || 'flux';
+        const modelToUse = puterModel || 'flux-schnell';
         
         let imgElement;
         try {
           // Attempt with options object
           imgElement = await puter.ai.txt2img(promptText, { model: modelToUse });
-        } catch (optionsError) {
+        } catch (optionsError: any) {
           console.warn("Failed with options object, falling back to string model name...", optionsError);
+          
+          let isInsufficientCredits = false;
+          try {
+            const errStr = typeof optionsError === 'object' ? JSON.stringify(optionsError) : String(optionsError);
+            if (errStr.includes("insufficient_funds") || errStr.includes("Insufficient credits")) {
+              isInsufficientCredits = true;
+            }
+          } catch (e) {}
+          
+          if (optionsError) {
+            if (optionsError.code === "insufficient_funds" || 
+                (typeof optionsError.message === 'string' && optionsError.message.includes("Insufficient credits")) ||
+                (optionsError.error && typeof optionsError.error === 'object' && optionsError.error.message && optionsError.error.message.includes("Insufficient credits")) ||
+                (typeof optionsError.error === 'string' && optionsError.error.includes("Insufficient credits"))) {
+              isInsufficientCredits = true;
+            }
+          }
+
+          if (isInsufficientCredits) {
+            throw optionsError;
+          }
+
           // Fallback to direct string parameter
           imgElement = await puter.ai.txt2img(promptText, modelToUse);
         }
 
         if (imgElement && imgElement.src) {
-          setData(prev => ({ ...prev, image: imgElement.src }));
+          try {
+            // First try to fetch the image to convert it to a blob and then Base64
+            // This is necessary because Puter.js URLs expire.
+            const base64Data = await new Promise<string>((resolve, reject) => {
+              // Create a new image to ensure crossOrigin is set
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                try {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = img.naturalWidth || img.width || 512;
+                  canvas.height = img.naturalHeight || img.height || 512;
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                    ctx.drawImage(img, 0, 0);
+                    const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+                    resolve(dataURL);
+                  } else {
+                    reject(new Error("Could not get canvas context"));
+                  }
+                } catch (e) {
+                  reject(e);
+                }
+              };
+              img.onerror = () => {
+                // Fallback to fetch if Image load fails (e.g. CORS block on anonymous)
+                fetch(imgElement.src)
+                  .then(res => res.blob())
+                  .then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                  })
+                  .catch(reject);
+              };
+              img.src = imgElement.src;
+            });
+            setData(prev => ({ ...prev, image: base64Data }));
+          } catch (fetchErr) {
+            console.error("Failed to fetch Puter image as blob, using raw src", fetchErr);
+            setData(prev => ({ ...prev, image: imgElement.src }));
+          }
         } else {
           throw new Error("Puter.js n'a pas retourné d'image valide.");
         }
@@ -1997,12 +2754,10 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
               </div>
               <div className="w-1/3">
                 <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Green Gauge</label>
-                <input 
-                  type="number" min="0" max="20"
-                  value={data.greenGaugeMax || 0}
-                  onChange={(e) => setData(prev => ({ ...prev, greenGaugeMax: parseInt(e.target.value) || 0 }))}
-                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-emerald-400 text-center font-bold text-sm focus:outline-none focus:border-emerald-500/50 shadow-inner"
-                  placeholder="Max (0 = disabled)"
+                <NumberInput 
+                  value={data.greenGaugeMax ?? 0}
+                  onChange={(val) => setData(prev => ({ ...prev, greenGaugeMax: typeof val === 'number' ? val : 0 }))}
+                  inputClassName="w-full text-emerald-400 p-2 text-sm"
                 />
               </div>
             </div>
@@ -2011,6 +2766,7 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
               <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white">Description</label>
               <textarea 
                 value={data.description}
+                spellCheck={false}
                 onChange={(e) => setData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full h-24 bg-black/50 border border-white/10 rounded-none p-3 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner"
                 placeholder="Description or effects of this card..."
@@ -2031,24 +2787,20 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
             <div className="flex gap-6">
               <div className={cn("flex-1 space-y-2 transition-opacity duration-300", data.noDice && "opacity-30 grayscale pointer-events-none")}>
                 <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Die Target</label>
-                <input 
-                  type="number" 
-                  value={data.diceTarget}
-                  onChange={(e) => setData(prev => ({ ...prev, diceTarget: parseInt(e.target.value) || 0 }))}
-                  disabled={data.noDice}
-                  className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-emerald-400 text-xl font-bold text-center focus:outline-none focus:border-emerald-500/50 shadow-inner h-[46px]"
+                <NumberInput 
+                  value={data.diceTarget === undefined ? 0 : data.diceTarget}
+                  onChange={(val) => setData(prev => ({ ...prev, diceTarget: typeof val === 'number' ? val : 0 }))}
+                  inputClassName="w-full text-emerald-400 p-2 text-lg h-[46px]"
                 />
               </div>
 
               <div className={cn("flex-1 space-y-2 transition-opacity duration-300", data.noCost && "opacity-30 grayscale pointer-events-none")}>
                 <label className="block text-[10px] opacity-60 font-bold tracking-widest text-white">Cost Value</label>
                 <div className="flex gap-2 h-[46px]">
-                  <input 
-                    type="number" 
-                    value={data.chakraCost}
-                    onChange={(e) => setData(prev => ({ ...prev, chakraCost: parseInt(e.target.value) || 0 }))}
-                    disabled={data.noCost}
-                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white text-xl font-bold text-center focus:outline-none shadow-inner"
+                  <NumberInput 
+                    value={data.chakraCost === undefined ? 0 : data.chakraCost}
+                    onChange={(val) => setData(prev => ({ ...prev, chakraCost: typeof val === 'number' ? val : 0 }))}
+                    inputClassName="w-full text-white p-2 text-lg h-[46px]"
                   />
                   <select 
                     value={data.costColor || 'blue'}
@@ -2078,15 +2830,144 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
   );
 }
 
+function NumberInput({ 
+  value, 
+  onChange, 
+  min = 0, 
+  inputClassName = "" 
+}: { 
+  value: number | ''; 
+  onChange: (val: number | '') => void; 
+  min?: number;
+  inputClassName?: string;
+}) {
+  return (
+    <div className="flex items-center">
+      <button 
+        type="button"
+        className="w-7 h-7 flex items-center justify-center bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 active:bg-white/20 transition-colors rounded-none flex-shrink-0"
+        onClick={() => {
+           const current = typeof value === 'number' ? value : min;
+           onChange(Math.max(min, current - 1));
+        }}
+      >-</button>
+      <input 
+        type="number"
+        min={min}
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === '') {
+            onChange('');
+          } else {
+            const parsed = parseInt(e.target.value, 10);
+            if (!isNaN(parsed)) {
+              onChange(Math.max(min, parsed));
+            }
+          }
+        }}
+        className={cn(
+          "h-7 bg-black/50 border-y border-white/10 text-center font-bold text-xs text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-inner",
+          inputClassName
+        )}
+      />
+      <button 
+        type="button"
+        className="w-7 h-7 flex items-center justify-center bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 active:bg-white/20 transition-colors rounded-none flex-shrink-0"
+        onClick={() => {
+           const current = typeof value === 'number' ? value : min;
+           onChange(current + 1);
+        }}
+      >+</button>
+    </div>
+  );
+}
+
+function StatModifierModal({ 
+  customStats, 
+  onClose, 
+  onSave 
+}: { 
+  customStats: CustomStat[]; 
+  onClose: () => void; 
+  onSave: (stats: CustomStat[]) => void; 
+}) {
+  const [stats, setStats] = useState(customStats);
+
+  const updateModifier = (index: number, delta: number) => {
+    setStats(prev => {
+      const newStats = [...prev];
+      const stat = newStats[index];
+      const baseValue = parseInt(stat.value) || 0;
+      const currentMod = stat.modifier || 0;
+      const newMod = currentMod + delta;
+      
+      if (baseValue + newMod < 0) return prev;
+      
+      newStats[index] = { ...stat, modifier: newMod };
+      return newStats;
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="skeuo-panel p-6 w-full max-w-sm shadow-2xl flex flex-col gap-6">
+        <div className="flex justify-between items-center mb-2 flex-shrink-0 relative z-10">
+          <h2 className="text-xl font-bold text-blue-400">Quick Stats</h2>
+          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <div className="flex flex-col gap-3 relative z-10 max-h-[60vh] overflow-y-auto pr-2">
+          {stats.filter(s => s.isVisible && s.name).map((stat) => {
+            const index = stats.findIndex(s => s === stat);
+            const baseValue = parseInt(stat.value) || 0;
+            const modifier = stat.modifier || 0;
+            
+            return (
+              <div key={index} className="flex items-center justify-between bg-black/40 p-3 border border-white/5">
+                <span className="text-xs font-bold text-white/70 w-1/3 truncate uppercase tracking-widest" title={stat.name}>{stat.name}</span>
+                
+                <div className="flex items-center gap-3">
+                  <button onClick={() => updateModifier(index, -1)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-red-500/20 active:bg-red-500/40 border border-white/10 hover:border-red-500/50 text-white font-bold transition-all">-</button>
+                  
+                  <div className="flex items-center justify-center min-w-[70px] gap-2">
+                    <span className="text-sm font-black text-white">{baseValue}</span>
+                    <span className={cn(
+                      "text-xs font-black w-8 text-right",
+                      modifier >= 0 ? "text-emerald-400" : "text-red-400"
+                    )}>
+                      {modifier > 0 ? `+${modifier}` : modifier < 0 ? `${modifier}` : '+0'}
+                    </span>
+                  </div>
+                  
+                  <button onClick={() => updateModifier(index, 1)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-emerald-500/20 active:bg-emerald-500/40 border border-white/10 hover:border-emerald-500/50 text-white font-bold transition-all">+</button>
+                </div>
+              </div>
+            );
+          })}
+          {stats.filter(s => s.isVisible && s.name).length === 0 && (
+            <div className="text-center text-xs text-white/30 py-4 italic">No active stats</div>
+          )}
+        </div>
+        
+        <div className="mt-2 flex justify-end gap-3 flex-shrink-0 relative z-10">
+          <button onClick={onClose} className="px-5 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors">Cancel</button>
+          <button onClick={() => onSave(stats)} className="px-6 py-2 skeuo-button-blue font-bold text-xs tracking-widest transition-all">Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameState, onClose: () => void, onSave: (updates: Partial<GameState>) => void }) {
-  const [maxHp, setMaxHp] = useState(gameState.maxHp);
-  const [maxChakra, setMaxChakra] = useState(gameState.maxChakra);
+  const [activeTab, setActiveTab] = useState<'resources' | 'character' | 'stats1' | 'stats2' | 'theme'>('resources');
+  const [maxHp, setMaxHp] = useState<number | ''>(gameState.maxHp);
+  const [maxChakra, setMaxChakra] = useState<number | ''>(gameState.maxChakra);
   const [showHp, setShowHp] = useState(gameState.showHp ?? true);
   const [showChakra, setShowChakra] = useState(gameState.showChakra ?? true);
   const [showOrange, setShowOrange] = useState(gameState.showOrange ?? false);
-  const [maxOrange, setMaxOrange] = useState(gameState.maxOrange ?? 10);
+  const [maxOrange, setMaxOrange] = useState<number | ''>(gameState.maxOrange ?? 10);
   const [showViolet, setShowViolet] = useState(gameState.showViolet ?? false);
-  const [maxViolet, setMaxViolet] = useState(gameState.maxViolet ?? 10);
+  const [maxViolet, setMaxViolet] = useState<number | ''>(gameState.maxViolet ?? 10);
   const [counterHp, setCounterHp] = useState(gameState.counterHp ?? false);
   const [counterChakra, setCounterChakra] = useState(gameState.counterChakra ?? false);
   const [counterOrange, setCounterOrange] = useState(gameState.counterOrange ?? false);
@@ -2101,7 +2982,9 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   const [customStats, setCustomStats] = useState(gameState.customStats);
   const [hudColor, setHudColor] = useState(gameState.hudColor || '#1a1f2e');
   const [useStatBars, setUseStatBars] = useState(gameState.useStatBars ?? false);
-  const [statBarsMax, setStatBarsMax] = useState(gameState.statBarsMax ?? 100);
+  const [statBarsMax, setStatBarsMax] = useState<number | ''>(gameState.statBarsMax ?? 12);
+  const [useStatBars2, setUseStatBars2] = useState(gameState.useStatBars2 ?? false);
+  const [statBarsMax2, setStatBarsMax2] = useState<number | ''>(gameState.statBarsMax2 ?? 12);
   const [slotCostColor, setSlotCostColor] = useState(gameState.slotCostColor || 'blue');
   const [characterDiceType, setCharacterDiceType] = useState(gameState.characterDiceType || 'd12');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2112,16 +2995,8 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   }, [characterImage]);
 
   const colors = [
-    '#1a1f2e', // Default blue-grey
-    '#3a1c12', // Warm brown
-    '#1c2e1a', // Forest green
-    '#2d1a29', // Deep purple
-    '#2e1a1a', // Dark red
-    '#1a2a2e', // Teal
-    '#2e2a1a', // Olive
-    '#0a0a0a', // True black
-    '#1c1c1c', // Dark grey
-    '#2b1b3d', // Royal violet
+    '#1a1f2e', '#3a1c12', '#1c2e1a', '#2d1a29', '#2e1a1a', 
+    '#1a2a2e', '#2e2a1a', '#0a0a0a', '#1c1c1c', '#2b1b3d',
   ];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2140,320 +3015,349 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
     newStats[index] = { ...newStats[index], [field]: val };
     setCustomStats(newStats);
   };
+  
+  const isValid = maxHp !== '' && maxChakra !== '' && maxOrange !== '' && maxViolet !== '' && statBarsMax !== '' && statBarsMax2 !== '';
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="skeuo-panel p-8 w-full max-w-2xl shadow-2xl flex flex-col gap-6 max-h-[90vh]">
+      <div className="skeuo-panel p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
         
-        <div className="flex justify-between items-center mb-4 flex-shrink-0 relative z-10">
+        <div className="flex justify-between items-center mb-6 flex-shrink-0 relative z-10">
           <h2 className="text-2xl font-bold text-blue-400">Global Settings</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
         </div>
 
-        <div className="overflow-y-auto pr-2 space-y-6 relative z-10">
-          <div className="bg-white/5 rounded-none border border-white/10 p-5 space-y-6">
-            <div>
-              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Resource Bars</label>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Red bars */}
-                <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
+        {/* Tabs Navigation */}
+        <div className="flex gap-2 mb-4 border-b border-white/10 pb-2 flex-shrink-0 relative z-10 overflow-x-auto">
+          {(['resources', 'character', 'stats1', 'stats2', 'theme'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "px-4 py-2 text-xs font-bold tracking-widest uppercase transition-all rounded-none whitespace-nowrap",
+                activeTab === tab 
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/50 shadow-[inset_0_0_10px_rgba(59,130,246,0.2)]" 
+                  : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"
+              )}
+            >
+              {tab.replace('stats1', 'Stats (1-5)').replace('stats2', 'Stats (6-10)')}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto pr-2 relative z-10 flex-1">
+          <div className="bg-white/5 rounded-none border border-white/10 p-5 min-h-[300px]">
+            
+            {activeTab === 'resources' && (
+              <div className="animate-in fade-in zoom-in-95 duration-200">
+                <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Resource Bars</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Red bars */}
+                  <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
+                        <input 
+                          type="checkbox" 
+                          checked={showHp} 
+                          onChange={(e) => setShowHp(e.target.checked)}
+                          className="accent-red-500 w-4 h-4" 
+                        />
+                        <span className="font-bold text-red-400 tracking-wider text-xs">Red Bars</span>
+                      </label>
                       <input 
-                        type="checkbox" 
-                        checked={showHp} 
-                        onChange={(e) => setShowHp(e.target.checked)}
-                        className="accent-red-500 w-4 h-4" 
-                      />
-                      <span className="font-bold text-red-400 tracking-wider text-xs">Red Bars</span>
-                    </label>
-                    <input 
-                      type="text"
-                      placeholder="HP"
-                      value={labelHp}
-                      onChange={(e) => setLabelHp(e.target.value)}
-                      className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-red-400 focus:outline-none focus:border-red-500/50 shadow-inner"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
-                      <input 
-                        type="number" min="1" max="50"
-                        value={maxHp}
-                        onChange={(e) => setMaxHp(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-xs text-red-400 focus:outline-none focus:border-red-500/50"
+                        type="text"
+                        placeholder="HP"
+                        value={labelHp}
+                        onChange={(e) => setLabelHp(e.target.value)}
+                        className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-red-400 focus:outline-none focus:border-red-500/50 shadow-inner"
                       />
                     </div>
-                    <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
+                        <NumberInput 
+                          value={maxHp} min={1} 
+                          onChange={setMaxHp} 
+                          inputClassName="w-10 text-red-400" 
+                        />
+                      </div>
+                      <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                        <input 
+                          type="checkbox" 
+                          checked={counterHp} 
+                          onChange={(e) => setCounterHp(e.target.checked)}
+                          className="accent-red-500 w-3.5 h-3.5" 
+                        />
+                        <span>Show +/-</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Blue bars */}
+                  <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
+                        <input 
+                          type="checkbox" 
+                          checked={showChakra} 
+                          onChange={(e) => setShowChakra(e.target.checked)}
+                          className="accent-blue-500 w-4 h-4" 
+                        />
+                        <span className="font-bold text-blue-400 tracking-wider text-xs">Blue Bars</span>
+                      </label>
                       <input 
-                        type="checkbox" 
-                        checked={counterHp} 
-                        onChange={(e) => setCounterHp(e.target.checked)}
-                        className="accent-red-500 w-3.5 h-3.5" 
+                        type="text"
+                        placeholder="CHAKRA"
+                        value={labelChakra}
+                        onChange={(e) => setLabelChakra(e.target.value)}
+                        className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-blue-400 focus:outline-none focus:border-blue-500/50 shadow-inner"
                       />
-                      <span>Show +/-</span>
-                    </label>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
+                        <NumberInput 
+                          value={maxChakra} min={1} 
+                          onChange={setMaxChakra} 
+                          inputClassName="w-10 text-blue-400" 
+                        />
+                      </div>
+                      <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                        <input 
+                          type="checkbox" 
+                          checked={counterChakra} 
+                          onChange={(e) => setCounterChakra(e.target.checked)}
+                          className="accent-blue-500 w-3.5 h-3.5" 
+                        />
+                        <span>Show +/-</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Orange bars */}
+                  <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
+                        <input 
+                          type="checkbox" 
+                          checked={showOrange} 
+                          onChange={(e) => setShowOrange(e.target.checked)}
+                          className="accent-amber-500 w-4 h-4" 
+                        />
+                        <span className="font-bold text-amber-500 tracking-wider text-xs">Orange Bars</span>
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="ORANGE"
+                        value={labelOrange}
+                        onChange={(e) => setLabelOrange(e.target.value)}
+                        className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-amber-500 focus:outline-none focus:border-amber-500/50 shadow-inner"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
+                        <NumberInput 
+                          value={maxOrange} min={1} 
+                          onChange={setMaxOrange} 
+                          inputClassName="w-10 text-amber-500" 
+                        />
+                      </div>
+                      <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                        <input 
+                          type="checkbox" 
+                          checked={counterOrange} 
+                          onChange={(e) => setCounterOrange(e.target.checked)}
+                          className="accent-amber-500 w-3.5 h-3.5" 
+                        />
+                        <span>Show +/-</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Violet bars */}
+                  <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
+                        <input 
+                          type="checkbox" 
+                          checked={showViolet} 
+                          onChange={(e) => setShowViolet(e.target.checked)}
+                          className="accent-purple-500 w-4 h-4" 
+                        />
+                        <span className="font-bold text-purple-400 tracking-wider text-xs">Violet Bars</span>
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder="VIOLET"
+                        value={labelViolet}
+                        onChange={(e) => setLabelViolet(e.target.value)}
+                        className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-purple-400 focus:outline-none focus:border-purple-500/50 shadow-inner"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
+                        <NumberInput 
+                          value={maxViolet} min={1} 
+                          onChange={setMaxViolet} 
+                          inputClassName="w-10 text-purple-400" 
+                        />
+                      </div>
+                      <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                        <input 
+                          type="checkbox" 
+                          checked={counterViolet} 
+                          onChange={(e) => setCounterViolet(e.target.checked)}
+                          className="accent-purple-500 w-3.5 h-3.5" 
+                        />
+                        <span>Show +/-</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Blue bars */}
-                <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
-                      <input 
-                        type="checkbox" 
-                        checked={showChakra} 
-                        onChange={(e) => setShowChakra(e.target.checked)}
-                        className="accent-blue-500 w-4 h-4" 
-                      />
-                      <span className="font-bold text-blue-400 tracking-wider text-xs">Blue Bars</span>
-                    </label>
+            {activeTab === 'character' && (
+              <div className="animate-in fade-in zoom-in-95 duration-200">
+                <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Character Setup</label>
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  <div className="w-24 h-48 border border-white/10 rounded-none bg-black/50 shadow-inner flex-shrink-0 overflow-hidden flex items-center justify-center">
+                     {characterImage && !charPreviewError ? (
+                       <img src={characterImage} onError={() => setCharPreviewError(true)} className="w-full h-full object-cover opacity-80 pointer-events-none" />
+                     ) : characterImage && charPreviewError ? (
+                       <div className="absolute inset-0 bg-red-950/40 flex flex-col items-center justify-center p-2 border border-red-500/30 select-none">
+                         <span className="text-red-500 text-2xl font-black drop-shadow-[0_0_6px_rgba(239,68,68,0.7)] animate-pulse">!?</span>
+                         <span className="text-[8px] text-red-400 font-bold tracking-tight text-center mt-1 uppercase leading-none">Error</span>
+                       </div>
+                     ) : (
+                       <span className="text-white/30 text-[10px] font-bold tracking-widest">Image</span>
+                     )}
+                  </div>
+                  <div className="flex-1 flex flex-col gap-3 w-full">
                     <input 
                       type="text"
-                      placeholder="CHAKRA"
-                      value={labelChakra}
-                      onChange={(e) => setLabelChakra(e.target.value)}
-                      className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-blue-400 focus:outline-none focus:border-blue-500/50 shadow-inner"
+                      value={characterName}
+                      onChange={(e) => setCharacterName(e.target.value)}
+                      placeholder="Character name"
+                      className="w-full bg-black/50 border border-white/10 rounded-none p-3 text-white font-bold tracking-widest text-sm shadow-inner focus:outline-none focus:border-blue-500/50"
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold tracking-widest transition-colors"
+                      >
+                        Change Image
+                      </button>
+                      <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                      {characterImage && (
+                        <button onClick={() => setCharacterImage(null)} className="px-4 text-red-400/80 hover:text-red-400 text-xs font-bold tracking-wider text-left border border-transparent hover:border-red-500/30 bg-red-950/20">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={characterDescription}
+                      spellCheck={false}
+                      onChange={(e) => setCharacterDescription(e.target.value)}
+                      placeholder="Description, character notes..."
+                      className="w-full h-20 bg-black/50 border border-white/10 rounded-none p-3 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner"
                     />
                   </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
-                      <input 
-                        type="number" min="1" max="50"
-                        value={maxChakra}
-                        onChange={(e) => setMaxChakra(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-xs text-blue-400 focus:outline-none focus:border-blue-500/50"
-                      />
-                    </div>
-                    <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'theme' && (
+              <div className="animate-in fade-in zoom-in-95 duration-200">
+                <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Background Color</label>
+                <div className="flex flex-wrap gap-3">
+                  {colors.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setHudColor(c)}
+                      className={cn(
+                        "w-10 h-10 rounded-none border-2 transition-all",
+                        hudColor === c ? "border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)]" : "border-white/10 hover:border-white/30"
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(activeTab === 'stats1' || activeTab === 'stats2') && (
+              <div className="animate-in fade-in zoom-in-95 duration-200">
+                <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white uppercase">Custom Stats (on image)</label>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {customStats.map((stat, idx) => {
+                    if (activeTab === 'stats1' && idx >= 5) return null;
+                    if (activeTab === 'stats2' && idx < 5) return null;
+                    
+                    return (
+                      <div key={idx} className="flex items-center gap-2 bg-black/30 p-3 rounded-none border border-white/5">
+                        <input 
+                          type="text" placeholder="Name (e.g. Strength)"
+                          value={stat.name} onChange={(e) => updateCustomStat(idx, 'name', e.target.value)}
+                          className="w-1/2 bg-transparent text-white text-xs focus:outline-none placeholder-white/20 tracking-wider font-bold"
+                        />
+                        <input 
+                          type="text" placeholder="Val (e.g. 18)"
+                          value={stat.value} onChange={(e) => updateCustomStat(idx, 'value', e.target.value)}
+                          className="w-1/3 bg-black/50 border border-white/10 rounded-none px-2 py-1.5 text-white text-xs font-bold focus:outline-none focus:border-blue-500/50"
+                        />
+                        <label className="flex items-center justify-center w-8 h-8 cursor-pointer hover:bg-white/5 rounded-none flex-shrink-0 ml-auto border border-white/5">
+                          <input 
+                            type="checkbox" checked={stat.isVisible} 
+                            onChange={(e) => updateCustomStat(idx, 'isVisible', e.target.checked)}
+                            className="accent-blue-500 w-4 h-4"
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-black/30 border border-white/10 rounded-none">
+                    <label className="flex items-center gap-2 text-white text-[10px] cursor-pointer select-none">
                       <input 
                         type="checkbox" 
-                        checked={counterChakra} 
-                        onChange={(e) => setCounterChakra(e.target.checked)}
+                        checked={activeTab === 'stats1' ? useStatBars : useStatBars2} 
+                        onChange={(e) => activeTab === 'stats1' ? setUseStatBars(e.target.checked) : setUseStatBars2(e.target.checked)}
                         className="accent-blue-500 w-3.5 h-3.5" 
                       />
-                      <span>Show +/-</span>
+                      <span className="font-bold tracking-wider uppercase">Show Bars</span>
                     </label>
-                  </div>
-                </div>
-
-                {/* Orange bars */}
-                <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
-                      <input 
-                        type="checkbox" 
-                        checked={showOrange} 
-                        onChange={(e) => setShowOrange(e.target.checked)}
-                        className="accent-amber-500 w-4 h-4" 
-                      />
-                      <span className="font-bold text-amber-500 tracking-wider text-xs">Orange Bars</span>
-                    </label>
-                    <input 
-                      type="text"
-                      placeholder="ORANGE"
-                      value={labelOrange}
-                      onChange={(e) => setLabelOrange(e.target.value)}
-                      className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-amber-500 focus:outline-none focus:border-amber-500/50 shadow-inner"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
-                      <input 
-                        type="number" min="1" max="50"
-                        value={maxOrange}
-                        onChange={(e) => setMaxOrange(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-xs text-amber-500 focus:outline-none focus:border-amber-500/50"
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-[9px] font-bold tracking-widest text-white/60 uppercase", !(activeTab === 'stats1' ? useStatBars : useStatBars2) && "opacity-30")}>
+                        Max:
+                      </span>
+                      <NumberInput 
+                        value={activeTab === 'stats1' ? statBarsMax : statBarsMax2} min={1} 
+                        onChange={activeTab === 'stats1' ? setStatBarsMax : setStatBarsMax2} 
+                        inputClassName="w-10 text-blue-400 py-1 text-xs" 
                       />
                     </div>
-                    <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
-                      <input 
-                        type="checkbox" 
-                        checked={counterOrange} 
-                        onChange={(e) => setCounterOrange(e.target.checked)}
-                        className="accent-amber-500 w-3.5 h-3.5" 
-                      />
-                      <span>Show +/-</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Violet bars */}
-                <div className="flex flex-col gap-2 bg-black/30 p-3 border border-white/10">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-white text-xs cursor-pointer select-none flex-shrink-0">
-                      <input 
-                        type="checkbox" 
-                        checked={showViolet} 
-                        onChange={(e) => setShowViolet(e.target.checked)}
-                        className="accent-purple-500 w-4 h-4" 
-                      />
-                      <span className="font-bold text-purple-400 tracking-wider text-xs">Violet Bars</span>
-                    </label>
-                    <input 
-                      type="text"
-                      placeholder="VIOLET"
-                      value={labelViolet}
-                      onChange={(e) => setLabelViolet(e.target.value)}
-                      className="w-24 bg-black/50 border border-white/10 rounded-none px-1.5 py-0.5 text-right font-bold text-xs text-purple-400 focus:outline-none focus:border-purple-500/50 shadow-inner"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-white/50 tracking-wider">Max:</span>
-                      <input 
-                        type="number" min="1" max="50"
-                        value={maxViolet}
-                        onChange={(e) => setMaxViolet(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-xs text-purple-400 focus:outline-none focus:border-purple-500/50"
-                      />
-                    </div>
-                    <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-white/70">
-                      <input 
-                        type="checkbox" 
-                        checked={counterViolet} 
-                        onChange={(e) => setCounterViolet(e.target.checked)}
-                        className="accent-purple-500 w-3.5 h-3.5" 
-                      />
-                      <span>Show +/-</span>
-                    </label>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="pt-2">
-              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Character</label>
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-32 border border-white/10 rounded-none bg-black/50 shadow-inner flex-shrink-0 overflow-hidden flex items-center justify-center">
-                   {characterImage && !charPreviewError ? (
-                     <img src={characterImage} onError={() => setCharPreviewError(true)} className="w-full h-full object-cover opacity-80 pointer-events-none" />
-                   ) : characterImage && charPreviewError ? (
-                     <div className="absolute inset-0 bg-red-950/40 flex flex-col items-center justify-center p-2 border border-red-500/30 select-none">
-                       <span className="text-red-500 text-2xl font-black drop-shadow-[0_0_6px_rgba(239,68,68,0.7)] animate-pulse">!?</span>
-                       <span className="text-[8px] text-red-400 font-bold tracking-tight text-center mt-1 uppercase leading-none">Error</span>
-                     </div>
-                   ) : (
-                     <span className="text-white/30 text-[10px] font-bold tracking-widest">Image</span>
-                   )}
-                </div>
-                <div className="flex-1 flex flex-col gap-2">
-                  <input 
-                    type="text"
-                    value={characterName}
-                    onChange={(e) => setCharacterName(e.target.value)}
-                    placeholder="Character name"
-                    className="w-full bg-black/50 border border-white/10 rounded-none p-2 text-white font-bold tracking-widest text-sm shadow-inner focus:outline-none focus:border-blue-500/50"
-                  />
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-none text-xs font-bold tracking-widest transition-colors"
-                    >
-                      Change Image
-                    </button>
-                    <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
-                    {characterImage && (
-                      <button onClick={() => setCharacterImage(null)} className="px-3 text-red-400/80 hover:text-red-400 text-xs font-bold tracking-wider text-left pl-1">
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    value={characterDescription}
-                    onChange={(e) => setCharacterDescription(e.target.value)}
-                    placeholder="Description, character notes..."
-                    className="w-full h-14 bg-black/50 border border-white/10 rounded-none p-2 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50 shadow-inner mt-1"
-                  />
-                  
-                </div>
-              </div>
-            </div>
+            )}
             
-            <div className="pt-4 border-t border-white/10">
-              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Background Color</label>
-              <div className="flex flex-wrap gap-2">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setHudColor(c)}
-                    className={cn(
-                      "w-8 h-8 rounded-none border-2 transition-all",
-                      hudColor === c ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" : "border-white/10 hover:border-white/30"
-                    )}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10">
-              <label className="block text-[10px] opacity-60 mb-3 font-bold tracking-widest text-white">Custom Stats (on image)</label>
-              
-              {/* Option Barres de Progression */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-white/5 border border-white/10 rounded-none mb-4">
-                <label className="flex items-center gap-3 text-white text-xs cursor-pointer select-none">
-                  <input 
-                    type="checkbox" 
-                    checked={useStatBars} 
-                    onChange={(e) => setUseStatBars(e.target.checked)}
-                    className="accent-blue-500 w-4 h-4" 
-                  />
-                  <span>Show as progress bars</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className={cn("text-[10px] font-bold tracking-widest text-white/60", !useStatBars && "opacity-30")}>
-                    Max Value :
-                  </span>
-                  <input 
-                    type="number"
-                    min="1"
-                    value={statBarsMax}
-                    disabled={!useStatBars}
-                    onChange={(e) => setStatBarsMax(Math.max(1, parseInt(e.target.value) || 1))}
-                    className={cn(
-                      "w-20 bg-black/50 border border-white/10 rounded-none p-1 text-center font-bold text-sm text-blue-400 focus:outline-none focus:border-blue-500/50 shadow-inner",
-                      !useStatBars && "opacity-30 cursor-not-allowed"
-                    )}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {customStats.map((stat, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-black/30 p-2 rounded-none border border-white/5">
-                    <input 
-                      type="text" placeholder="Name (e.g. Strength)"
-                      value={stat.name} onChange={(e) => updateCustomStat(idx, 'name', e.target.value)}
-                      className="w-1/2 bg-transparent text-white text-xs focus:outline-none placeholder-white/20 tracking-wider font-bold"
-                    />
-                    <input 
-                      type="text" placeholder="Val (e.g. 18)"
-                      value={stat.value} onChange={(e) => updateCustomStat(idx, 'value', e.target.value)}
-                      className="w-1/3 bg-black/50 border border-white/10 rounded-none px-2 py-1 text-white text-xs font-bold focus:outline-none focus:border-blue-500/50"
-                    />
-                    <label className="flex items-center justify-center w-6 h-6 cursor-pointer hover:bg-white/5 rounded-none">
-                      <input 
-                        type="checkbox" checked={stat.isVisible} 
-                        onChange={(e) => updateCustomStat(idx, 'isVisible', e.target.checked)}
-                        className="accent-blue-500 w-3 h-3"
-                      />
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
         
-        <div className="mt-2 flex justify-end gap-3 flex-shrink-0 relative z-10">
-          <button onClick={onClose} className="px-5 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors">Cancel</button>
+        <div className="mt-6 pt-4 border-t border-white/10 flex justify-end gap-3 flex-shrink-0 relative z-10">
+          <button onClick={onClose} className="px-6 py-2.5 skeuo-button font-bold text-xs tracking-widest transition-colors">Cancel</button>
           <button 
-            onClick={() => onSave({ maxHp, maxChakra, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax, showHp, showChakra, showOrange, maxOrange, showViolet, maxViolet, counterHp, counterChakra, counterOrange, counterViolet, labelHp, labelChakra, labelOrange, labelViolet, characterDiceType })} 
-            className="px-6 py-2 skeuo-button-blue font-bold text-xs tracking-widest transition-all"
+            disabled={!isValid}
+            onClick={() => {
+              if (isValid) {
+                onSave({ maxHp: maxHp as number, maxChakra: maxChakra as number, characterImage, characterName, characterDescription, customStats, hudColor, useStatBars, statBarsMax: statBarsMax as number, useStatBars2, statBarsMax2: statBarsMax2 as number, showHp, showChakra, showOrange, maxOrange: maxOrange as number, showViolet, maxViolet: maxViolet as number, counterHp, counterChakra, counterOrange, counterViolet, labelHp, labelChakra, labelOrange, labelViolet, characterDiceType })
+              }
+            }} 
+            className={cn("px-8 py-2.5 skeuo-button-blue font-bold text-xs tracking-widest transition-all", !isValid && "opacity-50 cursor-not-allowed grayscale")}
           >
             Save
           </button>
@@ -2464,13 +3368,21 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   );
 }
 
-const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean }> = ({ type, value, isRolling }) => {
-  const colors = isRolling 
-    ? (type === 'd6' ? { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(16,185,129,0.4)' } :
-       type === 'd8' ? { primary: '#f59e0b', light: '#fbbf24', dark: '#b45309', deepest: '#78350f', glow: 'rgba(245,158,11,0.4)' } :
-       type === 'd20' ? { primary: '#a855f7', light: '#c084fc', dark: '#7e22ce', deepest: '#581c87', glow: 'rgba(168,85,247,0.4)' } :
-       { primary: '#3b82f6', light: '#60a5fa', dark: '#1d4ed8', deepest: '#1e3a8a', glow: 'rgba(59,130,246,0.4)' })
-    : { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(52,211,153,0.7)' }; // Always vibrant green for resolved state!
+const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean, colorOverride?: string }> = ({ type, value, isRolling, colorOverride }) => {
+  const getColors = () => {
+    if (colorOverride === '#10b981') {
+      return { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(52,211,153,0.7)' };
+    }
+    if (isRolling) {
+      return (type === 'd6' ? { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(16,185,129,0.4)' } :
+              type === 'd8' ? { primary: '#f59e0b', light: '#fbbf24', dark: '#b45309', deepest: '#78350f', glow: 'rgba(245,158,11,0.4)' } :
+              type === 'd20' ? { primary: '#a855f7', light: '#c084fc', dark: '#7e22ce', deepest: '#581c87', glow: 'rgba(168,85,247,0.4)' } :
+              { primary: '#3b82f6', light: '#60a5fa', dark: '#1d4ed8', deepest: '#1e3a8a', glow: 'rgba(59,130,246,0.4)' });
+    }
+    return { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(52,211,153,0.7)' }; // Always vibrant green for resolved state!
+  };
+
+  const colors = getColors();
 
   const getSvg = (colorClasses: string) => {
     switch (type) {
@@ -2787,15 +3699,11 @@ function GeminiApiModal({
                 <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white uppercase">
                   Modèle Puter.js / Model
                 </label>
-                <select
-                  value={puterModel}
-                  onChange={(e) => setPuterModel(e.target.value)}
-                  className="w-full bg-[#141824] border border-white/10 rounded-none px-3 py-2 text-white text-xs font-bold focus:outline-none focus:border-amber-500/50"
-                >
-                  <option value="flux-schnell" className="bg-[#141824] text-white">FLUX Schnell</option>
-                </select>
+                <div className="w-full bg-[#141824] border border-white/10 rounded-none px-3 py-2 text-white/50 text-xs font-bold">
+                  FLUX Schnell
+                </div>
                 <p className="text-[9px] text-amber-500/60 mt-1.5 italic leading-relaxed">
-                  Sélectionnez le modèle d'IA pour la génération d'images de Puter.js. Si vous rencontrez une erreur de modèle manquant, changer de modèle peut résoudre le problème.
+                  Modèle d'IA par défaut pour la génération d'images.
                 </p>
               </div>
             </div>

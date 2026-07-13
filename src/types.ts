@@ -16,10 +16,18 @@ export interface SlotData {
   costColor?: 'red' | 'blue' | 'orange' | 'violet' | 'white';
 }
 
+export interface Requirement {
+  id: string;
+  text: string;
+  isActive: boolean;
+  isSub?: boolean;
+}
+
 export interface CustomStat {
   name: string;
   value: string;
   isVisible: boolean;
+  modifier?: number;
 }
 
 export interface GameState {
@@ -35,7 +43,6 @@ export interface GameState {
   leftSlots: SlotData[];
   rightSlots: SlotData[];
   hudColor: string;
-  isLightMode: boolean;
   slotScale?: number;
   slotOffsetY?: number;
   characterScale?: number;
@@ -43,6 +50,8 @@ export interface GameState {
   isImmersiveMode?: boolean;
   useStatBars?: boolean;
   statBarsMax?: number;
+  useStatBars2?: boolean;
+  statBarsMax2?: number;
   showHp?: boolean;
   showChakra?: boolean;
   showOrange?: boolean;
@@ -68,4 +77,10 @@ export interface GameState {
   geminiGlobalPrompt?: string;
   imageService?: 'puter' | 'gemini';
   puterModel?: string;
+  gmNotes1?: string;
+  gmNotes1b?: string;
+  gmNotes2?: string;
+  gmCustomDiceMin?: number;
+  gmCustomDiceMax?: number;
+  requirements?: Requirement[];
 }

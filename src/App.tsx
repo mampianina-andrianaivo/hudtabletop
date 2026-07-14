@@ -7,9 +7,48 @@ import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GoogleGenAI } from '@google/genai';
 import { GameState, SlotData, CustomStat, Requirement } from './types';
-import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy } from 'lucide-react';
+import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot, collection, deleteDoc, getDoc } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {},
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -275,6 +314,30 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
   const [gameState, setGameState] = useState<GameState>(DEFAULT_STATE);
+  
+  // Network state
+  const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
+  const [networkConfig, setNetworkConfig] = useState({ roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' });
+  const [isNetworkActive, setIsNetworkActive] = useState(false);
+  const [networkPlayers, setNetworkPlayers] = useState<Record<string, any>>({});
+  const [networkGmState, setNetworkGmState] = useState<any>(null);
+  const [activeViewId, setActiveViewId] = useState<string>('me');
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  useEffect(() => {
+    if (!isNetworkModalOpen) {
+      setNetworkError(null);
+      setIsConnecting(false);
+    }
+  }, [isNetworkModalOpen]);
+
+  useEffect(() => {
+    if (activeViewId !== 'me' && activeViewId !== 'gm' && !networkPlayers[activeViewId]) {
+      setActiveViewId('me');
+    }
+  }, [activeViewId, networkPlayers]);
+
   const [charImgError, setCharImgError] = useState(false);
 
   useEffect(() => {
@@ -359,17 +422,24 @@ export default function App() {
   const [gmNotesTab, setGmNotesTab] = useState<'a' | 'b'>('a');
   const [encounterRolls, setEncounterRolls] = useState<Requirement[][]>([]);
   const [gmCheckedEncounters, setGmCheckedEncounters] = useState<boolean[]>([]);
+  const [gmEncounterLevel, setGmEncounterLevel] = useState<'Easy' | 'Hard' | 'Boss' | 'God' | null>(null);
   const [gmDiceResult, setGmDiceResult] = useState<{ type: string, value: number, time: number } | null>(null);
   const [gmRollingDiceType, setGmRollingDiceType] = useState<number>(20);
   
   // GM dice roll state
   const [gmRollState, setGmRollState] = useState<'idle' | 'rolling' | 'rolled'>('idle');
+  const [gmCurrentRollingValue, setGmCurrentRollingValue] = useState<number>(1);
   const gmRollAnimTimeoutRef = useRef<number | null>(null);
+  const gmRollAnimIntervalRef = useRef<number | null>(null);
 
   const clearGmRollTimers = () => {
     if (gmRollAnimTimeoutRef.current) {
       clearTimeout(gmRollAnimTimeoutRef.current);
       gmRollAnimTimeoutRef.current = null;
+    }
+    if (gmRollAnimIntervalRef.current) {
+      clearInterval(gmRollAnimIntervalRef.current);
+      gmRollAnimIntervalRef.current = null;
     }
   };
   
@@ -385,6 +455,95 @@ export default function App() {
   const rollAnimIntervalRef = useRef<number | null>(null);
   const rollAnimTimeoutRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+
+  // --- NETWORK SYNC HOOKS ---
+  useEffect(() => {
+    if (!isNetworkActive || !networkConfig.roomKey) return;
+    
+    const roomId = networkConfig.roomKey;
+    let unsubPlayers: (() => void) | null = null;
+    let unsubGm: (() => void) | null = null;
+    
+    unsubPlayers = onSnapshot(
+      collection(db, `rooms/${roomId}/players`),
+      (snapshot) => {
+        const players: Record<string, any> = {};
+        snapshot.forEach((doc) => {
+          players[doc.id] = doc.data();
+        });
+        setNetworkPlayers(players);
+      },
+      (error) => {
+        console.error("Firebase players snapshot error:", error);
+        handleFirestoreError(error, OperationType.GET, `rooms/${roomId}/players`);
+      }
+    );
+    
+    unsubGm = onSnapshot(
+      doc(db, `rooms/${roomId}/gm/state`),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setNetworkGmState(docSnap.data());
+        } else {
+          setNetworkGmState(null);
+        }
+      },
+      (error) => {
+        console.error("Firebase GM snapshot error:", error);
+        handleFirestoreError(error, OperationType.GET, `rooms/${roomId}/gm/state`);
+      }
+    );
+    
+    return () => {
+      if (unsubPlayers) unsubPlayers();
+      if (unsubGm) unsubGm();
+    };
+  }, [isNetworkActive, networkConfig.roomKey]);
+
+  useEffect(() => {
+    if (!isNetworkActive || !networkConfig.roomKey || !networkConfig.pin) return;
+    
+    const roomId = networkConfig.roomKey;
+    const playerCode = networkConfig.pin;
+    
+    const timeout = setTimeout(() => {
+      setDoc(doc(db, `rooms/${roomId}/players/${playerCode}`), {
+        pseudo: networkConfig.pseudo,
+        role: networkConfig.role,
+        isGm: networkConfig.role === 'gm',
+        slots: JSON.stringify(gameState),
+        rollState: rollState,
+        rolledValue: rolledValue
+      }, { merge: true }).catch((error) => {
+        console.error(error);
+        handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/players/${playerCode}`);
+      });
+    }, 500);
+    
+    return () => clearTimeout(timeout);
+  }, [gameState, rollState, rolledValue, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role]);
+
+  useEffect(() => {
+    if (!isNetworkActive || !networkConfig.roomKey || !isGmMode) return;
+    
+    const roomId = networkConfig.roomKey;
+    
+    const timeout = setTimeout(() => {
+      setDoc(doc(db, `rooms/${roomId}/gm/state`), {
+        rollState: gmRollState,
+        diceResult: JSON.stringify(gmDiceResult),
+        checkedEncounters: JSON.stringify(gmCheckedEncounters),
+        encounterRolls: JSON.stringify(encounterRolls),
+        encounterLevel: gmEncounterLevel
+      }, { merge: true }).catch((error) => {
+        console.error(error);
+        handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/gm/state`);
+      });
+    }, 500);
+    
+    return () => clearTimeout(timeout);
+  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, isGmMode]);
+  // --- END NETWORK SYNC HOOKS ---
 
   const clearPressTimers = () => {
     if (pressTimerRef.current) {
@@ -436,6 +595,7 @@ export default function App() {
   // --- Handlers ---
   
   const toggleHp = (index: number) => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const newHp = [...prev.currentHp];
       newHp[index] = !newHp[index];
@@ -444,6 +604,7 @@ export default function App() {
   };
 
   const incrementHp = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const activeCount = prev.currentHp.filter(Boolean).length;
       if (activeCount >= prev.maxHp) return prev;
@@ -453,6 +614,7 @@ export default function App() {
   };
 
   const decrementHp = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const activeCount = prev.currentHp.filter(Boolean).length;
       if (activeCount <= 0) return prev;
@@ -462,6 +624,7 @@ export default function App() {
   };
 
   const toggleChakra = (index: number) => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const newChakra = [...prev.currentChakra];
       newChakra[index] = !newChakra[index];
@@ -470,6 +633,7 @@ export default function App() {
   };
 
   const incrementChakra = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const activeCount = prev.currentChakra.filter(Boolean).length;
       if (activeCount >= prev.maxChakra) return prev;
@@ -479,6 +643,7 @@ export default function App() {
   };
 
   const decrementChakra = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const activeCount = prev.currentChakra.filter(Boolean).length;
       if (activeCount <= 0) return prev;
@@ -488,6 +653,7 @@ export default function App() {
   };
 
   const toggleOrange = (index: number) => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const newOrange = [...(prev.currentOrange || Array(prev.maxOrange || 10).fill(true))];
       newOrange[index] = !newOrange[index];
@@ -496,6 +662,7 @@ export default function App() {
   };
 
   const incrementOrange = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const maxVal = prev.maxOrange || 10;
       const currentList = prev.currentOrange || Array(maxVal).fill(true);
@@ -507,6 +674,7 @@ export default function App() {
   };
 
   const decrementOrange = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const maxVal = prev.maxOrange || 10;
       const currentList = prev.currentOrange || Array(maxVal).fill(true);
@@ -518,6 +686,7 @@ export default function App() {
   };
 
   const toggleViolet = (index: number) => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const newViolet = [...(prev.currentViolet || Array(prev.maxViolet || 10).fill(true))];
       newViolet[index] = !newViolet[index];
@@ -526,6 +695,7 @@ export default function App() {
   };
 
   const incrementViolet = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const maxVal = prev.maxViolet || 10;
       const currentList = prev.currentViolet || Array(maxVal).fill(true);
@@ -537,6 +707,7 @@ export default function App() {
   };
 
   const decrementViolet = () => {
+    if (activeViewId !== 'me') return;
     setGameState((prev) => {
       const maxVal = prev.maxViolet || 10;
       const currentList = prev.currentViolet || Array(maxVal).fill(true);
@@ -566,6 +737,7 @@ export default function App() {
     }));
     setEncounterRolls([]);
     setGmCheckedEncounters([]);
+    setGmEncounterLevel(null);
     setGmDiceResult(null);
     setIsGmResetConfirmOpen(false);
   };
@@ -581,6 +753,7 @@ export default function App() {
   };
 
   const handleToggleHidden = (slotId: string, side: 'left' | 'right', isHidden: boolean) => {
+    if (activeViewId !== 'me') return;
     setGameState(prev => {
       const slots = side === 'left' ? [...prev.leftSlots] : [...prev.rightSlots];
       const index = slots.findIndex(s => s.id === slotId);
@@ -601,6 +774,7 @@ export default function App() {
   };
 
   const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (activeViewId !== 'me') return;
     if (isEditMode) return;
     
     if (rollState === 'rolled') {
@@ -672,7 +846,24 @@ export default function App() {
     setGmRollState('rolling');
     setGmDiceResult(null);
 
+    gmRollAnimIntervalRef.current = window.setInterval(() => {
+      let tempVal: number;
+      if (sides === -1) {
+        const min = gameState.gmCustomDiceMin ?? 1;
+        const max = gameState.gmCustomDiceMax ?? 100;
+        tempVal = Math.floor(Math.random() * (max - min + 1)) + min;
+      } else {
+        tempVal = Math.floor(Math.random() * sides) + 1;
+      }
+      setGmCurrentRollingValue(tempVal);
+    }, 60);
+
     gmRollAnimTimeoutRef.current = window.setTimeout(() => {
+      if (gmRollAnimIntervalRef.current) {
+        clearInterval(gmRollAnimIntervalRef.current);
+        gmRollAnimIntervalRef.current = null;
+      }
+
       let finalVal: number;
       if (sides === -1) {
         const min = gameState.gmCustomDiceMin ?? 1;
@@ -739,6 +930,7 @@ export default function App() {
     }
     setEncounterRolls(newRolls);
     setGmCheckedEncounters(new Array(linesCount).fill(false));
+    setGmEncounterLevel(level);
   };
 
   const exportGmJson = () => {
@@ -803,11 +995,13 @@ export default function App() {
   };
 
   const handleSlotDoubleClick = (slot: SlotData, side: 'left' | 'right') => {
+    if (activeViewId !== 'me') return;
     if (isEditMode) return;
     toggleSlotGreyedOut(slot.id, side);
   };
 
   const handleGaugeClick = (slotId: string, gaugeIndex: number, side: 'left' | 'right') => {
+    if (activeViewId !== 'me') return;
     if (isEditMode) return;
     setGameState((prev) => {
       const list = side === 'left' ? [...prev.leftSlots] : [...prev.rightSlots];
@@ -837,10 +1031,14 @@ export default function App() {
   };
 
   // --- Render Helpers ---
-  const colsOrange = (gameState.showOrange && !gameState.counterOrange) ? Math.ceil((gameState.maxOrange || 10) / 10) : 0;
-  const colsViolet = (gameState.showViolet && !gameState.counterViolet) ? Math.ceil((gameState.maxViolet || 10) / 10) : 0;
-  const effectiveColsOrange = gameState.showOrange ? (gameState.counterOrange ? 2 : colsOrange) : 0;
-  const effectiveColsViolet = gameState.showViolet ? (gameState.counterViolet ? 2 : colsViolet) : 0;
+  const activeGameState = activeViewId === 'me' ? gameState : (networkPlayers[activeViewId] ? JSON.parse(networkPlayers[activeViewId].slots) : gameState);
+  const activeRollState = activeViewId === 'me' ? rollState : (networkPlayers[activeViewId]?.rollState || 'idle');
+  const activeRolledValue = activeViewId === 'me' ? rolledValue : (networkPlayers[activeViewId]?.rolledValue || null);
+  
+  const colsOrange = (activeGameState.showOrange && !activeGameState.counterOrange) ? Math.ceil((activeGameState.maxOrange || 10) / 10) : 0;
+  const colsViolet = (activeGameState.showViolet && !activeGameState.counterViolet) ? Math.ceil((activeGameState.maxViolet || 10) / 10) : 0;
+  const effectiveColsOrange = activeGameState.showOrange ? (activeGameState.counterOrange ? 2 : colsOrange) : 0;
+  const effectiveColsViolet = activeGameState.showViolet ? (activeGameState.counterViolet ? 2 : colsViolet) : 0;
   const maxSideCols = Math.max(effectiveColsOrange, effectiveColsViolet);
   
   // w-9 is 36px, gap is 6px, padding is 16px. Total approx 42px per col + padding.
@@ -890,7 +1088,7 @@ export default function App() {
         )}
 
         {/* Other Controls (Hidden when in Immersive Mode) */}
-        {!gameState.isImmersiveMode && !isGmMode && (
+        {!gameState.isImmersiveMode && !isGmMode && activeViewId === 'me' && (
           <>
             {/* Edit Mode Button (Icon-only: Pencil or Green Checkmark) */}
             <button
@@ -1164,42 +1362,183 @@ export default function App() {
 
       {/* Main HUD Area */}
       <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] min-h-0 relative">
-        <div className="flex flex-row items-center justify-center h-full w-full max-w-[90rem] gap-12">
-          {/* Left Slots */}
-          <div 
-            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
-            style={{
-              transform: `translateX(${gameState.slotOffsetX ?? 0}px) scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
-              transformOrigin: 'center center'
-            }}
-          >
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
-              {gameState.leftSlots.map((slot) => (
-                <SlotUI 
-                  key={slot.id} slot={slot} side="left" 
-                  onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
-                  onGaugeClick={handleGaugeClick}
-                  onToggleHidden={handleToggleHidden}
-                  isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
-                  isEditMode={isEditMode}
-                  textSize={gameState.slotTextSize ?? 11}
-                />
-              ))}
+        {activeViewId === 'gm' ? (
+          <div className="flex gap-8 h-full w-full max-w-[90rem]">
+            {/* GM View: Dice Rolls and Encounters */}
+            <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
+               <div className="skeuo-panel p-6 flex flex-col items-center h-full">
+                 <h2 className="text-blue-400 font-bold tracking-widest uppercase text-sm mb-8">GM Dice Rolls</h2>
+                 <div className="flex-1 flex items-center justify-center w-full">
+                    {networkGmState?.diceResult && networkGmState.diceResult !== 'null' ? (
+                      (() => {
+                        const getRes = () => {
+                          try {
+                            return JSON.parse(networkGmState.diceResult);
+                          } catch (e) {
+                            return null;
+                          }
+                        };
+                        const res = getRes();
+                        if (!res) return <div className="text-white/20 uppercase tracking-widest text-xs font-bold animate-pulse">No rolls yet</div>;
+                        const isRolling = networkGmState?.rollState === 'rolling';
+                        const colorClass = 
+                           res.type === 'd6' ? 'skeuo-text-emerald' : 
+                           res.type === 'd10' ? 'skeuo-text-blue' : 
+                           res.type === 'd20' ? 'skeuo-text-red' : 
+                           res.type === 'd100' ? 'skeuo-text-purple' : 'skeuo-text-orange';
+                        
+                        return (
+                          <div key={res.time} className="flex flex-col items-center justify-center animate-in zoom-in fade-in duration-300">
+                             <span className={cn("text-8xl font-black mb-4", colorClass, isRolling && "animate-pulse blur-sm")}>
+                               {isRolling ? '...' : res.value}
+                             </span>
+                             <span className="text-white/40 font-bold tracking-widest uppercase text-sm">{res.type}</span>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-white/20 uppercase tracking-widest text-xs font-bold animate-pulse">No rolls yet</div>
+                    )}
+                 </div>
+               </div>
+            </div>
+            
+            <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
+               <div className="skeuo-panel p-6 flex flex-col h-full overflow-hidden">
+                 <div className="flex items-center justify-between mb-6">
+                   <h2 className="text-red-400 font-bold tracking-widest uppercase text-sm">Encounters Results</h2>
+                   {networkGmState?.encounterLevel && (
+                     <span className="text-red-400 bg-red-950/40 border border-red-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest">
+                       {networkGmState.encounterLevel}
+                     </span>
+                   )}
+                 </div>
+                 <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                   {(() => {
+                     if (!networkGmState) {
+                       return <div className="text-white/20 uppercase tracking-widest text-xs font-bold text-center mt-10">Waiting for GM connection...</div>;
+                     }
+
+                     const getRolls = () => {
+                       try {
+                         return networkGmState.encounterRolls ? JSON.parse(networkGmState.encounterRolls) : null;
+                       } catch (e) {
+                         return null;
+                       }
+                     };
+                     const rolls = getRolls() || [];
+
+                     if (rolls.length === 0) {
+                       return <div className="text-white/20 uppercase tracking-widest text-xs font-bold text-center mt-10">No encounters rolled yet</div>;
+                     }
+
+                     const getChecked = () => {
+                       try {
+                         return networkGmState.checkedEncounters ? JSON.parse(networkGmState.checkedEncounters) : [];
+                       } catch (e) {
+                         return [];
+                       }
+                     };
+                     const checked = getChecked() || [];
+
+                     return rolls.map((line: any[], lineIdx: number) => {
+                       const isChecked = !!checked[lineIdx];
+                       return (
+                         <div 
+                           key={lineIdx} 
+                           className={cn(
+                             "flex flex-col gap-2 p-3 transition-all rounded-none border",
+                             isChecked 
+                               ? "bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
+                               : "bg-white/5 border-white/10 opacity-70"
+                           )}
+                         >
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                               <div className={cn(
+                                 "w-4 h-4 rounded-none border flex items-center justify-center transition-all",
+                                 isChecked ? "border-emerald-500 bg-emerald-500/10" : "border-white/30"
+                               )}>
+                                 {isChecked && <Check className="w-3 h-3 text-emerald-400" />}
+                               </div>
+                               <span className={cn(
+                                 "text-[10px] font-black uppercase tracking-wider",
+                                 isChecked ? "text-emerald-400" : "text-white/50"
+                               )}>
+                                 Line #{lineIdx + 1}
+                                </span>
+                             </div>
+                             <span className={cn(
+                               "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5",
+                               isChecked ? "text-emerald-400 bg-emerald-950/40 border border-emerald-500/30" : "text-white/30 bg-white/5 border border-white/10"
+                             )}>
+                               {isChecked ? "Active" : "Pending"}
+                             </span>
+                           </div>
+                           <div className="flex gap-2">
+                             {line.map((req: any, reqIdx: number) => {
+                               const parts = req.text.split('+');
+                               return (
+                                 <div 
+                                   key={reqIdx} 
+                                   className={cn(
+                                     "flex-1 p-2 text-center text-xs font-bold rounded-sm border transition-all",
+                                     isChecked 
+                                       ? "bg-emerald-950/30 border-emerald-500/20 text-white/90" 
+                                       : "bg-white/5 border-white/10 text-white/70"
+                                   )}
+                                 >
+                                   {parts[0]}
+                                   {parts[1] && <span className={isChecked ? "text-emerald-400" : "text-orange-500"}> +{parts[1]}</span>}
+                                 </div>
+                               );
+                             })}
+                           </div>
+                         </div>
+                       );
+                     });
+                   })()}
+                 </div>
+               </div>
             </div>
           </div>
+        ) : (
+          <div className="flex flex-row items-center justify-center h-full w-full max-w-[90rem] gap-12">
+            {/* Left Slots */}
+            <div 
+              className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
+              style={{
+                transform: `translateX(${activeGameState.slotOffsetX ?? 0}px) scale(${activeGameState.slotScale ?? 1}) translateY(${activeGameState.slotOffsetY ?? 0}px)`,
+                transformOrigin: 'center center'
+              }}
+            >
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
+                {activeGameState.leftSlots.map((slot) => (
+                  <SlotUI 
+                    key={slot.id} slot={slot} side="left" 
+                    onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
+                    onGaugeClick={handleGaugeClick}
+                    onToggleHidden={handleToggleHidden}
+                    isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
+                    isEditMode={isEditMode && activeViewId === 'me'}
+                    textSize={activeGameState.slotTextSize ?? 11}
+                  />
+                ))}
+              </div>
+            </div>
 
-          {/* Center Area */}
-          <div 
-            className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200 relative z-20"
-            style={{
-              transform: `scale(${gameState.characterScale ?? 1}) translateY(${gameState.characterOffsetY ?? 0}px)`,
-              transformOrigin: 'center center'
-            }}
-          >
-            {/* Hearts (HP / Red bars) */}
-            {(gameState.showHp ?? true) && (
-              gameState.counterHp ? (
-                <div className="flex items-center justify-center gap-6 mb-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
+            {/* Center Area */}
+            <div 
+              className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200 relative z-20"
+              style={{
+                transform: `scale(${activeGameState.characterScale ?? 1}) translateY(${activeGameState.characterOffsetY ?? 0}px)`,
+                transformOrigin: 'center center'
+              }}
+            >
+              {/* Hearts (HP / Red bars) */}
+              {(activeGameState.showHp ?? true) && (
+                activeGameState.counterHp ? (
+                  <div className="flex items-center justify-center gap-6 mb-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); decrementHp(); }}
                     className="w-10 h-10 flex items-center justify-center rounded-none skeuo-button-red font-bold text-lg cursor-pointer outline-none"
@@ -1207,7 +1546,7 @@ export default function App() {
                     -
                   </button>
                   <span className="text-xl font-black tracking-widest text-red-400 drop-shadow-[0_0_6px_rgba(239,68,68,0.5)] min-w-[4rem] text-center">
-                    {gameState.currentHp.filter(Boolean).length}/{gameState.maxHp}
+                    {activeGameState.currentHp.filter(Boolean).length}/{activeGameState.maxHp}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); incrementHp(); }}
@@ -1218,7 +1557,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex flex-col-reverse items-center justify-center gap-y-1 mb-5 w-56 sm:w-60 md:w-64 select-none">
-                  {chunkArray(gameState.currentHp, 5).map((row, rowIdx) => (
+                  {chunkArray(activeGameState.currentHp, 5).map((row, rowIdx) => (
                     <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
                       {row.map((isActive, idx) => {
                         const globalIdx = rowIdx * 5 + idx;
@@ -1248,8 +1587,8 @@ export default function App() {
                 className="flex justify-end pr-2 md:pr-4 flex-shrink-0" 
                 style={{ width: sideWidth, minWidth: sideWidth }}
               >
-                {(gameState.showOrange ?? false) && (
-                  gameState.counterOrange ? (
+                {(activeGameState.showOrange ?? false) && (
+                  activeGameState.counterOrange ? (
                     <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementOrange(); }}
@@ -1258,9 +1597,9 @@ export default function App() {
                       +
                     </button>
                     <div className="text-xl font-black tracking-widest text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)] flex flex-col items-center">
-                      <span>{(gameState.currentOrange || []).filter(Boolean).length}</span>
+                      <span>{(activeGameState.currentOrange || []).filter(Boolean).length}</span>
                       <span className="text-xs opacity-50 my-0.5">/</span>
-                      <span>{gameState.maxOrange || 10}</span>
+                      <span>{activeGameState.maxOrange || 10}</span>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); decrementOrange(); }}
@@ -1271,7 +1610,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="relative flex flex-row-reverse items-center justify-center gap-x-1.5 select-none h-full">
-                    {chunkArray(gameState.currentOrange || Array(gameState.maxOrange || 10).fill(true), 10).map((column, colIdx) => (
+                    {chunkArray(activeGameState.currentOrange || Array(activeGameState.maxOrange || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
                         className="flex flex-col justify-center gap-y-[3px] w-6 sm:w-7"
@@ -1301,39 +1640,39 @@ export default function App() {
               {/* Character Wrapper with inner overlapping labels */}
               <div className="relative w-56 sm:w-60 md:w-64 aspect-[1/2] flex-shrink-0">
                 {/* 1. TOP LABEL: HP (Red bars) */}
-                {(gameState.showHp ?? true) && (
+                {(activeGameState.showHp ?? true) && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 skeuo-metal-badge text-red-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl select-none pointer-events-none whitespace-nowrap rounded-sm">
-                    {gameState.labelHp || 'HP'}
+                    {activeGameState.labelHp || 'HP'}
                   </div>
                 )}
 
                 {/* 2. BOTTOM LABEL: Chakra (Blue bars) */}
-                {(gameState.showChakra ?? true) && (
+                {(activeGameState.showChakra ?? true) && (
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-40 skeuo-metal-badge text-blue-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl select-none pointer-events-none whitespace-nowrap rounded-sm">
-                    {gameState.labelChakra || 'CHAKRA'}
+                    {activeGameState.labelChakra || 'CHAKRA'}
                   </div>
                 )}
 
                 {/* 3. LEFT LABEL: Orange bars (Vertical) */}
-                {(gameState.showOrange ?? false) && (
+                {(activeGameState.showOrange ?? false) && (
                   <div 
                     className="absolute left-0 top-1/2 z-40 select-none pointer-events-none whitespace-nowrap"
                     style={{ transform: 'translate(-50%, -50%) rotate(-90deg)', transformOrigin: 'center' }}
                   >
                     <div className="skeuo-metal-badge text-amber-500 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl rounded-sm">
-                      {gameState.labelOrange || 'ORANGE'}
+                      {activeGameState.labelOrange || 'ORANGE'}
                     </div>
                   </div>
                 )}
 
                 {/* 4. RIGHT LABEL: Violet bars (Vertical) */}
-                {(gameState.showViolet ?? false) && (
+                {(activeGameState.showViolet ?? false) && (
                   <div 
                     className="absolute right-0 top-1/2 z-40 select-none pointer-events-none whitespace-nowrap"
                     style={{ transform: 'translate(50%, -50%) rotate(90deg)', transformOrigin: 'center' }}
                   >
                     <div className="skeuo-metal-badge text-purple-400 px-4 py-1 text-xs font-mono font-black tracking-widest uppercase leading-none shadow-xl rounded-sm">
-                      {gameState.labelViolet || 'VIOLET'}
+                      {activeGameState.labelViolet || 'VIOLET'}
                     </div>
                   </div>
                 )}
@@ -1360,14 +1699,14 @@ export default function App() {
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 pointer-events-none"></div>
                   <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-transparent z-10 pointer-events-none"></div>
-                  {gameState.characterImage && !charImgError ? (
+                  {activeGameState.characterImage && !charImgError ? (
                     <img 
-                      src={gameState.characterImage} 
+                      src={activeGameState.characterImage} 
                       alt="Character" 
                       onError={() => setCharImgError(true)} 
                       className="w-full h-full object-cover absolute inset-0 z-0 opacity-80 pointer-events-none" 
                     />
-                  ) : gameState.characterImage && charImgError ? (
+                  ) : activeGameState.characterImage && charImgError ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/40 z-0 border border-red-500/30 p-4 select-none">
                       <div className="w-40 h-80 bg-red-500/10 rounded-full blur-3xl absolute pointer-events-none"></div>
                       <span className="text-red-500 text-6xl font-black drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse relative z-10">!?</span>
@@ -1382,7 +1721,7 @@ export default function App() {
                   
                   <div className="absolute top-0 left-0 right-0 flex flex-col items-center justify-start z-50 pointer-events-none px-4 pt-6 text-center">
                     <div className="flex items-center gap-2 mb-2 pointer-events-auto">
-                      <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg">{gameState.characterName}</span>
+                      <span className="text-xl font-bold tracking-widest text-white drop-shadow-lg">{activeGameState.characterName}</span>
                     </div>
                     <div 
                       className="flex gap-1 pointer-events-auto p-2 -mt-2 bg-black/20 rounded-lg backdrop-blur-md"
@@ -1400,6 +1739,7 @@ export default function App() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                            if (activeViewId !== 'me') return;
                             setGameState(prev => ({...prev, characterDiceType: d}));
                           }}
                           onMouseDown={(e) => e.stopPropagation()}
@@ -1407,7 +1747,7 @@ export default function App() {
                           onPointerDown={(e) => e.stopPropagation()}
                           className={cn(
                             "px-3 py-1.5 text-[11px] font-mono font-black tracking-widest uppercase transition-all duration-200 outline-none cursor-pointer rounded-none",
-                            (gameState.characterDiceType || 'd12') === d
+                            (activeGameState.characterDiceType || 'd12') === d
                               ? "skeuo-button-green text-white"
                               : "skeuo-button text-gray-400"
                           )}
@@ -1420,12 +1760,12 @@ export default function App() {
 
                   <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-20 pointer-events-none flex flex-col gap-2 pt-10">
                     <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-1.5 items-center w-full">
-                      {gameState.customStats.map((stat, idx) => {
+                      {activeGameState.customStats.map((stat, idx) => {
                         if (!stat.isVisible || !stat.name) return null;
                         
                         const isStats2 = idx >= 5;
-                        const useStatBars = isStats2 ? gameState.useStatBars2 : gameState.useStatBars;
-                        const statBarsMax = isStats2 ? (gameState.statBarsMax2 || 12) : (gameState.statBarsMax || 12);
+                        const useStatBars = isStats2 ? activeGameState.useStatBars2 : activeGameState.useStatBars;
+                        const statBarsMax = isStats2 ? (activeGameState.statBarsMax2 || 12) : (activeGameState.statBarsMax || 12);
                         
                         const numMatch = stat.value.match(/\d+(\.\d+)?/);
                         const baseValue = numMatch ? parseFloat(numMatch[0]) : 0;
@@ -1437,7 +1777,7 @@ export default function App() {
                           return (
                             <React.Fragment key={idx}>
                               <span 
-                                style={{ fontSize: `${gameState.charStatsTextSize ?? 10}px` }}
+                                style={{ fontSize: `${activeGameState.charStatsTextSize ?? 10}px` }}
                                 className="text-white font-bold tracking-widest whitespace-nowrap"
                               >
                                 {stat.name}
@@ -1449,7 +1789,7 @@ export default function App() {
                                 />
                               </div>
                               <div 
-                                style={{ fontSize: `${(gameState.charStatsTextSize ?? 10) + 2}px` }}
+                                style={{ fontSize: `${(activeGameState.charStatsTextSize ?? 10) + 2}px` }}
                                 className="font-black text-right whitespace-nowrap min-w-[1.5rem] flex items-center justify-end gap-0.5"
                               >
                                 <span className="text-white">{totalVal}</span>
@@ -1465,13 +1805,13 @@ export default function App() {
                           return (
                             <div key={idx} className="col-span-3 flex justify-between items-end w-full">
                               <span 
-                                style={{ fontSize: `${gameState.charStatsTextSize ?? 10}px` }}
+                                style={{ fontSize: `${activeGameState.charStatsTextSize ?? 10}px` }}
                                 className="text-white font-bold tracking-widest"
                               >
                                 {stat.name}
                               </span>
                               <div 
-                                style={{ fontSize: `${(gameState.charStatsTextSize ?? 10) + 4}px` }}
+                                style={{ fontSize: `${(activeGameState.charStatsTextSize ?? 10) + 4}px` }}
                                 className="font-black flex items-center gap-0.5"
                               >
                                 <span className="text-white">{totalVal}</span>
@@ -1486,7 +1826,7 @@ export default function App() {
                         }
                       })}
                     </div>
-                    {!isEditMode && (
+                    {!isEditMode && activeViewId === 'me' && (
                       <div className="w-full flex justify-center mt-2 pointer-events-auto">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setIsQuickStatsOpen(true); }}
@@ -1506,18 +1846,19 @@ export default function App() {
                   </div>
 
                   {/* Character Dice Roll Overlay */}
-                  {rollState !== 'idle' && (
+                  {activeRollState !== 'idle' && (
                     <div 
                       className="absolute inset-0 bg-[#080b11]/95 z-50 flex flex-col items-center justify-center p-4 transition-all duration-300 animate-fade-in"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (rollState === 'rolled') {
+                        if (activeViewId !== 'me') return;
+                        if (activeRollState === 'rolled') {
                           setRollState('idle');
                           setRolledValue(null);
                         }
                       }}
                     >
-                      {rollState === 'charging' && (
+                      {activeRollState === 'charging' && (
                         <div className="flex flex-col items-center justify-center gap-6">
                           <span className="text-4xl font-mono font-black text-blue-400 drop-shadow-[0_0_12px_rgba(59,130,246,0.5)]">
                             {Math.round(pressProgress)}%
@@ -1530,25 +1871,25 @@ export default function App() {
                         </div>
                       )}
 
-                      {rollState === 'rolling' && (
+                      {activeRollState === 'rolling' && (
                         <div className="flex flex-col items-center justify-center gap-6">
                           <DiceShape 
-                            type={gameState.characterDiceType || 'd12'} 
+                            type={activeGameState.characterDiceType || 'd12'} 
                             value={currentRollingValue} 
                             isRolling={true} 
                           />
                           <div className="h-12 flex flex-col items-center justify-center text-center">
                             <span className="text-[10px] text-blue-400 font-bold tracking-widest uppercase animate-pulse">
-                              Rolling {gameState.characterDiceType?.toUpperCase() || 'D12'}...
+                              Rolling {activeGameState.characterDiceType?.toUpperCase() || 'D12'}...
                             </span>
                           </div>
                         </div>
                       )}
 
-                      {rollState === 'rolled' && (
+                      {activeRollState === 'rolled' && (
                         <div className="flex flex-col items-center justify-center gap-6 animate-fade-in">
                           <DiceShape 
-                            type={gameState.characterDiceType || 'd12'} 
+                            type={activeGameState.characterDiceType || 'd12'} 
                             value={rolledValue ?? 1} 
                             isRolling={false} 
                           />
@@ -1556,7 +1897,7 @@ export default function App() {
                             <span className="text-[10px] text-emerald-400 font-black tracking-widest uppercase block mb-0.5">
                               Result
                             </span>
-                            <span className="text-white/50 text-[9px] font-bold tracking-wider uppercase animate-pulse">
+                            <span className="text-white/50 text-[9px] font-bold tracking-wider uppercase">
                               Click to clear
                             </span>
                           </div>
@@ -1573,8 +1914,8 @@ export default function App() {
                 className="flex justify-start pl-2 md:pl-4 flex-shrink-0"
                 style={{ width: sideWidth, minWidth: sideWidth }}
               >
-                {(gameState.showViolet ?? false) && (
-                  gameState.counterViolet ? (
+                {(activeGameState.showViolet ?? false) && (
+                  activeGameState.counterViolet ? (
                     <div className="relative flex flex-col items-center justify-center gap-4 select-none h-full min-h-[16rem]" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementViolet(); }}
@@ -1583,9 +1924,9 @@ export default function App() {
                       +
                     </button>
                     <div className="text-xl font-black tracking-widest text-purple-400 drop-shadow-[0_0_6px_rgba(168,85,247,0.5)] flex flex-col items-center">
-                      <span>{(gameState.currentViolet || []).filter(Boolean).length}</span>
+                      <span>{(activeGameState.currentViolet || []).filter(Boolean).length}</span>
                       <span className="text-xs opacity-50 my-0.5">/</span>
-                      <span>{gameState.maxViolet || 10}</span>
+                      <span>{activeGameState.maxViolet || 10}</span>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); decrementViolet(); }}
@@ -1596,7 +1937,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="relative flex flex-row items-center justify-center gap-x-1.5 select-none h-full">
-                    {chunkArray(gameState.currentViolet || Array(gameState.maxViolet || 10).fill(true), 10).map((column, colIdx) => (
+                    {chunkArray(activeGameState.currentViolet || Array(activeGameState.maxViolet || 10).fill(true), 10).map((column, colIdx) => (
                       <div 
                         key={colIdx} 
                         className="flex flex-col justify-center gap-y-[3px] w-6 sm:w-7"
@@ -1689,13 +2030,14 @@ export default function App() {
                   onGaugeClick={handleGaugeClick}
                   onToggleHidden={handleToggleHidden}
                   isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
-                  isEditMode={isEditMode}
+                  isEditMode={isEditMode && activeViewId === 'me'}
                   textSize={gameState.slotTextSize ?? 11}
                 />
               ))}
             </div>
           </div>
         </div>
+        )}
 
       {/* Notes Area (Far Right) */}
       <div 
@@ -1712,8 +2054,9 @@ export default function App() {
               spellCheck={false}
               className="flex-1 bg-transparent text-gray-200 text-sm resize-none focus:outline-none placeholder-white/10 leading-relaxed" 
               placeholder="Write your campaign notes here..."
-              value={gameState.playerNotes}
+              value={activeGameState.playerNotes}
               onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
+              readOnly={activeViewId !== 'me'}
             />
           </div>
         </div>
@@ -1721,94 +2064,181 @@ export default function App() {
       </div>
 
       {/* Bottom Info Panel */}
-      <div 
-        className="h-32 mx-8 mb-6 mr-[17rem] skeuo-panel backdrop-blur-md flex-shrink-0 p-4 flex flex-col justify-center transition-all duration-300"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {selectedItem && !isEditMode ? (
-          <div className="flex gap-6 h-full items-center px-4 relative z-10">
-            {selectedItem.type === 'slot' && currentSelectedSlot?.image && (
-              <div className="h-[80%] aspect-square border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">
-                 <img src={currentSelectedSlot.image} className="w-full h-full object-cover opacity-80" />
-              </div>
-            )}
-            {selectedItem.type === 'character' && gameState.characterImage && (
-              <div className="h-[80%] aspect-[1/2] border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">
-                 <img src={gameState.characterImage} className="w-full h-full object-cover opacity-80" />
-              </div>
-            )}
-            <div className="flex-1 flex flex-col justify-center text-left">
-              <div className="text-blue-400 font-bold tracking-wider text-xs mb-1 flex items-center gap-4">
-                <span>
-                  {selectedItem.type === 'slot' && currentSelectedSlot 
-                    ? (currentSelectedSlot.name || `SLOT #${currentSelectedSlot.slotNumber}`) 
-                    : gameState.characterName}
-                </span>
+      <div className="h-32 mx-8 mb-6 mr-[17rem] flex gap-4 flex-shrink-0 transition-all duration-300 relative z-50">
+        <div 
+          className="flex-1 skeuo-panel backdrop-blur-md p-4 flex flex-col justify-center overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {selectedItem && !isEditMode ? (
+            <div className="flex gap-6 h-full items-center px-4 relative z-10">
+              {selectedItem.type === 'slot' && currentSelectedSlot?.image && (
+                <div className="h-[80%] aspect-square border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">
+                   <img src={currentSelectedSlot.image} className="w-full h-full object-cover opacity-80" />
+                </div>
+              )}
+              {selectedItem.type === 'character' && activeGameState.characterImage && (
+                <div className="h-[80%] aspect-[1/2] border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">
+                   <img src={activeGameState.characterImage} className="w-full h-full object-cover opacity-80" />
+                </div>
+              )}
+              <div className="flex-1 flex flex-col justify-center text-left">
+                <div className="text-blue-400 font-bold tracking-wider text-xs mb-1 flex items-center gap-4">
+                  <span>
+                    {selectedItem.type === 'slot' && currentSelectedSlot 
+                      ? (currentSelectedSlot.name || `SLOT #${currentSelectedSlot.slotNumber}`) 
+                      : activeGameState.characterName}
+                  </span>
 
-                {selectedItem.type === 'slot' && currentSelectedSlot && (
+                  {selectedItem.type === 'slot' && currentSelectedSlot && activeViewId === 'me' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSlotGreyedOut(currentSelectedSlot.id, selectedItem.side);
+                      }}
+                      className={cn(
+                        "px-2.5 py-1 text-[10px] font-black tracking-widest rounded-none transition-all duration-200 cursor-pointer shadow-md outline-none",
+                        currentSelectedSlot.isGreyedOut
+                          ? "skeuo-button-green animate-pulse"
+                          : "skeuo-button-red"
+                      )}
+                    >
+                      {currentSelectedSlot.isGreyedOut ? "Restore" : "Grey Out"}
+                    </button>
+                  )}
+                </div>
+                <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[4.5rem] overflow-y-auto pr-2">
+                  {selectedItem.type === 'slot' && currentSelectedSlot 
+                    ? (currentSelectedSlot.description || <span className="text-white/30 italic">No description...</span>) 
+                    : (activeGameState.characterDescription || <span className="text-white/30 italic">No description...</span>)}
+                </p>
+              </div>
+              {selectedItem.type === 'slot' && currentSelectedSlot && (!currentSelectedSlot.noDice || !currentSelectedSlot.noCost) && (
+                <div className="flex gap-6 flex-shrink-0 items-center">
+                  {!currentSelectedSlot.noDice && (
+                    <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
+                      <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Target</span>
+                      <span className="text-2xl font-black text-emerald-400 drop-shadow-md">
+                        {currentSelectedSlot.diceTarget}
+                      </span>
+                    </div>
+                  )}
+                  {!currentSelectedSlot.noCost && (
+                    <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
+                      <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Cost</span>
+                      <span className={cn(
+                        "text-2xl font-black drop-shadow-md",
+                        (!currentSelectedSlot.costColor || currentSelectedSlot.costColor === 'blue') && "text-blue-500",
+                        currentSelectedSlot.costColor === 'red' && "text-red-500",
+                        currentSelectedSlot.costColor === 'orange' && "text-amber-500",
+                        currentSelectedSlot.costColor === 'violet' && "text-purple-500",
+                        currentSelectedSlot.costColor === 'white' && "text-white"
+                      )}>{currentSelectedSlot.chakraCost}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-start justify-center h-full px-4 relative z-10">
+              <div className="text-blue-400 font-bold tracking-wider text-sm">Informations</div>
+              <div className="text-gray-400 text-sm italic mt-1 flex items-center gap-2">
+                <Info className="w-4 h-4 opacity-70" />
+                Select a slot to view details. Double-click to grey out a slot.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Network Players Area */}
+        <div 
+          className="flex-1 max-w-[45%] skeuo-panel backdrop-blur-md p-4 flex flex-col justify-start overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-emerald-400 font-bold tracking-widest text-[10px] uppercase mb-3 flex items-center gap-2">
+            <Wifi className="w-3 h-3" />
+            Network Session
+            {isNetworkActive && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (activeViewId === 'me') {
+                     setGameState(prev => ({...prev}));
+                  }
+                }}
+                className="ml-auto bg-black/30 hover:bg-black/50 text-white/50 hover:text-white px-2 py-1 rounded-sm flex items-center gap-1 transition-colors outline-none cursor-pointer"
+                title="Force sync data"
+              >
+                <RotateCcw className="w-3 h-3" /> Sync
+              </button>
+            )}
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setActiveViewId('me')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-none border transition-all cursor-pointer outline-none min-w-[80px]",
+                activeViewId === 'me'
+                  ? (networkConfig.role === 'gm'
+                      ? "bg-purple-950/80 border-purple-500 text-purple-400 shadow-[inset_0_2px_4px_rgba(168,85,247,0.8)]"
+                      : "bg-blue-950/80 border-blue-500 text-blue-400 shadow-[inset_0_2px_4px_rgba(59,130,246,0.8)]"
+                    )
+                  : (networkConfig.role === 'gm'
+                      ? "skeuo-button text-purple-400/50 hover:text-purple-400 border-white/10"
+                      : "skeuo-button text-white/50 hover:text-white border-white/10"
+                    )
+              )}
+            >
+              {isNetworkActive ? (networkConfig.role === 'gm' ? `${networkConfig.pseudo || 'ME'} ★` : networkConfig.pseudo || 'ME') : 'ME'}
+            </button>
+            
+            {isNetworkActive && networkGmState && (
+              <button
+                onClick={() => setActiveViewId('gm')}
+                className={cn(
+                  "px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-none border transition-all cursor-pointer outline-none min-w-[80px]",
+                  activeViewId === 'gm'
+                    ? "bg-purple-950/80 border-purple-500 text-purple-400 shadow-[inset_0_2px_4px_rgba(168,85,247,0.8)]" 
+                    : "skeuo-button text-purple-400/50 hover:text-purple-400 border-white/10"
+                )}
+              >
+                GM
+              </button>
+            )}
+            
+            {isNetworkActive && Object.entries(networkPlayers).map(([code, player]) => {
+              const isPlayerGm = (player as any).role === 'gm' || (player as any).isGm;
+              return (
+                code !== networkConfig.pin && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSlotGreyedOut(currentSelectedSlot.id, selectedItem.side);
-                    }}
+                    key={code}
+                    onClick={() => setActiveViewId(code)}
                     className={cn(
-                      "px-2.5 py-1 text-[10px] font-black tracking-widest rounded-none transition-all duration-200 cursor-pointer shadow-md outline-none",
-                      currentSelectedSlot.isGreyedOut
-                        ? "skeuo-button-green animate-pulse"
-                        : "skeuo-button-red"
+                      "px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-none border transition-all cursor-pointer outline-none min-w-[80px]",
+                      activeViewId === code
+                        ? (isPlayerGm 
+                            ? "bg-purple-950/80 border-purple-500 text-purple-400 shadow-[inset_0_2px_4px_rgba(168,85,247,0.8)]"
+                            : "bg-emerald-950/80 border-emerald-500 text-emerald-400 shadow-[inset_0_2px_4px_rgba(16,185,129,0.8)]"
+                          )
+                        : (isPlayerGm
+                            ? "skeuo-button text-purple-400/50 hover:text-purple-400 border-white/10"
+                            : "skeuo-button text-white/50 hover:text-white border-white/10"
+                          )
                     )}
                   >
-                    {currentSelectedSlot.isGreyedOut ? "Restore" : "Grey Out"}
+                    {(player as any).pseudo || '???'}{isPlayerGm ? ' ★' : ''}
                   </button>
-                )}
-              </div>
-              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[4.5rem] overflow-y-auto pr-2">
-                {selectedItem.type === 'slot' && currentSelectedSlot 
-                  ? (currentSelectedSlot.description || <span className="text-white/30 italic">No description...</span>) 
-                  : (gameState.characterDescription || <span className="text-white/30 italic">No description...</span>)}
-              </p>
-            </div>
-            {selectedItem.type === 'slot' && currentSelectedSlot && (!currentSelectedSlot.noDice || !currentSelectedSlot.noCost) && (
-              <div className="flex gap-6 flex-shrink-0 items-center">
-                {!currentSelectedSlot.noDice && (
-                  <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
-                    <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Target</span>
-                    <span className="text-2xl font-black text-emerald-400 drop-shadow-md">
-                      {currentSelectedSlot.diceTarget}
-                    </span>
-                  </div>
-                )}
-                {!currentSelectedSlot.noCost && (
-                  <div className="flex flex-col items-center justify-center bg-black/50 border border-white/10 rounded-none w-20 h-20 shadow-inner">
-                    <span className="text-white/40 text-[10px] font-bold tracking-widest mb-1">Cost</span>
-                    <span className={cn(
-                      "text-2xl font-black drop-shadow-md",
-                      (!currentSelectedSlot.costColor || currentSelectedSlot.costColor === 'blue') && "text-blue-500",
-                      currentSelectedSlot.costColor === 'red' && "text-red-500",
-                      currentSelectedSlot.costColor === 'orange' && "text-amber-500",
-                      currentSelectedSlot.costColor === 'violet' && "text-purple-500",
-                      currentSelectedSlot.costColor === 'white' && "text-white"
-                    )}>{currentSelectedSlot.chakraCost}</span>
-                  </div>
-                )}
-              </div>
-            )}
+                )
+              );
+            })}
           </div>
-        ) : (
-          <div className="flex flex-col items-start justify-center h-full px-4 relative z-10">
-            <div className="text-blue-400 font-bold tracking-wider text-sm">Informations</div>
-            <div className="text-gray-400 text-sm italic mt-1 flex items-center gap-2">
-              <Info className="w-4 h-4 opacity-70" />
-              Select a slot to view details. Double-click to grey out a slot.
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
 
-      {isGmMode && (
+      {isGmMode && activeViewId === 'me' && (
         <div 
-          className="absolute inset-0 z-40 bg-[#05070a]/95 backdrop-blur-xl flex flex-col p-8 pb-20 overflow-y-auto"
+          className="absolute inset-x-0 top-0 bottom-0 z-40 bg-[#05070a]/95 backdrop-blur-xl flex flex-col p-8 pb-[11rem] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex gap-8 h-full max-w-7xl mx-auto w-full">
@@ -1859,66 +2289,90 @@ export default function App() {
 
             {/* Middle Roll Panel */}
             <div className="flex-[1.5] flex flex-col gap-6 h-full overflow-hidden">
-               <div className="skeuo-panel p-6 flex flex-col items-center">
-                 <div className="w-full flex justify-between items-center mb-6">
-                   <h2 className="text-blue-400 font-bold tracking-widest uppercase text-sm">Dice Rolls</h2>
+               <div className="skeuo-panel p-4 flex flex-col flex-shrink-0">
+                 <div className="w-full flex justify-between items-center mb-2">
+                   <h2 className="text-blue-400 font-bold tracking-widest uppercase text-xs">Dice Rolls</h2>
                    <button 
                      onClick={() => setGmDiceResult(null)}
-                     className="text-[10px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
+                     className="text-[9px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
                    >
                      Clear
                    </button>
                  </div>
-                 <div className="flex flex-wrap justify-center gap-4 mb-8">
-                   {[6, 8, 12, 20].map(sides => (
-                     <button
-                       key={sides}
-                       onClick={() => handleGmDiceRoll(sides)}
-                       className="w-16 h-16 skeuo-button font-bold text-lg flex items-center justify-center rounded-lg relative overflow-hidden group"
-                     >
-                       <span className="relative z-10">d{sides}</span>
-                     </button>
-                   ))}
-                    <div className="flex items-center gap-2">
-                       <button 
-                         onClick={() => setIsGmCustomDiceSettingsOpen(true)}
-                         className="p-2 rounded-full hover:bg-white/10 text-white/30 hover:text-white transition-colors"
-                       >
-                         <Settings className="w-5 h-5" />
-                       </button>
+                 
+                 <div className="flex gap-4 items-center">
+                   {/* Left Column: Dice buttons */}
+                   <div className="w-1/2">
+                     <div className="grid grid-cols-3 gap-1.5">
+                       {[6, 8, 12, 20].map(sides => (
+                         <button
+                           key={sides}
+                           onClick={() => handleGmDiceRoll(sides)}
+                           className="h-9 skeuo-button font-bold text-xs flex items-center justify-center rounded-md"
+                         >
+                           d{sides}
+                         </button>
+                       ))}
                        <button
                          onClick={() => handleGmDiceRoll(-1)}
-                         className="w-16 h-16 skeuo-button font-bold text-lg flex items-center justify-center rounded-lg relative overflow-hidden group"
+                         className="h-9 skeuo-button font-bold text-xs flex items-center justify-center rounded-md text-purple-400"
                        >
-                         <span className="relative z-10 text-xs uppercase tracking-tighter">Cust</span>
+                         Cust
                        </button>
-                    </div>
-                  </div>
-                 
-                  <div className="h-32 flex items-stretch px-4 gap-0 bg-black/20 border-t border-white/5">
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      {gmRollState === 'rolling' ? (
-                        <div className="flex flex-col items-center animate-pulse">
-                          <span className="text-3xl font-mono font-black text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.5)]">
-                            ROLLING...
-                          </span>
-                          <span className="text-[9px] text-purple-400/60 font-bold uppercase tracking-[0.3em] mt-1">Acquiring Result</span>
-                        </div>
-                      ) : gmRollState === 'rolled' && gmDiceResult ? (
-                        <div key={gmDiceResult.time} className="flex flex-col items-center animate-in zoom-in fade-in duration-300">
-                          <span className="text-6xl font-black text-emerald-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.4)] leading-none">
-                            {gmDiceResult.value}
-                          </span>
-                          <span className="text-[10px] text-emerald-400/50 font-black uppercase tracking-[0.4em] mt-2">{gmDiceResult.type}</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center opacity-20 group-hover:opacity-40 transition-opacity">
-                          <span className="text-4xl font-mono font-black text-white italic tracking-tighter">READY</span>
-                          <span className="text-[9px] font-bold uppercase tracking-[0.4em] mt-1">Select Dice</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                       <button 
+                         onClick={() => setIsGmCustomDiceSettingsOpen(true)}
+                         className="h-9 skeuo-button flex items-center justify-center rounded-md text-white/50 hover:text-white"
+                         title="Dice Settings"
+                       >
+                         <Settings className="w-4 h-4" />
+                       </button>
+                     </div>
+                   </div>
+                   
+                   {/* Right Column: Dice Shape result (Compact, Split Layout) */}
+                   {(() => {
+                     const currentTypeLabel = gmRollState === 'rolling' 
+                       ? (gmRollingDiceType === -1 ? `d${gameState.gmCustomDiceMin}-${gameState.gmCustomDiceMax}` : `d${gmRollingDiceType}`)
+                       : (gmDiceResult ? gmDiceResult.type : '');
+                       
+                     return (
+                       <div className="w-1/2 h-20 bg-black/30 border border-white/5 rounded-md flex overflow-hidden">
+                         {/* Left Half: Dice Type */}
+                         <div className="w-1/2 h-full flex flex-col items-center justify-center border-r border-white/5 bg-black/10">
+                           <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Dice</span>
+                           <span className="text-[11px] font-mono font-bold tracking-wider text-emerald-400 uppercase truncate max-w-full px-1">
+                             {currentTypeLabel || '---'}
+                           </span>
+                         </div>
+
+                         {/* Right Half: Dice Shape */}
+                         <div className="w-1/2 h-full flex items-center justify-center relative">
+                           {gmRollState === 'rolling' ? (
+                             <div className="flex items-center justify-center scale-75 transform origin-center">
+                               <DiceShape 
+                                 type={gmRollingDiceType === 6 ? 'd6' : gmRollingDiceType === 8 ? 'd8' : gmRollingDiceType === 12 ? 'd12' : 'd20'} 
+                                 value={gmCurrentRollingValue} 
+                                 isRolling={true} 
+                                 hideTypeLabel={true}
+                                />
+                             </div>
+                           ) : gmRollState === 'rolled' && gmDiceResult ? (
+                             <div key={gmDiceResult.time} className="flex items-center justify-center scale-75 transform origin-center">
+                               <DiceShape 
+                                 type={gmRollingDiceType === 6 ? 'd6' : gmRollingDiceType === 8 ? 'd8' : gmRollingDiceType === 12 ? 'd12' : 'd20'} 
+                                 value={gmDiceResult.value} 
+                                 isRolling={false} 
+                                 hideTypeLabel={true}
+                                />
+                             </div>
+                           ) : (
+                             <span className="text-white/20 text-[10px] uppercase font-black tracking-widest">---</span>
+                           )}
+                         </div>
+                       </div>
+                     );
+                   })()}
+                 </div>
                </div>
 
                <div className="flex-1 skeuo-panel p-6 flex flex-col overflow-hidden">
@@ -1933,7 +2387,7 @@ export default function App() {
                        <Copy className="w-4 h-4" />
                      </button>
                      <button 
-                       onClick={() => setEncounterRolls([])}
+                       onClick={() => { setEncounterRolls([]); setGmCheckedEncounters([]); setGmEncounterLevel(null); }}
                        className="text-[10px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
                      >
                        Clear
@@ -2042,9 +2496,9 @@ export default function App() {
         </div>
       )}
 
-      <div className="absolute bottom-6 right-8 z-50 flex items-center gap-2">
+      <div className="absolute bottom-6 right-8 z-50 flex flex-col items-end gap-2">
         {isGmMode && (
-          <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-none shadow-lg">
+          <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-none shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
             <button 
               onClick={exportGmJson}
               className="p-1.5 rounded-sm hover:bg-white/10 text-white/50 hover:text-emerald-400 transition-colors cursor-pointer"
@@ -2075,19 +2529,255 @@ export default function App() {
             />
           </div>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); setIsGmMode(!isGmMode); setIsEditMode(false); }}
-          title={isGmMode ? "Exit GM Mode" : "Enter GM Mode"}
-          className={cn(
-            "px-4 py-2 flex items-center justify-center rounded-none font-bold tracking-widest text-xs uppercase outline-none transition-all cursor-pointer",
-            isGmMode ? "bg-gradient-to-b from-purple-800 to-purple-950 border border-purple-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-purple-400" : "skeuo-button text-white/50 hover:text-white"
-          )}
-        >
-          GM Mode
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsNetworkModalOpen(true); }}
+            title="Network Settings"
+            className={cn(
+              "p-2 flex items-center justify-center rounded-none outline-none transition-all cursor-pointer",
+              isNetworkActive ? "bg-emerald-950/80 border border-emerald-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-emerald-400" : "skeuo-button text-white/50 hover:text-white"
+            )}
+          >
+            <Wifi className="w-4 h-4" />
+          </button>
+          <button
+            disabled={isNetworkActive}
+            onClick={(e) => { e.stopPropagation(); setIsGmMode(!isGmMode); setIsEditMode(false); }}
+            title={
+              isNetworkActive 
+                ? `Rôle verrouillé par la connexion réseau (${networkConfig.role === 'gm' ? 'GM' : 'Player'})` 
+                : (isGmMode ? "Exit GM Mode" : "Enter GM Mode")
+            }
+            className={cn(
+              "px-4 py-2 flex items-center justify-center rounded-none font-bold tracking-widest text-xs uppercase outline-none transition-all cursor-pointer",
+              isGmMode 
+                ? "bg-gradient-to-b from-purple-800 to-purple-950 border border-purple-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-purple-400" 
+                : "skeuo-button text-white/50 hover:text-white",
+              isNetworkActive && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            {isNetworkActive ? (networkConfig.role === 'gm' ? "As GM (Online)" : "As Player (Online)") : "GM Mode"}
+          </button>
+        </div>
       </div>
 
       {/* Modals */}
+      {isNetworkModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="skuo-modal max-w-sm w-full p-6 animate-in zoom-in duration-200">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-blue-400 font-bold tracking-widest uppercase">Network Settings</h3>
+                <button onClick={() => setIsNetworkModalOpen(false)} className="text-white/50 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+             </div>
+             
+             <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Room Key</label>
+                  <input
+                    type="text"
+                    disabled={isNetworkActive}
+                    value={networkConfig.roomKey}
+                    onChange={(e) => setNetworkConfig(prev => ({ ...prev, roomKey: e.target.value }))}
+                    className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors disabled:opacity-50"
+                    placeholder="Enter shared room key"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Connect Profile As (Rôle)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      disabled={isNetworkActive}
+                      onClick={() => setNetworkConfig(prev => ({ ...prev, role: 'player' }))}
+                      className={cn(
+                        "py-2 px-3 border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer rounded-none",
+                        networkConfig.role === 'player'
+                          ? "bg-emerald-950/40 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white"
+                      )}
+                    >
+                      <User className="w-4 h-4" />
+                      As Player
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isNetworkActive}
+                      onClick={() => setNetworkConfig(prev => ({ ...prev, role: 'gm' }))}
+                      className={cn(
+                        "py-2 px-3 border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer rounded-none",
+                        networkConfig.role === 'gm'
+                          ? "bg-purple-950/40 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.2)]"
+                          : "bg-white/5 border-white/10 text-white/50 hover:text-white"
+                      )}
+                    >
+                      <Shield className="w-4 h-4" />
+                      As GM
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Pseudo</label>
+                  <input
+                    type="text"
+                    disabled={isNetworkActive}
+                    value={networkConfig.pseudo}
+                    onChange={(e) => setNetworkConfig(prev => ({ ...prev, pseudo: e.target.value }))}
+                    className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors disabled:opacity-50"
+                    placeholder="Your display name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">PIN (5 letters uppercase)</label>
+                  <input
+                    type="text"
+                    disabled={isNetworkActive}
+                    maxLength={5}
+                    value={networkConfig.pin}
+                    onChange={(e) => setNetworkConfig(prev => ({ ...prev, pin: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') }))}
+                    className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors uppercase disabled:opacity-50"
+                    placeholder="ABCDE"
+                  />
+                </div>
+                
+                {typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Security Passcode (Code d'accès)</label>
+                    <input
+                      type="password"
+                      disabled={isNetworkActive}
+                      value={networkConfig.accessCode}
+                      onChange={(e) => {
+                        setNetworkError(null);
+                        setNetworkConfig(prev => ({ ...prev, accessCode: e.target.value }));
+                      }}
+                      className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors disabled:opacity-50"
+                      placeholder="Enter security passcode"
+                    />
+                  </div>
+                )}
+
+                {networkError && (
+                  <div className="text-red-400 text-xs font-bold bg-red-950/40 border border-red-500/30 p-2.5 rounded-none text-center">
+                    {networkError}
+                  </div>
+                )}
+                       <div className="pt-4 flex gap-3">
+                  {!isNetworkActive ? (
+                    <button
+                      onClick={async () => {
+                        const isPlayerRole = networkConfig.role === 'player';
+                        const isGmRole = networkConfig.role === 'gm';
+                        
+                        const isRoomKeyValid = !!networkConfig.roomKey;
+                        const isPseudoValid = !!networkConfig.pseudo;
+                        const isPinValid = networkConfig.pin.length === 5;
+                        
+                        if (isRoomKeyValid && isPseudoValid && isPinValid) {
+                          const requiredCode = (import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY;
+                          if (requiredCode && networkConfig.accessCode !== requiredCode) {
+                            setNetworkError("Code d'accès invalide.");
+                            return;
+                          }
+                          
+                          setIsConnecting(true);
+                          setNetworkError(null);
+                          
+                          const roomId = networkConfig.roomKey;
+                          
+                          if (isPlayerRole) {
+                            // Check if the GM has created the room first
+                            try {
+                              const gmDocRef = doc(db, `rooms/${roomId}/gm/state`);
+                              const gmSnap = await getDoc(gmDocRef);
+                              if (!gmSnap.exists()) {
+                                setNetworkError("Ce salon n'existe pas encore. Il doit d'abord être créé par un GM.");
+                                setIsConnecting(false);
+                                return;
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              setNetworkError("Erreur lors de la vérification du salon.");
+                              setIsConnecting(false);
+                              handleFirestoreError(e, OperationType.GET, `rooms/${roomId}/gm/state`);
+                              return;
+                            }
+                          } else if (isGmRole) {
+                            // GM immediately initializes/creates the room state so players can join
+                            try {
+                              await setDoc(doc(db, `rooms/${roomId}/gm/state`), {
+                                rollState: gmRollState,
+                                diceResult: JSON.stringify(gmDiceResult),
+                                checkedEncounters: JSON.stringify(gmCheckedEncounters),
+                                encounterRolls: JSON.stringify(encounterRolls),
+                                encounterLevel: gmEncounterLevel
+                              }, { merge: true });
+                            } catch (e) {
+                              console.error(e);
+                              setNetworkError("Erreur lors de la création du salon.");
+                              setIsConnecting(false);
+                              handleFirestoreError(e, OperationType.WRITE, `rooms/${roomId}/gm/state`);
+                              return;
+                            }
+                          }
+                          
+                          // Auto set GM Mode based on role selected
+                          setIsGmMode(isGmRole);
+                          setIsEditMode(false);
+                          
+                          setIsNetworkActive(true);
+                          setIsNetworkModalOpen(false);
+                          setNetworkError(null);
+                          setIsConnecting(false);
+                        }
+                      }}
+                      disabled={
+                        isConnecting ||
+                        !networkConfig.roomKey || 
+                        !networkConfig.pseudo || 
+                        networkConfig.pin.length !== 5 ||
+                        (!!(import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY && !networkConfig.accessCode)
+                      }
+                      className="flex-1 skeuo-button-blue py-2.5 rounded-none font-bold tracking-widest uppercase text-xs disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isConnecting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        networkConfig.role === 'gm' ? 'Create' : 'Join'
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (networkConfig.roomKey && networkConfig.pin) {
+                          deleteDoc(doc(db, `rooms/${networkConfig.roomKey}/players/${networkConfig.pin}`))
+                            .catch((error) => {
+                              console.error(error);
+                              handleFirestoreError(error, OperationType.DELETE, `rooms/${networkConfig.roomKey}/players/${networkConfig.pin}`);
+                            });
+                        }
+                        setIsNetworkActive(false);
+                        setNetworkPlayers({});
+                        setNetworkGmState(null);
+                        setActiveViewId('me');
+                      }}
+                      className="flex-1 bg-red-950/80 border border-red-500/50 hover:bg-red-900/80 text-red-400 py-2.5 rounded-none font-bold tracking-widest uppercase text-xs transition-colors cursor-pointer"
+                    >
+                      Disconnect & Erase
+                    </button>
+                  )}
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+      
       {isGmCustomDiceSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="skuo-modal max-w-sm w-full p-6 animate-in zoom-in duration-200">
@@ -2602,7 +3292,7 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
             });
             setData(prev => ({ ...prev, image: base64Data }));
           } catch (fetchErr) {
-            console.error("Failed to fetch Puter image as blob, using raw src", fetchErr);
+            console.warn("Failed to fetch Puter image as blob, using raw src", fetchErr);
             setData(prev => ({ ...prev, image: imgElement.src }));
           }
         } else {
@@ -2610,7 +3300,7 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
         }
       }
     } catch (err: any) {
-      console.error("AI Generation error", err);
+      console.warn("AI Generation warning:", err);
       let errorMsg = "An error occurred";
       let errStr = "";
       
@@ -3368,7 +4058,7 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
   );
 }
 
-const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean, colorOverride?: string }> = ({ type, value, isRolling, colorOverride }) => {
+const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, isRolling: boolean, colorOverride?: string, hideTypeLabel?: boolean }> = ({ type, value, isRolling, colorOverride, hideTypeLabel }) => {
   const getColors = () => {
     if (colorOverride === '#10b981') {
       return { primary: '#10b981', light: '#34d399', dark: '#047857', deepest: '#064e3b', glow: 'rgba(52,211,153,0.7)' };
@@ -3610,15 +4300,17 @@ const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, is
   return (
     <div className="relative flex flex-col items-center justify-center">
       {/* Dice type displayed above the die */}
-      <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-400/90 uppercase mb-2 bg-emerald-950/40 px-2.5 py-0.5 border border-emerald-500/20 rounded-none select-none">
-        {type}
-      </span>
+      {!hideTypeLabel && (
+        <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-400/90 uppercase mb-2 bg-emerald-950/40 px-2.5 py-0.5 border border-emerald-500/20 rounded-none select-none">
+          {type}
+        </span>
+      )}
 
       <div className="relative w-24 h-24 flex items-center justify-center">
         {/* SVG Shape background */}
         <div className={cn(
           "absolute inset-0 flex items-center justify-center",
-          isRolling ? "animate-spin" : "animate-pulse"
+          isRolling ? "animate-spin" : ""
         )}>
           {getSvg(colorClass)}
         </div>

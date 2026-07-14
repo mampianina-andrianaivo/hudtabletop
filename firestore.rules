@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll(['pseudo', 'slots', 'rollState', 'role', 'isGm']) &&
+        data.pseudo is string && data.pseudo.size() <= 50 &&
+        data.role is string && data.role.size() <= 10 &&
+        data.isGm is bool &&
+        data.slots is string && data.slots.size() <= 50000 &&
+        data.rollState is string && data.rollState.size() <= 20 &&
+        (
+          !('rolledValue' in data.keys()) ||
+          (data.rolledValue is number || data.rolledValue == null)
+        );
+    }
+
+    function isValidGMState(data) {
+      return data.keys().hasAll(['rollState', 'diceResult', 'checkedEncounters']) &&
+        data.rollState is string && data.rollState.size() <= 20 &&
+        data.diceResult is string && data.diceResult.size() <= 5000 &&
+        data.checkedEncounters is string && data.checkedEncounters.size() <= 5000 &&
+        (
+          !('encounterRolls' in data.keys()) ||
+          data.encounterRolls == null ||
+          (data.encounterRolls is string && data.encounterRolls.size() <= 20000)
+        ) &&
+        (
+          !('encounterLevel' in data.keys()) ||
+          data.encounterLevel == null ||
+          (data.encounterLevel is string && data.encounterLevel.size() <= 10)
+        );
+    }
+
+    match /rooms/{roomId}/players/{playerCode} {
+      allow get: if isValidId(roomId) && isValidId(playerCode);
+      allow list: if isValidId(roomId);
+      
+      allow create: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
+                    isValidPlayer(incoming()) && incoming().keys().size() <= 6;
+                    
+      allow update: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
+                    isValidPlayer(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['pseudo', 'slots', 'rollState', 'rolledValue', 'role', 'isGm']);
+                    
+      allow delete: if isValidId(roomId) && isValidId(playerCode);
+    }
+    
+    match /rooms/{roomId}/gm/state {
+      allow read: if isValidId(roomId);
+      allow create: if isValidId(roomId) && isValidGMState(incoming()) && incoming().keys().size() <= 5;
+      allow update: if isValidId(roomId) && isValidGMState(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['rollState', 'diceResult', 'checkedEncounters', 'encounterRolls', 'encounterLevel']);
+    }
+  }
+}

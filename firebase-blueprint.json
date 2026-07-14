@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Player": {
+      "title": "Player",
+      "description": "A player in a game room",
+      "type": "object",
+      "properties": {
+        "pseudo": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "isGm": {
+          "type": "boolean"
+        },
+        "slots": {
+          "type": "string",
+          "maxLength": 50000
+        },
+        "rollState": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "rolledValue": {
+          "type": "number"
+        }
+      },
+      "required": ["pseudo", "slots", "rollState", "role", "isGm"]
+    },
+    "GMState": {
+      "title": "GM State",
+      "description": "The state of the GM in a room",
+      "type": "object",
+      "properties": {
+        "rollState": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "diceResult": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "checkedEncounters": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "encounterRolls": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "encounterLevel": {
+          "type": "string",
+          "maxLength": 10
+        }
+      },
+      "required": ["rollState", "diceResult", "checkedEncounters"]
+    }
+  },
+  "firestore": {
+    "rooms/{roomId}/players/{playerCode}": {
+      "schema": {
+        "$ref": "#/entities/Player"
+      },
+      "description": "Players in a specific room"
+    },
+    "rooms/{roomId}/gm/state": {
+      "schema": {
+        "$ref": "#/entities/GMState"
+      },
+      "description": "GM state in a specific room"
+    }
+  }
+}

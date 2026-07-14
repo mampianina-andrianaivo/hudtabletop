@@ -49,8 +49,7 @@ service cloud.firestore {
     }
 
     match /rooms/{roomId}/players/{playerCode} {
-      allow get: if isValidId(roomId) && isValidId(playerCode);
-      allow list: if isValidId(roomId);
+      allow read: if isValidId(roomId);
       
       allow create: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
                     isValidPlayer(incoming()) && incoming().keys().size() <= 6;

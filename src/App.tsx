@@ -317,13 +317,44 @@ export default function App() {
   
   // Network state
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
-  const [networkConfig, setNetworkConfig] = useState({ roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' });
-  const [isNetworkActive, setIsNetworkActive] = useState(false);
+  const [networkConfig, setNetworkConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tabletop-hud-network-config');
+      return saved ? JSON.parse(saved) : { roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' };
+    } catch {
+      return { roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' };
+    }
+  });
+  const [isNetworkActive, setIsNetworkActive] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tabletop-hud-network-active');
+      return saved ? JSON.parse(saved) === true : false;
+    } catch {
+      return false;
+    }
+  });
   const [networkPlayers, setNetworkPlayers] = useState<Record<string, any>>({});
   const [networkGmState, setNetworkGmState] = useState<any>(null);
   const [activeViewId, setActiveViewId] = useState<string>('me');
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Sync network state changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('tabletop-hud-network-config', JSON.stringify(networkConfig));
+    } catch (e) {
+      console.error('Failed to save networkConfig to localStorage', e);
+    }
+  }, [networkConfig]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tabletop-hud-network-active', JSON.stringify(isNetworkActive));
+    } catch (e) {
+      console.error('Failed to save isNetworkActive to localStorage', e);
+    }
+  }, [isNetworkActive]);
 
   useEffect(() => {
     if (!isNetworkModalOpen) {
@@ -416,7 +447,32 @@ export default function App() {
   }, [gameState, isLoaded]);
 
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isGmMode, setIsGmMode] = useState(false);
+  const [isGmMode, setIsGmMode] = useState(() => {
+    try {
+      const activeSaved = localStorage.getItem('tabletop-hud-network-active');
+      const active = activeSaved ? JSON.parse(activeSaved) === true : false;
+      if (active) {
+        const configSaved = localStorage.getItem('tabletop-hud-network-config');
+        const config = configSaved ? JSON.parse(configSaved) : null;
+        if (config && config.role === 'gm') {
+          return true;
+        }
+      }
+      const saved = localStorage.getItem('tabletop-hud-gm-mode');
+      return saved ? JSON.parse(saved) === true : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Sync isGmMode to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('tabletop-hud-gm-mode', JSON.stringify(isGmMode));
+    } catch (e) {
+      console.error('Failed to save isGmMode to localStorage', e);
+    }
+  }, [isGmMode]);
   const [isGmSettingsOpen, setIsGmSettingsOpen] = useState(false);
   const [isGmCustomDiceSettingsOpen, setIsGmCustomDiceSettingsOpen] = useState(false);
   const [gmNotesTab, setGmNotesTab] = useState<'a' | 'b'>('a');
@@ -501,7 +557,7 @@ export default function App() {
   }, [isNetworkActive, networkConfig.roomKey]);
 
   useEffect(() => {
-    if (!isNetworkActive || !networkConfig.roomKey || !networkConfig.pin) return;
+    if (!isLoaded || !isNetworkActive || !networkConfig.roomKey || !networkConfig.pin) return;
     
     const roomId = networkConfig.roomKey;
     const playerCode = networkConfig.pin;
@@ -521,10 +577,10 @@ export default function App() {
     }, 500);
     
     return () => clearTimeout(timeout);
-  }, [gameState, rollState, rolledValue, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role]);
+  }, [gameState, rollState, rolledValue, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role, isLoaded]);
 
   useEffect(() => {
-    if (!isNetworkActive || !networkConfig.roomKey || !isGmMode) return;
+    if (!isLoaded || !isNetworkActive || !networkConfig.roomKey || !isGmMode) return;
     
     const roomId = networkConfig.roomKey;
     
@@ -542,7 +598,7 @@ export default function App() {
     }, 500);
     
     return () => clearTimeout(timeout);
-  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, isGmMode]);
+  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, isGmMode, isLoaded]);
   // --- END NETWORK SYNC HOOKS ---
 
   const clearPressTimers = () => {

@@ -47,7 +47,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  alert('Network Error: ' + errInfo.error + ' (Path: ' + path + ')');
 }
 
 function cn(...inputs: ClassValue[]) {

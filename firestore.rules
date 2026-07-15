@@ -23,7 +23,7 @@ service cloud.firestore {
         data.pseudo is string && data.pseudo.size() <= 50 &&
         data.role is string && data.role.size() <= 10 &&
         data.isGm is bool &&
-        data.slots is string && data.slots.size() <= 50000 &&
+        data.slots is string && data.slots.size() <= 1048576 &&
         data.rollState is string && data.rollState.size() <= 20 &&
         (
           !('rolledValue' in data.keys()) ||
@@ -52,11 +52,10 @@ service cloud.firestore {
       allow read: if isValidId(roomId);
       
       allow create: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
-                    isValidPlayer(incoming()) && incoming().keys().size() <= 6;
+                    isValidPlayer(incoming());
                     
       allow update: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
-                    isValidPlayer(incoming()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['pseudo', 'slots', 'rollState', 'rolledValue', 'role', 'isGm']);
+                    isValidPlayer(incoming());
                     
       allow delete: if isValidId(roomId) && isValidId(playerCode);
     }

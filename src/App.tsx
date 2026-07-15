@@ -562,12 +562,20 @@ export default function App() {
     const roomId = networkConfig.roomKey;
     const playerCode = networkConfig.pin;
     
+    // Strip large data URIs from network sync to prevent exceeding Firestore 1MB limit
+    const syncGameState = {
+      ...gameState,
+      characterImage: gameState.characterImage?.startsWith('data:') ? null : gameState.characterImage,
+      leftSlots: gameState.leftSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
+      rightSlots: gameState.rightSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
+    };
+    
     const timeout = setTimeout(() => {
       setDoc(doc(db, `rooms/${roomId}/players/${playerCode}`), {
         pseudo: networkConfig.pseudo,
         role: networkConfig.role,
         isGm: networkConfig.role === 'gm',
-        slots: JSON.stringify(gameState),
+        slots: JSON.stringify(syncGameState),
         rollState: rollState,
         rolledValue: rolledValue
       }, { merge: true }).catch((error) => {

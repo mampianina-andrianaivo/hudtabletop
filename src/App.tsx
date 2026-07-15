@@ -318,11 +318,24 @@ export default function App() {
   // Network state
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [networkConfig, setNetworkConfig] = useState(() => {
+    const generatePin = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let result = '';
+      for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
     try {
       const saved = localStorage.getItem('tabletop-hud-network-config');
-      return saved ? JSON.parse(saved) : { roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.pin || parsed.pin.length !== 5) parsed.pin = generatePin();
+        return parsed;
+      }
+      return { roomKey: '', pseudo: '', pin: generatePin(), accessCode: '', role: 'player' as 'player' | 'gm' };
     } catch {
-      return { roomKey: '', pseudo: '', pin: '', accessCode: '', role: 'player' as 'player' | 'gm' };
+      return { roomKey: '', pseudo: '', pin: generatePin(), accessCode: '', role: 'player' as 'player' | 'gm' };
     }
   });
   const [isNetworkActive, setIsNetworkActive] = useState(() => {
@@ -562,12 +575,13 @@ export default function App() {
     const roomId = networkConfig.roomKey;
     const playerCode = networkConfig.pin;
     
-    // Strip large data URIs from network sync to prevent exceeding Firestore 1MB limit
+    // Strip large data URIs and API keys from network sync
     const syncGameState = {
       ...gameState,
       characterImage: gameState.characterImage?.startsWith('data:') ? null : gameState.characterImage,
       leftSlots: gameState.leftSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
       rightSlots: gameState.rightSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
+      geminiApiKey: undefined,
     };
     
     const timeout = setTimeout(() => {
@@ -1095,7 +1109,36 @@ export default function App() {
   };
 
   // --- Render Helpers ---
-  const activeGameState = activeViewId === 'me' ? gameState : (networkPlayers[activeViewId] ? JSON.parse(networkPlayers[activeViewId].slots) : gameState);
+  const parsedRemoteState = (activeViewId !== 'me' && networkPlayers[activeViewId]) ? JSON.parse(networkPlayers[activeViewId].slots) : null;
+  const activeGameState = parsedRemoteState ? {
+    ...parsedRemoteState,
+    hudColor: gameState.hudColor,
+    slotScale: gameState.slotScale,
+    slotOffsetY: gameState.slotOffsetY,
+    characterScale: gameState.characterScale,
+    characterOffsetY: gameState.characterOffsetY,
+    isImmersiveMode: gameState.isImmersiveMode,
+    useStatBars: gameState.useStatBars,
+    statBarsMax: gameState.statBarsMax,
+    slotTextSize: gameState.slotTextSize,
+    charStatsTextSize: gameState.charStatsTextSize,
+    imageService: gameState.imageService,
+    puterModel: gameState.puterModel,
+    geminiApiKey: gameState.geminiApiKey,
+    geminiGlobalPrompt: gameState.geminiGlobalPrompt,
+    showHp: gameState.showHp,
+    showChakra: gameState.showChakra,
+    showOrange: gameState.showOrange,
+    showViolet: gameState.showViolet,
+    counterHp: gameState.counterHp,
+    counterChakra: gameState.counterChakra,
+    counterOrange: gameState.counterOrange,
+    counterViolet: gameState.counterViolet,
+    labelHp: gameState.labelHp,
+    labelChakra: gameState.labelChakra,
+    labelOrange: gameState.labelOrange,
+    labelViolet: gameState.labelViolet,
+  } : gameState;
   const activeRollState = activeViewId === 'me' ? rollState : (networkPlayers[activeViewId]?.rollState || 'idle');
   const activeRolledValue = activeViewId === 'me' ? rolledValue : (networkPlayers[activeViewId]?.rolledValue || null);
   
@@ -2253,7 +2296,7 @@ export default function App() {
                     )
               )}
             >
-              {isNetworkActive ? (networkConfig.role === 'gm' ? `${networkConfig.pseudo || 'ME'} ★` : networkConfig.pseudo || 'ME') : 'ME'}
+              {isNetworkActive ? (networkConfig.pseudo || 'ME') : 'ME'}
             </button>
             
             {isNetworkActive && networkGmState && (
@@ -2266,31 +2309,25 @@ export default function App() {
                     : "skeuo-button text-purple-400/50 hover:text-purple-400 border-white/10"
                 )}
               >
-                GM
+                GM <Star className="w-3 h-3 text-purple-400 inline-block ml-1 -mt-0.5" fill="currentColor" />
               </button>
             )}
             
             {isNetworkActive && Object.entries(networkPlayers).map(([code, player]) => {
               const isPlayerGm = (player as any).role === 'gm' || (player as any).isGm;
               return (
-                code !== networkConfig.pin && (
+                code !== networkConfig.pin && !isPlayerGm && (
                   <button
                     key={code}
                     onClick={() => setActiveViewId(code)}
                     className={cn(
                       "px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-none border transition-all cursor-pointer outline-none min-w-[80px]",
                       activeViewId === code
-                        ? (isPlayerGm 
-                            ? "bg-purple-950/80 border-purple-500 text-purple-400 shadow-[inset_0_2px_4px_rgba(168,85,247,0.8)]"
-                            : "bg-emerald-950/80 border-emerald-500 text-emerald-400 shadow-[inset_0_2px_4px_rgba(16,185,129,0.8)]"
-                          )
-                        : (isPlayerGm
-                            ? "skeuo-button text-purple-400/50 hover:text-purple-400 border-white/10"
-                            : "skeuo-button text-white/50 hover:text-white border-white/10"
-                          )
+                        ? "bg-emerald-950/80 border-emerald-500 text-emerald-400 shadow-[inset_0_2px_4px_rgba(16,185,129,0.8)]"
+                        : "skeuo-button text-white/50 hover:text-white border-white/10"
                     )}
                   >
-                    {(player as any).pseudo || '???'}{isPlayerGm ? ' ★' : ''}
+                    {(player as any).pseudo || '???'}
                   </button>
                 )
               );
@@ -2695,7 +2732,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">PIN (5 letters uppercase)</label>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Code Secret (Généré Auto - 5 lettres)</label>
                   <input
                     type="text"
                     disabled={isNetworkActive}
@@ -2705,6 +2742,7 @@ export default function App() {
                     className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors uppercase disabled:opacity-50"
                     placeholder="ABCDE"
                   />
+                  <p className="text-[9px] text-white/40 mt-1">Identifiant unique. Ne le copiez pas sur un autre appareil.</p>
                 </div>
                 
                 {typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY && (

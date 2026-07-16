@@ -3411,34 +3411,38 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
 
       if (useGemini) {
         const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite-image',
-          contents: {
-            parts: [{ text: promptText }]
-          },
-          config: {
-            imageConfig: {
-              aspectRatio: "1:1"
+        try {
+          const response = await ai.models.generateImages({
+            model: 'imagen-3.0-generate-001',
+            prompt: promptText,
+            config: {
+              numberOfImages: 1,
+              aspectRatio: "1:1",
+              outputMimeType: "image/jpeg"
             }
+          });
+          
+          let base64 = "";
+          if (response.generatedImages && response.generatedImages.length > 0) {
+            base64 = response.generatedImages[0].image?.imageBytes || "";
           }
-        });
-        
-        let base64 = "";
-        if (response.candidates && response.candidates.length > 0 && response.candidates[0].content.parts) {
-          for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData && part.inlineData.data) {
-              base64 = part.inlineData.data;
-              break;
-            }
+          
+          if (base64) {
+            const rawDataUrl = `data:image/jpeg;base64,${base64}`;
+            const compressed = await compressImage(rawDataUrl);
+            setData(prev => ({ ...prev, image: compressed }));
+          } else {
+            setGenerateError("Failed to generate image.");
           }
-        }
-        
-        if (base64) {
-          const rawDataUrl = `data:image/jpeg;base64,${base64}`;
-          const compressed = await compressImage(rawDataUrl);
-          setData(prev => ({ ...prev, image: compressed }));
-        } else {
-          setGenerateError("Failed to generate image.");
+        } catch (err: any) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          if (errorMsg.includes("429")) {
+            setGenerateError("Error 429: Too many requests. Your API key might have hit a quota limit or billing is required for image generation.");
+          } else if (errorMsg.includes("403")) {
+            setGenerateError("Error 403: API Key invalid or restricted.");
+          } else {
+            setGenerateError(`AI Error: ${errorMsg}`);
+          }
         }
       } else {
         // Use Puter.js

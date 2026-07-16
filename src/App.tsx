@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GameState, SlotData, CustomStat, Requirement } from './types';
-import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield, Star } from 'lucide-react';
+import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield, Star, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { db } from './firebase';
@@ -380,6 +380,52 @@ export default function App() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDeleteAllRooms, setShowDeleteAllRooms] = useState(false);
   const [deleteAllRoomsAuth, setDeleteAllRoomsAuth] = useState('');
+
+  const [liveGmNotes2, setLiveGmNotes2] = useState<string>('');
+  const hasInitializedGmNotes2 = useRef(false);
+
+  useEffect(() => {
+    if (!isNetworkActive) {
+      hasInitializedGmNotes2.current = false;
+      setLiveGmNotes2('');
+    }
+  }, [isNetworkActive]);
+
+  useEffect(() => {
+    if (networkGmState && networkGmState.gmNotes2 !== undefined) {
+      const dbVal = networkGmState.gmNotes2 || '';
+      setLiveGmNotes2(dbVal);
+      if (!hasInitializedGmNotes2.current) {
+        hasInitializedGmNotes2.current = true;
+        setGameState(prev => {
+          if (prev.gmNotes2 !== dbVal) {
+            return { ...prev, gmNotes2: dbVal };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [networkGmState]);
+
+  const handlePublishGmNotes2 = async (customValue?: string) => {
+    if (!isNetworkActive || !networkConfig.roomKey) return;
+    const val = customValue !== undefined ? customValue : (gameState.gmNotes2 || '');
+    try {
+      const roomId = networkConfig.roomKey;
+      await setDoc(doc(db, `rooms/${roomId}/gm/state`), {
+        gmNotes2: val
+      }, { merge: true });
+      setLiveGmNotes2(val);
+    } catch (error) {
+      console.error("Failed to publish GM Notes 2:", error);
+      handleFirestoreError(error, OperationType.WRITE, `rooms/${networkConfig.roomKey}/gm/state`);
+    }
+  };
+
+  const handleUndoGmNotes2 = () => {
+    setGameState(prev => ({ ...prev, gmNotes2: liveGmNotes2 }));
+    handlePublishGmNotes2(liveGmNotes2);
+  };
 
   // Sync network state changes to localStorage
   useEffect(() => {
@@ -1134,6 +1180,11 @@ export default function App() {
   };
 
   // --- Render Helpers ---
+  const isGmUser = isNetworkActive && networkConfig.role === 'gm';
+  const showNotesArea = !isGmUser || (activeViewId === 'gm');
+  const isViewingGm = activeViewId === 'gm';
+  const isGmNotes2Modified = (gameState.gmNotes2 || '') !== liveGmNotes2;
+
   const parsedRemoteState = (activeViewId !== 'me' && networkPlayers[activeViewId]) ? JSON.parse(networkPlayers[activeViewId].slots) : null;
   const activeGameState = parsedRemoteState ? {
     ...parsedRemoteState,
@@ -1629,7 +1680,10 @@ export default function App() {
           <div className="flex flex-row items-center justify-center h-full w-full max-w-[90rem] gap-12">
             {/* Left Slots */}
             <div 
-              className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
+              className={cn(
+                "w-[32%] max-w-[30rem] h-full relative z-10",
+                isEditMode && activeViewId === 'me' && "transition-transform duration-200"
+              )}
               style={{
                 transform: `translateX(${activeGameState.slotOffsetX ?? 0}px) scale(${activeGameState.slotScale ?? 1}) translateY(${activeGameState.slotOffsetY ?? 0}px)`,
                 transformOrigin: 'center center'
@@ -1652,7 +1706,10 @@ export default function App() {
 
             {/* Center Area */}
             <div 
-              className="flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full transition-transform duration-200 relative z-20"
+              className={cn(
+                "flex flex-col items-center justify-center w-auto min-w-[12rem] px-2 md:px-4 flex-shrink-0 h-full relative z-20",
+                isEditMode && activeViewId === 'me' && "transition-transform duration-200"
+              )}
               style={{
                 transform: `scale(${activeGameState.characterScale ?? 1}) translateY(${activeGameState.characterOffsetY ?? 0}px)`,
                 transformOrigin: 'center center'
@@ -2139,7 +2196,10 @@ export default function App() {
 
           {/* Right Slots */}
           <div 
-            className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
+            className={cn(
+              "w-[32%] max-w-[30rem] h-full relative z-10",
+              isEditMode && activeViewId === 'me' && "transition-transform duration-200"
+            )}
             style={{
               transform: `translateX(-${activeGameState.slotOffsetX ?? 0}px) scale(${activeGameState.slotScale ?? 1}) translateY(${activeGameState.slotOffsetY ?? 0}px)`,
               transformOrigin: 'center center'
@@ -2163,27 +2223,81 @@ export default function App() {
         )}
 
       {/* Notes Area (Far Right) */}
-      <div 
-        className="absolute right-0 top-8 bottom-8 w-64 z-10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-full h-full skeuo-panel border-r-0 p-5 flex flex-col backdrop-blur-md">
-          <div className="text-blue-400 font-bold tracking-wider text-xs mb-3 flex items-center gap-2 select-none relative z-10">
-            <Edit2 className="w-3 h-3" />
-            Player Notes
-          </div>
-          <div className="flex-1 skeuo-textarea-inset p-3 rounded-none flex relative z-10">
-            <textarea 
-              spellCheck={false}
-              className="flex-1 bg-transparent text-gray-200 text-sm resize-none focus:outline-none placeholder-white/10 leading-relaxed" 
-              placeholder="Write your campaign notes here..."
-              value={activeGameState.playerNotes}
-              onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
-              readOnly={activeViewId !== 'me'}
-            />
+      {showNotesArea && (
+        <div 
+          className="absolute right-0 top-8 bottom-8 w-64 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-full h-full skeuo-panel border-r-0 p-5 flex flex-col backdrop-blur-md">
+            {isViewingGm ? (
+              // GM Notes 2 (Public)
+              <>
+                <div className="text-purple-400 font-bold tracking-wider text-xs mb-3 flex items-center justify-between select-none relative z-10">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3 h-3 text-purple-400" />
+                    <span>GM Notes 2 (Public)</span>
+                  </div>
+                </div>
+                
+                <div className="flex-1 skeuo-textarea-inset p-3 rounded-none flex flex-col relative z-10 mb-3 overflow-hidden">
+                  <textarea 
+                    spellCheck={false}
+                    className="flex-1 bg-transparent text-gray-200 text-sm resize-none focus:outline-none placeholder-white/10 leading-relaxed font-mono" 
+                    placeholder={isGmUser ? "Write public notes here..." : "No public notes from GM yet..."}
+                    value={isGmUser ? (gameState.gmNotes2 || '') : (networkGmState?.gmNotes2 || '')}
+                    onChange={isGmUser ? (e) => setGameState(prev => ({...prev, gmNotes2: e.target.value})) : undefined}
+                    readOnly={!isGmUser}
+                  />
+                </div>
+
+                {isGmUser && isNetworkActive && (
+                  <div className="flex gap-2 relative z-10">
+                    <button
+                      onClick={() => handlePublishGmNotes2()}
+                      className={cn(
+                        "flex-1 py-1.5 text-[10px] font-black tracking-widest uppercase transition-all duration-200 border outline-none cursor-pointer",
+                        isGmNotes2Modified 
+                          ? "bg-red-950/80 border-red-500 text-red-400 hover:bg-red-900" 
+                          : "bg-emerald-950/80 border-emerald-500 text-emerald-400 cursor-default"
+                      )}
+                      title={isGmNotes2Modified ? "Send updates to players" : "All changes published"}
+                    >
+                      {isGmNotes2Modified ? "Send" : "Published"}
+                    </button>
+                    
+                    {isGmNotes2Modified && (
+                      <button
+                        onClick={handleUndoGmNotes2}
+                        className="px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase transition-all duration-200 bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 outline-none cursor-pointer"
+                        title="Revert to last published version"
+                      >
+                        Undo
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              // Player Notes (Always personal notes of current player, only available to non-GM players)
+              <>
+                <div className="text-blue-400 font-bold tracking-wider text-xs mb-3 flex items-center gap-2 select-none relative z-10">
+                  <Edit2 className="w-3 h-3" />
+                  Player Notes
+                </div>
+                <div className="flex-1 skeuo-textarea-inset p-3 rounded-none flex relative z-10">
+                  <textarea 
+                    spellCheck={false}
+                    className="flex-1 bg-transparent text-gray-200 text-sm resize-none focus:outline-none placeholder-white/10 leading-relaxed" 
+                    placeholder="Write your campaign notes here..."
+                    value={gameState.playerNotes || ''}
+                    onChange={(e) => setGameState(prev => ({...prev, playerNotes: e.target.value}))}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
+      )}
       </div>
 
       {/* Bottom Info Panel */}
@@ -2597,9 +2711,37 @@ export default function App() {
                </div>
 
                <div className="h-[40%] skeuo-panel p-6 flex flex-col min-h-0 overflow-hidden">
-                 <h2 className="text-purple-400 font-bold tracking-widest uppercase mb-4 text-sm flex items-center justify-between">
-                   GM Notes 2
-                 </h2>
+                 <div className="flex justify-between items-center mb-3">
+                   <h2 className="text-purple-400 font-bold tracking-widest uppercase text-sm">
+                     GM Notes 2 (Public)
+                   </h2>
+                   {isNetworkActive && (
+                     <div className="flex gap-2">
+                       <button
+                         onClick={() => handlePublishGmNotes2()}
+                         className={cn(
+                           "px-3 py-1 text-[10px] font-black tracking-widest uppercase transition-all duration-200 border outline-none cursor-pointer",
+                           isGmNotes2Modified 
+                             ? "bg-red-950/80 border-red-500 text-red-400 hover:bg-red-900" 
+                              : "bg-emerald-950/80 border-emerald-500 text-emerald-400 cursor-default"
+                         )}
+                         title={isGmNotes2Modified ? "Send updates to players" : "All changes published"}
+                       >
+                         {isGmNotes2Modified ? "Send" : "Published"}
+                       </button>
+                       
+                       {isGmNotes2Modified && (
+                         <button
+                           onClick={handleUndoGmNotes2}
+                           className="px-3 py-1 text-[10px] font-black tracking-widest uppercase transition-all duration-200 bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 outline-none cursor-pointer"
+                           title="Revert to last published version"
+                         >
+                           Undo
+                         </button>
+                       )}
+                     </div>
+                   )}
+                 </div>
                  <textarea 
                    className="flex-1 bg-transparent resize-none text-white/90 focus:outline-none font-mono text-sm leading-relaxed"
                    spellCheck={false}
@@ -2662,8 +2804,8 @@ export default function App() {
             onClick={(e) => { e.stopPropagation(); setIsGmMode(!isGmMode); setIsEditMode(false); }}
             title={
               isNetworkActive && networkConfig.role !== 'gm'
-                ? `Rôle verrouillé par la connexion réseau (Joueur)` 
-                : (isGmMode ? "Quitter le mode GM / Afficher la Fiche Perso" : "Entrer en mode GM / Afficher l'Écran GM")
+                ? `Role locked by network connection (Player)` 
+                : (isGmMode ? "Exit GM Mode / Show Character Sheet" : "Enter GM Mode / Show GM Screen")
             }
             className={cn(
               "px-4 py-2 flex items-center justify-center rounded-none font-bold tracking-widest text-xs uppercase outline-none transition-all cursor-pointer",
@@ -2707,7 +2849,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Connect Profile As (Rôle)</label>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Connect Profile As (Role)</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -2752,7 +2894,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Code Secret (Généré Auto - 5 lettres)</label>
+                  <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Secret Code (Auto-Generated - 5 letters)</label>
                   <input
                     type="text"
                     disabled={isNetworkActive}
@@ -2762,12 +2904,12 @@ export default function App() {
                     className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors uppercase disabled:opacity-50"
                     placeholder="ABCDE"
                   />
-                  <p className="text-[9px] text-white/40 mt-1">Identifiant unique. Ne le copiez pas sur un autre appareil.</p>
+                  <p className="text-[9px] text-white/40 mt-1">Unique identifier. Do not copy it to another device.</p>
                 </div>
                 
                 {typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY && (
                   <div>
-                    <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Security Passcode (Code d'accès)</label>
+                    <label className="block text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1.5">Security Passcode</label>
                     <input
                       type="password"
                       disabled={isNetworkActive}
@@ -2801,7 +2943,7 @@ export default function App() {
                         if (isRoomKeyValid && isPseudoValid && isPinValid) {
                           const requiredCode = (import.meta as any).env?.VITE_FIREBASE_ACCESS_KEY;
                           if (requiredCode && networkConfig.accessCode !== requiredCode) {
-                            setNetworkError("Code d'accès invalide.");
+                            setNetworkError("Invalid security passcode.");
                             return;
                           }
                           
@@ -2816,16 +2958,16 @@ export default function App() {
                               const gmDocRef = doc(db, `rooms/${roomId}/gm/state`);
                               const gmSnap = await getDoc(gmDocRef);
                               if (!gmSnap.exists()) {
-                                setNetworkError("Ce salon n'existe pas encore. Il doit d'abord être créé par un GM.");
+                                setNetworkError("This room does not exist yet. It must first be created by a GM.");
                                 setIsConnecting(false);
                                 return;
                               }
                             } catch (e) {
                               console.error(e);
                               if (e instanceof Error && e.message.includes('offline')) {
-                                setNetworkError("Impossible de se connecter au serveur (mode hors ligne).");
+                                setNetworkError("Unable to connect to the server (offline mode).");
                               } else {
-                                setNetworkError("Erreur lors de la vérification du salon.");
+                                setNetworkError("Error during room verification.");
                               }
                               setIsConnecting(false);
                               handleFirestoreError(e, OperationType.GET, `rooms/${roomId}/gm/state`);
@@ -2839,7 +2981,7 @@ export default function App() {
                               if (gmSnap.exists()) {
                                 const data = gmSnap.data();
                                 if (data && data.pin && data.pin !== networkConfig.pin) {
-                                  setNetworkError("Un GM est déjà connecté à ce salon.");
+                                  setNetworkError("A GM is already connected to this room.");
                                   setIsConnecting(false);
                                   return;
                                 }
@@ -2847,9 +2989,9 @@ export default function App() {
                             } catch (e) {
                               console.error(e);
                               if (e instanceof Error && e.message.includes('offline')) {
-                                setNetworkError("Impossible de se connecter au serveur (mode hors ligne).");
+                                setNetworkError("Unable to connect to the server (offline mode).");
                               } else {
-                                setNetworkError("Erreur lors de la vérification du salon.");
+                                setNetworkError("Error during room verification.");
                               }
                               setIsConnecting(false);
                               return;
@@ -2868,9 +3010,9 @@ export default function App() {
                             } catch (e) {
                               console.error(e);
                               if (e instanceof Error && e.message.includes('offline')) {
-                                setNetworkError("Impossible de créer le salon (mode hors ligne).");
+                                setNetworkError("Unable to create the room (offline mode).");
                               } else {
-                                setNetworkError("Erreur lors de la création du salon.");
+                                setNetworkError("Error during room creation.");
                               }
                               setIsConnecting(false);
                               handleFirestoreError(e, OperationType.WRITE, `rooms/${roomId}/gm/state`);
@@ -3334,7 +3476,7 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
       
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error("Échec de la génération de l'image.");
+        throw new Error("Failed to generate image.");
       }
       
       const blob = await response.blob();
@@ -3350,13 +3492,13 @@ function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () 
          setIsGenerating(false);
       };
       reader.onerror = () => {
-        setGenerateError("Erreur de lecture de l'image générée.");
+        setGenerateError("Error reading the generated image.");
         setIsGenerating(false);
       };
       reader.readAsDataURL(blob);
     } catch (err: any) {
       console.warn("AI Generation warning:", err);
-      setGenerateError(err.message || String(err) || "Une erreur s'est produite lors de la génération.");
+      setGenerateError(err.message || String(err) || "An error occurred during generation.");
       setIsGenerating(false);
     }
   };

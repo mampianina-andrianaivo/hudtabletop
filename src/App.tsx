@@ -627,7 +627,8 @@ export default function App() {
   }, [gameState, rollState, rolledValue, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded || !isNetworkActive || !networkConfig.roomKey || !isGmMode) return;
+    const isGmConnected = isNetworkActive && networkConfig.role === 'gm';
+    if (!isLoaded || !isNetworkActive || !networkConfig.roomKey || (!isGmMode && !isGmConnected)) return;
     
     const roomId = networkConfig.roomKey;
     
@@ -645,7 +646,7 @@ export default function App() {
     }, 500);
     
     return () => clearTimeout(timeout);
-  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, isGmMode, isLoaded]);
+  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, networkConfig.role, isGmMode, isLoaded]);
   // --- END NETWORK SYNC HOOKS ---
 
   const clearPressTimers = () => {
@@ -2657,22 +2658,26 @@ export default function App() {
             <Wifi className="w-4 h-4" />
           </button>
           <button
-            disabled={isNetworkActive}
+            disabled={isNetworkActive && networkConfig.role !== 'gm'}
             onClick={(e) => { e.stopPropagation(); setIsGmMode(!isGmMode); setIsEditMode(false); }}
             title={
-              isNetworkActive 
-                ? `Rôle verrouillé par la connexion réseau (${networkConfig.role === 'gm' ? 'GM' : 'Player'})` 
-                : (isGmMode ? "Exit GM Mode" : "Enter GM Mode")
+              isNetworkActive && networkConfig.role !== 'gm'
+                ? `Rôle verrouillé par la connexion réseau (Joueur)` 
+                : (isGmMode ? "Quitter le mode GM / Afficher la Fiche Perso" : "Entrer en mode GM / Afficher l'Écran GM")
             }
             className={cn(
               "px-4 py-2 flex items-center justify-center rounded-none font-bold tracking-widest text-xs uppercase outline-none transition-all cursor-pointer",
               isGmMode 
                 ? "bg-gradient-to-b from-purple-800 to-purple-950 border border-purple-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] text-purple-400" 
                 : "skeuo-button text-white/50 hover:text-white",
-              isNetworkActive && "opacity-60 cursor-not-allowed"
+              isNetworkActive && networkConfig.role !== 'gm' && "opacity-60 cursor-not-allowed"
             )}
           >
-            {isNetworkActive ? (networkConfig.role === 'gm' ? "As GM (Online)" : "As Player (Online)") : "GM Mode"}
+            {isNetworkActive 
+              ? (networkConfig.role === 'gm' 
+                  ? (isGmMode ? "As GM: On (Overlay)" : "As GM: Off (HUD)") 
+                  : "As Player (Online)") 
+              : "GM Mode"}
           </button>
         </div>
       </div>

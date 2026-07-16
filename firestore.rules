@@ -50,6 +50,11 @@ service cloud.firestore {
           !('pin' in data.keys()) ||
           data.pin == null ||
           (data.pin is string && data.pin.size() == 5)
+        ) &&
+        (
+          !('gmNotes2' in data.keys()) ||
+          data.gmNotes2 == null ||
+          (data.gmNotes2 is string && data.gmNotes2.size() <= 1048576)
         );
     }
 
@@ -73,8 +78,8 @@ service cloud.firestore {
     
     match /rooms/{roomId}/gm/state {
       allow read, list: if true;
-      allow create: if isValidId(roomId) && isValidGMState(incoming()) && incoming().keys().size() <= 6;
-      allow update: if isValidId(roomId) && isValidGMState(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['rollState', 'diceResult', 'checkedEncounters', 'encounterRolls', 'encounterLevel', 'pin']);
+      allow create: if isValidId(roomId) && isValidGMState(incoming()) && incoming().keys().size() <= 7;
+      allow update: if isValidId(roomId) && isValidGMState(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['rollState', 'diceResult', 'checkedEncounters', 'encounterRolls', 'encounterLevel', 'pin', 'gmNotes2']);
       allow delete: if isValidId(roomId);
     }
   }

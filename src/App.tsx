@@ -587,7 +587,7 @@ export default function App() {
     }
   };
   
-  const [selectedItem, setSelectedItem] = useState<{ type: 'slot', slot: SlotData, side: 'left' | 'right' } | { type: 'character' } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ type: 'slot', slot: SlotData, side: 'left' | 'right', viewId?: string } | { type: 'character' } | null>(null);
   
   // Character dice rolling state
   const [rollState, setRollState] = useState<'idle' | 'charging' | 'rolling' | 'rolled'>('idle');
@@ -684,7 +684,8 @@ export default function App() {
         diceResult: JSON.stringify(gmDiceResult),
         checkedEncounters: JSON.stringify(gmCheckedEncounters),
         encounterRolls: JSON.stringify(encounterRolls),
-        encounterLevel: gmEncounterLevel
+        encounterLevel: gmEncounterLevel,
+        gmNotes2: gameState.gmNotes2 || ''
       }, { merge: true }).catch((error) => {
         console.error(error);
         handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/gm/state`);
@@ -692,7 +693,7 @@ export default function App() {
     }, 500);
     
     return () => clearTimeout(timeout);
-  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, isNetworkActive, networkConfig.roomKey, networkConfig.role, isGmMode, isLoaded]);
+  }, [gmRollState, gmDiceResult, gmCheckedEncounters, encounterRolls, gmEncounterLevel, gameState.gmNotes2, isNetworkActive, networkConfig.roomKey, networkConfig.role, isGmMode, isLoaded]);
   // --- END NETWORK SYNC HOOKS ---
 
   const clearPressTimers = () => {
@@ -719,12 +720,6 @@ export default function App() {
       clearRollTimers();
     };
   }, []);
-  
-  const currentSelectedSlot = selectedItem && selectedItem.type === 'slot'
-    ? (selectedItem.side === 'left' 
-        ? gameState.leftSlots.find(s => s.id === selectedItem.slot.id) 
-        : gameState.rightSlots.find(s => s.id === selectedItem.slot.id))
-    : null;
   
   // Modals state
   const [editingSlot, setEditingSlot] = useState<{ slot: SlotData; side: 'left' | 'right' } | null>(null);
@@ -896,7 +891,7 @@ export default function App() {
       setEditingSlot({ slot, side });
     } else {
       setSelectedItem(prev => 
-        prev?.type === 'slot' && prev.slot.id === slot.id ? null : { type: 'slot', slot, side }
+        prev?.type === 'slot' && prev.slot.id === slot.id && prev.viewId === activeViewId ? null : { type: 'slot', slot, side, viewId: activeViewId }
       );
     }
   };
@@ -1214,6 +1209,48 @@ export default function App() {
     labelOrange: gameState.labelOrange,
     labelViolet: gameState.labelViolet,
   } : gameState;
+  
+  const currentSelectedSlot = selectedItem && selectedItem.type === 'slot'
+    ? (() => {
+        const targetViewId = selectedItem.viewId || activeViewId;
+        const targetParsedRemoteState = (targetViewId !== 'me' && targetViewId !== 'gm' && networkPlayers[targetViewId]) ? JSON.parse(networkPlayers[targetViewId].slots) : null;
+        const targetGameState = targetParsedRemoteState ? {
+          ...targetParsedRemoteState,
+          hudColor: gameState.hudColor,
+          slotScale: gameState.slotScale,
+          slotOffsetX: gameState.slotOffsetX,
+          slotOffsetY: gameState.slotOffsetY,
+          characterScale: gameState.characterScale,
+          characterOffsetY: gameState.characterOffsetY,
+          isImmersiveMode: gameState.isImmersiveMode,
+          useStatBars: gameState.useStatBars,
+          statBarsMax: gameState.statBarsMax,
+          useStatBars2: gameState.useStatBars2,
+          statBarsMax2: gameState.statBarsMax2,
+          slotTextSize: gameState.slotTextSize,
+          charStatsTextSize: gameState.charStatsTextSize,
+          showHp: gameState.showHp,
+          showChakra: gameState.showChakra,
+          showOrange: gameState.showOrange,
+          showViolet: gameState.showViolet,
+          counterHp: gameState.counterHp,
+          counterChakra: gameState.counterChakra,
+          counterOrange: gameState.counterOrange,
+          counterViolet: gameState.counterViolet,
+          labelHp: gameState.labelHp,
+          labelChakra: gameState.labelChakra,
+          labelOrange: gameState.labelOrange,
+          labelViolet: gameState.labelViolet,
+        } : gameState;
+        
+        const found = selectedItem.side === 'left' 
+          ? targetGameState.leftSlots.find((s: any) => s.id === selectedItem.slot.id) 
+          : targetGameState.rightSlots.find((s: any) => s.id === selectedItem.slot.id);
+
+        return found || selectedItem.slot;
+      })()
+    : null;
+
   const activeRollState = activeViewId === 'me' ? rollState : (networkPlayers[activeViewId]?.rollState || 'idle');
   const activeRolledValue = activeViewId === 'me' ? rolledValue : (networkPlayers[activeViewId]?.rolledValue || null);
   
@@ -1537,11 +1574,11 @@ export default function App() {
       {/* Main HUD Area */}
       <div className="flex-1 flex flex-row items-center justify-center pt-22 pb-4 px-8 pr-[18rem] min-h-0 relative">
         {activeViewId === 'gm' ? (
-          <div className="flex gap-8 h-full w-full max-w-[90rem]">
-            {/* GM View: Dice Rolls and Encounters */}
-            <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
-               <div className="skeuo-panel p-6 flex flex-col items-center h-full">
-                 <h2 className="text-blue-400 font-bold tracking-widest uppercase text-sm mb-8">GM Dice Rolls</h2>
+          <div className="flex gap-4 h-full w-full max-w-[95rem] overflow-hidden">
+            {/* Zone 1: GM Dice Rolls (reduced size) */}
+            <div className="w-[20%] min-w-[12rem] flex flex-col h-full overflow-hidden">
+               <div className="skeuo-panel p-4 flex flex-col items-center h-full">
+                 <h2 className="text-blue-400 font-bold tracking-widest uppercase text-[10px] mb-4">GM Dice Rolls</h2>
                  <div className="flex-1 flex items-center justify-center w-full">
                     {networkGmState?.diceResult && networkGmState.diceResult !== 'null' ? (
                       (() => {
@@ -1553,7 +1590,7 @@ export default function App() {
                           }
                         };
                         const res = getRes();
-                        if (!res) return <div className="text-white/20 uppercase tracking-widest text-xs font-bold animate-pulse">No rolls yet</div>;
+                        if (!res) return <div className="text-white/20 uppercase tracking-widest text-[10px] font-bold animate-pulse">No rolls yet</div>;
                         const isRolling = networkGmState?.rollState === 'rolling';
                         const colorClass = 
                            res.type === 'd6' ? 'skeuo-text-emerald' : 
@@ -1563,31 +1600,32 @@ export default function App() {
                         
                         return (
                           <div key={res.time} className="flex flex-col items-center justify-center animate-in zoom-in fade-in duration-300">
-                             <span className={cn("text-8xl font-black mb-4", colorClass, isRolling && "animate-pulse blur-sm")}>
+                             <span className={cn("text-6xl font-black mb-2", colorClass, isRolling && "animate-pulse blur-sm")}>
                                {isRolling ? '...' : res.value}
                              </span>
-                             <span className="text-white/40 font-bold tracking-widest uppercase text-sm">{res.type}</span>
+                             <span className="text-white/40 font-bold tracking-widest uppercase text-[10px]">{res.type}</span>
                           </div>
                         );
                       })()
                     ) : (
-                      <div className="text-white/20 uppercase tracking-widest text-xs font-bold animate-pulse">No rolls yet</div>
+                      <div className="text-white/20 uppercase tracking-widest text-[10px] font-bold animate-pulse">No rolls yet</div>
                     )}
                  </div>
                </div>
             </div>
             
-            <div className="flex-1 flex flex-col gap-6 h-full overflow-hidden">
-               <div className="skeuo-panel p-6 flex flex-col h-full overflow-hidden">
-                 <div className="flex items-center justify-between mb-6">
-                   <h2 className="text-red-400 font-bold tracking-widest uppercase text-sm">Encounters Results</h2>
+            {/* Zone 2: Lines 1-3 of Encounters */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+               <div className="skeuo-panel p-4 flex flex-col h-full overflow-hidden">
+                 <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                   <h2 className="text-red-400 font-bold tracking-widest uppercase text-xs">Encounters #1 - #3</h2>
                    {networkGmState?.encounterLevel && (
-                     <span className="text-red-400 bg-red-950/40 border border-red-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest">
+                     <span className="text-red-400 bg-red-950/40 border border-red-500/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">
                        {networkGmState.encounterLevel}
                      </span>
                    )}
                  </div>
-                 <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                    {(() => {
                      if (!networkGmState) {
                        return <div className="text-white/20 uppercase tracking-widest text-xs font-bold text-center mt-10">Waiting for GM connection...</div>;
@@ -1615,52 +1653,156 @@ export default function App() {
                      };
                      const checked = getChecked() || [];
 
-                     return rolls.map((line: any[], lineIdx: number) => {
+                     return rolls.slice(0, 3).map((line: any[], relativeIdx: number) => {
+                       const lineIdx = relativeIdx;
                        const isChecked = !!checked[lineIdx];
                        return (
                          <div 
                            key={lineIdx} 
                            className={cn(
-                             "flex flex-col gap-2 p-3 transition-all rounded-none border",
+                             "flex flex-col gap-1 p-1 py-1 px-1.5 transition-all rounded-none border",
                              isChecked 
-                               ? "bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
+                               ? "bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.1)]" 
                                : "bg-white/5 border-white/10 opacity-70"
                            )}
                          >
                            <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-1.5">
                                <div className={cn(
-                                 "w-4 h-4 rounded-none border flex items-center justify-center transition-all",
+                                 "w-3.5 h-3.5 rounded-none border flex items-center justify-center transition-all",
                                  isChecked ? "border-emerald-500 bg-emerald-500/10" : "border-white/30"
                                )}>
-                                 {isChecked && <Check className="w-3 h-3 text-emerald-400" />}
+                                 {isChecked && <Check className="w-2.5 h-2.5 text-emerald-400" />}
                                </div>
                                <span className={cn(
-                                 "text-[10px] font-black uppercase tracking-wider",
+                                 "text-[9px] font-black uppercase tracking-wider",
                                  isChecked ? "text-emerald-400" : "text-white/50"
                                )}>
                                  Line #{lineIdx + 1}
-                                </span>
+                               </span>
                              </div>
                              <span className={cn(
-                               "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5",
+                               "text-[7px] font-bold uppercase tracking-wider px-1 py-0.2",
                                isChecked ? "text-emerald-400 bg-emerald-950/40 border border-emerald-500/30" : "text-white/30 bg-white/5 border border-white/10"
                              )}>
                                {isChecked ? "Active" : "Pending"}
                              </span>
                            </div>
-                           <div className="flex gap-2">
+                           <div className="flex gap-1">
                              {line.map((req: any, reqIdx: number) => {
                                const parts = req.text.split('+');
                                return (
                                  <div 
                                    key={reqIdx} 
                                    className={cn(
-                                     "flex-1 p-2 text-center text-xs font-bold rounded-sm border transition-all",
+                                     "flex-1 py-0.5 px-1 text-center text-[9px] font-bold rounded-none border transition-all truncate",
                                      isChecked 
                                        ? "bg-emerald-950/30 border-emerald-500/20 text-white/90" 
                                        : "bg-white/5 border-white/10 text-white/70"
                                    )}
+                                   title={req.text}
+                                 >
+                                   {parts[0]}
+                                   {parts[1] && <span className={isChecked ? "text-emerald-400" : "text-orange-500"}> +{parts[1]}</span>}
+                                 </div>
+                               );
+                             })}
+                           </div>
+                         </div>
+                       );
+                     });
+                   })()}
+                 </div>
+               </div>
+            </div>
+
+            {/* Zone 3: Lines 4-6 of Encounters */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+               <div className="skeuo-panel p-4 flex flex-col h-full overflow-hidden">
+                 <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                   <h2 className="text-red-400 font-bold tracking-widest uppercase text-xs">Encounters #4 - #6</h2>
+                   {networkGmState?.encounterLevel && (
+                     <span className="text-red-400 bg-red-950/40 border border-red-500/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">
+                       {networkGmState.encounterLevel}
+                     </span>
+                   )}
+                 </div>
+                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                   {(() => {
+                     if (!networkGmState) {
+                       return <div className="text-white/20 uppercase tracking-widest text-xs font-bold text-center mt-10">Waiting for GM connection...</div>;
+                     }
+
+                     const getRolls = () => {
+                       try {
+                         return networkGmState.encounterRolls ? JSON.parse(networkGmState.encounterRolls) : null;
+                       } catch (e) {
+                         return null;
+                       }
+                     };
+                     const rolls = getRolls() || [];
+
+                     if (rolls.length === 0 || rolls.length <= 3) {
+                       return <div className="text-white/20 uppercase tracking-widest text-xs font-bold text-center mt-10 italic">No further lines</div>;
+                     }
+
+                     const getChecked = () => {
+                       try {
+                         return networkGmState.checkedEncounters ? JSON.parse(networkGmState.checkedEncounters) : [];
+                       } catch (e) {
+                         return [];
+                       }
+                     };
+                     const checked = getChecked() || [];
+
+                     return rolls.slice(3, 6).map((line: any[], relativeIdx: number) => {
+                       const lineIdx = relativeIdx + 3;
+                       const isChecked = !!checked[lineIdx];
+                       return (
+                         <div 
+                           key={lineIdx} 
+                           className={cn(
+                             "flex flex-col gap-1 p-1 py-1 px-1.5 transition-all rounded-none border",
+                             isChecked 
+                               ? "bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.1)]" 
+                               : "bg-white/5 border-white/10 opacity-70"
+                           )}
+                         >
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-1.5">
+                               <div className={cn(
+                                 "w-3.5 h-3.5 rounded-none border flex items-center justify-center transition-all",
+                                 isChecked ? "border-emerald-500 bg-emerald-500/10" : "border-white/30"
+                               )}>
+                                 {isChecked && <Check className="w-2.5 h-2.5 text-emerald-400" />}
+                               </div>
+                               <span className={cn(
+                                 "text-[9px] font-black uppercase tracking-wider",
+                                 isChecked ? "text-emerald-400" : "text-white/50"
+                               )}>
+                                 Line #{lineIdx + 1}
+                               </span>
+                             </div>
+                             <span className={cn(
+                               "text-[7px] font-bold uppercase tracking-wider px-1 py-0.2",
+                               isChecked ? "text-emerald-400 bg-emerald-950/40 border border-emerald-500/30" : "text-white/30 bg-white/5 border border-white/10"
+                             )}>
+                               {isChecked ? "Active" : "Pending"}
+                             </span>
+                           </div>
+                           <div className="flex gap-1">
+                             {line.map((req: any, reqIdx: number) => {
+                               const parts = req.text.split('+');
+                               return (
+                                 <div 
+                                   key={reqIdx} 
+                                   className={cn(
+                                     "flex-1 py-0.5 px-1 text-center text-[9px] font-bold rounded-none border transition-all truncate",
+                                     isChecked 
+                                       ? "bg-emerald-950/30 border-emerald-500/20 text-white/90" 
+                                       : "bg-white/5 border-white/10 text-white/70"
+                                   )}
+                                   title={req.text}
                                  >
                                    {parts[0]}
                                    {parts[1] && <span className={isChecked ? "text-emerald-400" : "text-orange-500"}> +{parts[1]}</span>}
@@ -1696,7 +1838,7 @@ export default function App() {
                     onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
                     onGaugeClick={handleGaugeClick}
                     onToggleHidden={handleToggleHidden}
-                    isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
+                    isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id && selectedItem.viewId === activeViewId}
                     isEditMode={isEditMode && activeViewId === 'me'}
                     textSize={activeGameState.slotTextSize ?? 11}
                   />
@@ -2212,7 +2354,7 @@ export default function App() {
                   onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
                   onGaugeClick={handleGaugeClick}
                   onToggleHidden={handleToggleHidden}
-                  isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
+                  isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id && selectedItem.viewId === activeViewId}
                   isEditMode={isEditMode && activeViewId === 'me'}
                   textSize={activeGameState.slotTextSize ?? 11}
                 />
@@ -2520,42 +2662,42 @@ export default function App() {
 
             {/* Middle Roll Panel */}
             <div className="flex-[1.5] flex flex-col gap-6 h-full overflow-hidden">
-               <div className="skeuo-panel p-4 flex flex-col flex-shrink-0">
-                 <div className="w-full flex justify-between items-center mb-2">
-                   <h2 className="text-blue-400 font-bold tracking-widest uppercase text-xs">Dice Rolls</h2>
+               <div className="skeuo-panel p-2.5 px-3.5 flex flex-col flex-shrink-0">
+                 <div className="w-full flex justify-between items-center mb-1.5">
+                   <h2 className="text-blue-400 font-bold tracking-widest uppercase text-[10px]">Dice Rolls</h2>
                    <button 
                      onClick={() => setGmDiceResult(null)}
-                     className="text-[9px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
+                     className="text-[8px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
                    >
                      Clear
                    </button>
                  </div>
                  
-                 <div className="flex gap-4 items-center">
+                 <div className="flex gap-3 items-center">
                    {/* Left Column: Dice buttons */}
                    <div className="w-1/2">
-                     <div className="grid grid-cols-3 gap-1.5">
+                     <div className="grid grid-cols-3 gap-1">
                        {[6, 8, 12, 20].map(sides => (
                          <button
                            key={sides}
                            onClick={() => handleGmDiceRoll(sides)}
-                           className="h-9 skeuo-button font-bold text-xs flex items-center justify-center rounded-md"
+                           className="h-7.5 skeuo-button font-bold text-[10px] flex items-center justify-center rounded-none"
                          >
                            d{sides}
                          </button>
                        ))}
                        <button
                          onClick={() => handleGmDiceRoll(-1)}
-                         className="h-9 skeuo-button font-bold text-xs flex items-center justify-center rounded-md text-purple-400"
+                         className="h-7.5 skeuo-button font-bold text-[10px] flex items-center justify-center rounded-none text-purple-400"
                        >
                          Cust
                        </button>
                        <button 
                          onClick={() => setIsGmCustomDiceSettingsOpen(true)}
-                         className="h-9 skeuo-button flex items-center justify-center rounded-md text-white/50 hover:text-white"
+                         className="h-7.5 skeuo-button flex items-center justify-center rounded-none text-white/50 hover:text-white"
                          title="Dice Settings"
                        >
-                         <Settings className="w-4 h-4" />
+                         <Settings className="w-3.5 h-3.5" />
                        </button>
                      </div>
                    </div>
@@ -2567,11 +2709,11 @@ export default function App() {
                        : (gmDiceResult ? gmDiceResult.type : '');
                        
                      return (
-                       <div className="w-1/2 h-20 bg-black/30 border border-white/5 rounded-md flex overflow-hidden">
+                       <div className="w-1/2 h-14 bg-black/30 border border-white/5 rounded-none flex overflow-hidden">
                          {/* Left Half: Dice Type */}
                          <div className="w-1/2 h-full flex flex-col items-center justify-center border-r border-white/5 bg-black/10">
-                           <span className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Dice</span>
-                           <span className="text-[11px] font-mono font-bold tracking-wider text-emerald-400 uppercase truncate max-w-full px-1">
+                           <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">Dice</span>
+                           <span className="text-[10px] font-mono font-bold tracking-wider text-emerald-400 uppercase truncate max-w-full px-1">
                              {currentTypeLabel || '---'}
                            </span>
                          </div>
@@ -2579,7 +2721,7 @@ export default function App() {
                          {/* Right Half: Dice Shape */}
                          <div className="w-1/2 h-full flex items-center justify-center relative">
                            {gmRollState === 'rolling' ? (
-                             <div className="flex items-center justify-center scale-75 transform origin-center">
+                             <div className="flex items-center justify-center scale-[0.6] transform origin-center">
                                <DiceShape 
                                  type={gmRollingDiceType === 6 ? 'd6' : gmRollingDiceType === 8 ? 'd8' : gmRollingDiceType === 12 ? 'd12' : 'd20'} 
                                  value={gmCurrentRollingValue} 
@@ -2588,7 +2730,7 @@ export default function App() {
                                 />
                              </div>
                            ) : gmRollState === 'rolled' && gmDiceResult ? (
-                             <div key={gmDiceResult.time} className="flex items-center justify-center scale-75 transform origin-center">
+                             <div key={gmDiceResult.time} className="flex items-center justify-center scale-[0.6] transform origin-center">
                                <DiceShape 
                                  type={gmRollingDiceType === 6 ? 'd6' : gmRollingDiceType === 8 ? 'd8' : gmRollingDiceType === 12 ? 'd12' : 'd20'} 
                                  value={gmDiceResult.value} 
@@ -2597,7 +2739,7 @@ export default function App() {
                                 />
                              </div>
                            ) : (
-                             <span className="text-white/20 text-[10px] uppercase font-black tracking-widest">---</span>
+                             <span className="text-white/20 text-[9px] uppercase font-black tracking-widest">---</span>
                            )}
                          </div>
                        </div>
@@ -2606,20 +2748,20 @@ export default function App() {
                  </div>
                </div>
 
-               <div className="flex-1 skeuo-panel p-6 flex flex-col overflow-hidden">
-                 <div className="flex justify-between items-center mb-4">
-                   <h2 className="text-emerald-400 font-bold tracking-widest uppercase text-sm">Encounter Result</h2>
-                   <div className="flex items-center gap-4">
+               <div className="flex-1 skeuo-panel p-4 flex flex-col overflow-hidden">
+                 <div className="flex justify-between items-center mb-2.5">
+                   <h2 className="text-emerald-400 font-bold tracking-widest uppercase text-xs">Encounter Result</h2>
+                   <div className="flex items-center gap-3">
                      <button 
                        onClick={copyEncountersToClipboard}
-                       className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                       className="p-1 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                        title="Copy to Clipboard"
                      >
-                       <Copy className="w-4 h-4" />
+                       <Copy className="w-3.5 h-3.5" />
                      </button>
                      <button 
                        onClick={() => { setEncounterRolls([]); setGmCheckedEncounters([]); setGmEncounterLevel(null); }}
-                       className="text-[10px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
+                       className="text-[9px] font-black tracking-widest text-white/30 hover:text-white/60 transition-colors uppercase"
                      >
                        Clear
                      </button>
@@ -2628,13 +2770,13 @@ export default function App() {
                  
                  <div className="flex-1 bg-black/40 border border-white/5 p-4 overflow-y-auto space-y-2">
                    {encounterRolls.map((line, lineIdx) => (
-                     <div key={lineIdx} className="flex gap-2 items-center">
+                     <div key={lineIdx} className="flex gap-2 items-center bg-white/[0.02] hover:bg-white/[0.04] p-1.5 border border-white/5">
                        <span className="text-[10px] font-black text-white/20 w-5">#{lineIdx + 1}</span>
                        <div className="flex-1 flex gap-2">
                         {line.map((req, reqIdx) => {
                           const parts = req.text.split('+');
                           return (
-                            <div key={reqIdx} className="flex-1 bg-white/5 border border-white/10 p-1.5 text-center text-[10px] font-bold text-white/90 truncate rounded-sm">
+                            <div key={reqIdx} className="flex-1 bg-white/5 border border-white/10 p-1.5 text-center text-[10px] font-bold text-white/90 truncate rounded-sm" title={req.text}>
                               {parts[0]}
                               {parts[1] && <span className="text-orange-500">+{parts[1]}</span>}
                             </div>

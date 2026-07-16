@@ -317,3 +317,39 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
+/* Custom polished dark skeumorphic scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(4, 5, 8, 0.8);
+  border-left: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.9);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(40, 45, 55, 0.8) 0%, rgba(20, 25, 30, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0px; /* Rigid skeumorphic look matches other widgets */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(60, 65, 75, 0.9) 0%, rgba(30, 35, 40, 0.9) 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, rgba(15, 20, 25, 0.9) 0%, rgba(25, 30, 35, 0.9) 100%);
+  border-color: rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(30, 35, 40, 0.8) rgba(4, 5, 8, 0.8);
+}
+

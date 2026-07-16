@@ -381,6 +381,10 @@ export default function App() {
   const [showDeleteAllRooms, setShowDeleteAllRooms] = useState(false);
   const [deleteAllRoomsAuth, setDeleteAllRoomsAuth] = useState('');
 
+  const [rolledAt, setRolledAt] = useState<number | null>(null);
+  const [rolledDiceType, setRolledDiceType] = useState<string | null>(null);
+  const [dismissedRollTime, setDismissedRollTime] = useState<number>(0);
+
   const [liveGmNotes2, setLiveGmNotes2] = useState<string>('');
   const hasInitializedGmNotes2 = useRef(false);
 
@@ -662,7 +666,9 @@ export default function App() {
         isGm: networkConfig.role === 'gm',
         slots: JSON.stringify(syncGameState),
         rollState: rollState,
-        rolledValue: rolledValue
+        rolledValue: rolledValue,
+        rolledAt: rolledAt,
+        rolledDiceType: rolledDiceType
       }, { merge: true }).catch((error) => {
         console.error(error);
         handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/players/${playerCode}`);
@@ -670,7 +676,7 @@ export default function App() {
     }, 500);
     
     return () => clearTimeout(timeout);
-  }, [gameState, rollState, rolledValue, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role, isLoaded]);
+  }, [gameState, rollState, rolledValue, rolledAt, rolledDiceType, isNetworkActive, networkConfig.pseudo, networkConfig.roomKey, networkConfig.pin, networkConfig.role, isLoaded]);
 
   useEffect(() => {
     const isGmConnected = isNetworkActive && networkConfig.role === 'gm';
@@ -966,6 +972,8 @@ export default function App() {
           const finalVal = Math.floor(Math.random() * maxVal) + 1;
           setRolledValue(finalVal);
           setRollState('rolled');
+          setRolledAt(Date.now());
+          setRolledDiceType(diceType);
         }, 1000);
       } else {
         pressTimerRef.current = requestAnimationFrame(tick);
@@ -1179,6 +1187,130 @@ export default function App() {
   const showNotesArea = !isGmUser || (activeViewId === 'gm');
   const isViewingGm = activeViewId === 'gm';
   const isGmNotes2Modified = (gameState.gmNotes2 || '') !== liveGmNotes2;
+
+  const getLatestRoll = () => {
+    if (!isNetworkActive) return null;
+
+    let rollsList: Array<{
+      pseudo: string;
+      value: number;
+      diceType: string;
+      time: number;
+      isRolling?: boolean;
+    }> = [];
+
+    // 1. Get rolls from players in Firebase Snapshot
+    Object.entries(networkPlayers).forEach(([pin, player]) => {
+      const pData = player as any;
+      if (pData.rollState === 'rolling') {
+        rollsList.push({
+          pseudo: pData.pseudo || 'Unknown Player',
+          value: 0,
+          diceType: '',
+          time: Date.now(), // High priority while active
+          isRolling: true
+        });
+      } else if (pData.rollState === 'rolled' && pData.rolledValue !== undefined && pData.rolledAt) {
+        rollsList.push({
+          pseudo: pData.pseudo || 'Unknown Player',
+          value: pData.rolledValue,
+          diceType: pData.rolledDiceType || 'd12',
+          time: pData.rolledAt,
+          isRolling: false
+        });
+      }
+    });
+
+    // Override local player's roll with instantaneous local state to be ultra-fast
+    const localPin = networkConfig.pin;
+    if (localPin) {
+      rollsList = rollsList.filter(r => r.pseudo !== (networkConfig.pseudo || 'Me'));
+      
+      if (rollState === 'rolling') {
+        rollsList.push({
+          pseudo: networkConfig.pseudo || 'Me',
+          value: 0,
+          diceType: '',
+          time: Date.now(),
+          isRolling: true
+        });
+      } else if (rollState === 'rolled' && rolledValue !== null && rolledAt) {
+        rollsList.push({
+          pseudo: networkConfig.pseudo || 'Me',
+          value: rolledValue,
+          diceType: gameState.characterDiceType || 'd12',
+          time: rolledAt,
+          isRolling: false
+        });
+      }
+    }
+
+    // 2. Get rolls from GM state
+    if (networkGmState) {
+      if (networkGmState.rollState === 'rolling') {
+        const gmPlayer = Object.values(networkPlayers).find((p: any) => p.role === 'gm' || p.isGm) as any;
+        rollsList.push({
+          pseudo: gmPlayer?.pseudo || 'Game Master',
+          value: 0,
+          diceType: '',
+          time: Date.now(),
+          isRolling: true
+        });
+      } else if (networkGmState.rollState === 'rolled' && networkGmState.diceResult) {
+        try {
+          const diceResult = JSON.parse(networkGmState.diceResult);
+          if (diceResult && diceResult.time) {
+            const gmPlayer = Object.values(networkPlayers).find((p: any) => p.role === 'gm' || p.isGm) as any;
+            rollsList.push({
+              pseudo: gmPlayer?.pseudo || 'Game Master',
+              value: diceResult.value,
+              diceType: diceResult.type || 'd20',
+              time: diceResult.time,
+              isRolling: false
+            });
+          }
+        } catch (e) {
+          console.error("Error parsing GM diceResult:", e);
+        }
+      }
+    }
+
+    // Override local GM roll with instantaneous local state
+    const isLocalGm = isNetworkActive && networkConfig.role === 'gm';
+    if (isLocalGm) {
+      const gmPlayerPseudo = networkConfig.pseudo || 'Game Master';
+      rollsList = rollsList.filter(r => r.pseudo !== gmPlayerPseudo);
+      
+      if (gmRollState === 'rolling') {
+        rollsList.push({
+          pseudo: gmPlayerPseudo,
+          value: 0,
+          diceType: '',
+          time: Date.now(),
+          isRolling: true
+        });
+      } else if (gmRollState === 'rolled' && gmDiceResult) {
+        rollsList.push({
+          pseudo: gmPlayerPseudo,
+          value: gmDiceResult.value,
+          diceType: gmDiceResult.type || 'd20',
+          time: gmDiceResult.time,
+          isRolling: false
+        });
+      }
+    }
+
+    // Sort by time descending to find the latest
+    rollsList.sort((a, b) => b.time - a.time);
+
+    const latest = rollsList[0];
+    if (latest && latest.time > dismissedRollTime) {
+      return latest;
+    }
+    return null;
+  };
+
+  const latestRoll = getLatestRoll();
 
   const parsedRemoteState = (activeViewId !== 'me' && networkPlayers[activeViewId]) ? JSON.parse(networkPlayers[activeViewId].slots) : null;
   const activeGameState = parsedRemoteState ? {
@@ -2452,7 +2584,46 @@ export default function App() {
           className="flex-1 skeuo-panel backdrop-blur-md p-4 flex flex-col justify-center overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {selectedItem && !isEditMode ? (
+          {latestRoll ? (
+            <div className="flex items-center justify-between h-full px-6 relative z-10 animate-fade-in">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center justify-center skeuo-led-screen h-16 w-20 rounded-none border border-amber-500/30 bg-amber-950/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                  {latestRoll.isRolling ? (
+                    <span className="text-3xl font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.7)] animate-pulse">
+                      ...
+                    </span>
+                  ) : (
+                    <span className="text-4xl font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.8)] font-mono">
+                      {latestRoll.value}
+                    </span>
+                  )}
+                </div>
+                <div className="text-left">
+                  <div className="text-amber-500/70 font-bold tracking-widest text-[10px] uppercase mb-1">
+                    {latestRoll.isRolling ? "Rolling Active" : "Dice Roll Result"}
+                  </div>
+                  <div className="text-xl font-extrabold text-white tracking-wide">
+                    <span className="text-blue-400 font-black">{latestRoll.pseudo}</span>{" "}
+                    {latestRoll.isRolling ? (
+                      <span className="text-gray-300">is rolling...</span>
+                    ) : (
+                      <>
+                        has rolled <span className="text-amber-400 font-black">{latestRoll.value}</span> on a{" "}
+                        <span className="text-purple-400 font-mono font-black">{latestRoll.diceType.toUpperCase()}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setDismissedRollTime(latestRoll.time)}
+                className="p-1.5 hover:bg-white/10 text-white/40 hover:text-white rounded-none border border-white/10 transition-colors cursor-pointer outline-none flex items-center justify-center"
+                title="Dismiss Roll Notification"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          ) : selectedItem && !isEditMode ? (
             <div className="flex gap-6 h-full items-center px-4 relative z-10">
               {selectedItem.type === 'slot' && currentSelectedSlot?.image && (
                 <div className="h-[80%] aspect-square border border-white/10 rounded-none overflow-hidden bg-black flex-shrink-0 shadow-lg">

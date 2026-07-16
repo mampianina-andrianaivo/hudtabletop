@@ -1138,12 +1138,15 @@ export default function App() {
     ...parsedRemoteState,
     hudColor: gameState.hudColor,
     slotScale: gameState.slotScale,
+    slotOffsetX: gameState.slotOffsetX,
     slotOffsetY: gameState.slotOffsetY,
     characterScale: gameState.characterScale,
     characterOffsetY: gameState.characterOffsetY,
     isImmersiveMode: gameState.isImmersiveMode,
     useStatBars: gameState.useStatBars,
     statBarsMax: gameState.statBarsMax,
+    useStatBars2: gameState.useStatBars2,
+    statBarsMax2: gameState.statBarsMax2,
     slotTextSize: gameState.slotTextSize,
     charStatsTextSize: gameState.charStatsTextSize,
     showHp: gameState.showHp,
@@ -2085,9 +2088,9 @@ export default function App() {
             </div>
 
             {/* Chakra (Blue bars) */}
-            {(gameState.showChakra ?? true) && (
+            {(activeGameState.showChakra ?? true) && (
               <div className="relative flex flex-col items-center mt-5 w-56 sm:w-60 md:w-64 select-none" onClick={(e) => e.stopPropagation()}>
-                {gameState.counterChakra ? (
+                {activeGameState.counterChakra ? (
                   <div className="flex items-center justify-center gap-6 w-full select-none">
                     <button 
                       onClick={(e) => { e.stopPropagation(); decrementChakra(); }}
@@ -2096,7 +2099,7 @@ export default function App() {
                       -
                     </button>
                     <span className="text-xl font-black tracking-widest text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.5)] min-w-[4rem] text-center">
-                      {gameState.currentChakra.filter(Boolean).length}/{gameState.maxChakra}
+                      {activeGameState.currentChakra.filter(Boolean).length}/{activeGameState.maxChakra}
                     </span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); incrementChakra(); }}
@@ -2107,7 +2110,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-y-1 w-full select-none">
-                    {chunkArray(gameState.currentChakra, 5).map((row, rowIdx) => (
+                    {chunkArray(activeGameState.currentChakra, 5).map((row, rowIdx) => (
                       <div key={rowIdx} className="flex flex-row justify-center gap-x-[3px] w-full">
                         {row.map((isActive, idx) => {
                           const globalIdx = rowIdx * 5 + idx;
@@ -2137,12 +2140,12 @@ export default function App() {
           <div 
             className="w-[32%] max-w-[30rem] h-full transition-transform duration-200 relative z-10"
             style={{
-              transform: `translateX(-${gameState.slotOffsetX ?? 0}px) scale(${gameState.slotScale ?? 1}) translateY(${gameState.slotOffsetY ?? 0}px)`,
+              transform: `translateX(-${activeGameState.slotOffsetX ?? 0}px) scale(${activeGameState.slotScale ?? 1}) translateY(${activeGameState.slotOffsetY ?? 0}px)`,
               transformOrigin: 'center center'
             }}
           >
             <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start content-center h-full py-4">
-              {gameState.rightSlots.map((slot) => (
+              {activeGameState.rightSlots.map((slot) => (
                 <SlotUI 
                   key={slot.id} slot={slot} side="right" 
                   onClick={handleSlotClick} onDoubleClick={handleSlotDoubleClick}
@@ -2150,7 +2153,7 @@ export default function App() {
                   onToggleHidden={handleToggleHidden}
                   isSelected={selectedItem?.type === 'slot' && selectedItem.slot.id === slot.id}
                   isEditMode={isEditMode && activeViewId === 'me'}
-                  textSize={gameState.slotTextSize ?? 11}
+                  textSize={activeGameState.slotTextSize ?? 11}
                 />
               ))}
             </div>

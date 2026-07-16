@@ -1,9 +1,9 @@
-const fs = require('fs');
-const state = {
-  characterName: "",
-  characterClass: "",
-  characterImage: null,
-  leftSlots: Array(4).fill(null).map(() => ({ id: Math.random().toString(36).substr(2, 9), title: '', text: '', icon: '', image: null })),
-  rightSlots: Array(4).fill(null).map(() => ({ id: Math.random().toString(36).substr(2, 9), title: '', text: '', icon: '', image: null }))
-};
-console.log(JSON.stringify(state).length);
+import { GoogleGenAI } from '@google/genai';
+const ai = new GoogleGenAI({ apiKey: process.env.VITE_FIREBASE_API_KEY }); 
+async function run() {
+  const models = await ai.models.list();
+  for await (const m of models) {
+    if (m.name.includes('imagen')) console.log(m.name);
+  }
+}
+run();

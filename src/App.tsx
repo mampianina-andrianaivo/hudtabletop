@@ -7,11 +7,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
 import { GoogleGenAI } from '@google/genai';
 import { GameState, SlotData, CustomStat, Requirement } from './types';
-import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield } from 'lucide-react';
+import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield, Star } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { db } from './firebase';
-import { doc, setDoc, onSnapshot, collection, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, deleteDoc, getDoc, getDocs, collectionGroup } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -21,6 +21,37 @@ enum OperationType {
   GET = 'get',
   WRITE = 'write',
 }
+
+const compressImage = (dataUrl: string, maxWidth = 800): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!dataUrl.startsWith('data:image')) {
+      resolve(dataUrl);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > maxWidth) {
+        height = Math.round(height * (maxWidth / width));
+        width = maxWidth;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/webp', 0.6));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.src = dataUrl;
+  });
+};
 
 interface FirestoreErrorInfo {
   error: string;
@@ -47,7 +78,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  alert('Network Error: ' + errInfo.error + ' (Path: ' + path + ')');
 }
 
 function cn(...inputs: ClassValue[]) {
@@ -351,6 +381,8 @@ export default function App() {
   const [activeViewId, setActiveViewId] = useState<string>('me');
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showDeleteAllRooms, setShowDeleteAllRooms] = useState(false);
+  const [deleteAllRoomsAuth, setDeleteAllRoomsAuth] = useState('');
 
   // Sync network state changes to localStorage
   useEffect(() => {
@@ -575,12 +607,9 @@ export default function App() {
     const roomId = networkConfig.roomKey;
     const playerCode = networkConfig.pin;
     
-    // Strip large data URIs and API keys from network sync
+    // Strip API keys from network sync
     const syncGameState = {
       ...gameState,
-      characterImage: gameState.characterImage?.startsWith('data:') ? null : gameState.characterImage,
-      leftSlots: gameState.leftSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
-      rightSlots: gameState.rightSlots.map(s => ({ ...s, image: s.image?.startsWith('data:') ? null : s.image })),
       geminiApiKey: undefined,
     };
     
@@ -2802,24 +2831,56 @@ export default function App() {
                               }
                             } catch (e) {
                               console.error(e);
-                              setNetworkError("Erreur lors de la vérification du salon.");
+                              if (e instanceof Error && e.message.includes('offline')) {
+                                setNetworkError("Impossible de se connecter au serveur (mode hors ligne).");
+                              } else {
+                                setNetworkError("Erreur lors de la vérification du salon.");
+                              }
                               setIsConnecting(false);
                               handleFirestoreError(e, OperationType.GET, `rooms/${roomId}/gm/state`);
                               return;
                             }
                           } else if (isGmRole) {
-                            // GM immediately initializes/creates the room state so players can join
+                            // Check if a GM already exists for this room
+                            try {
+                              const gmDocRef = doc(db, `rooms/${roomId}/gm/state`);
+                              const gmSnap = await getDoc(gmDocRef);
+                              if (gmSnap.exists()) {
+                                const data = gmSnap.data();
+                                if (data && data.pin && data.pin !== networkConfig.pin) {
+                                  setNetworkError("Un GM est déjà connecté à ce salon.");
+                                  setIsConnecting(false);
+                                  return;
+                                }
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              if (e instanceof Error && e.message.includes('offline')) {
+                                setNetworkError("Impossible de se connecter au serveur (mode hors ligne).");
+                              } else {
+                                setNetworkError("Erreur lors de la vérification du salon.");
+                              }
+                              setIsConnecting(false);
+                              return;
+                            }
+
+                            // GM initializes/updates the room state
                             try {
                               await setDoc(doc(db, `rooms/${roomId}/gm/state`), {
                                 rollState: gmRollState,
                                 diceResult: JSON.stringify(gmDiceResult),
                                 checkedEncounters: JSON.stringify(gmCheckedEncounters),
                                 encounterRolls: JSON.stringify(encounterRolls),
-                                encounterLevel: gmEncounterLevel
+                                encounterLevel: gmEncounterLevel,
+                                pin: networkConfig.pin
                               }, { merge: true });
                             } catch (e) {
                               console.error(e);
-                              setNetworkError("Erreur lors de la création du salon.");
+                              if (e instanceof Error && e.message.includes('offline')) {
+                                setNetworkError("Impossible de créer le salon (mode hors ligne).");
+                              } else {
+                                setNetworkError("Erreur lors de la création du salon.");
+                              }
                               setIsConnecting(false);
                               handleFirestoreError(e, OperationType.WRITE, `rooms/${roomId}/gm/state`);
                               return;
@@ -2855,24 +2916,85 @@ export default function App() {
                       )}
                     </button>
                   ) : (
-                    <button
-                      onClick={() => {
-                        if (networkConfig.roomKey && networkConfig.pin) {
-                          deleteDoc(doc(db, `rooms/${networkConfig.roomKey}/players/${networkConfig.pin}`))
-                            .catch((error) => {
-                              console.error(error);
-                              handleFirestoreError(error, OperationType.DELETE, `rooms/${networkConfig.roomKey}/players/${networkConfig.pin}`);
-                            });
-                        }
-                        setIsNetworkActive(false);
-                        setNetworkPlayers({});
-                        setNetworkGmState(null);
-                        setActiveViewId('me');
-                      }}
-                      className="flex-1 bg-red-950/80 border border-red-500/50 hover:bg-red-900/80 text-red-400 py-2.5 rounded-none font-bold tracking-widest uppercase text-xs transition-colors cursor-pointer"
-                    >
-                      Disconnect & Erase
-                    </button>
+                    <div className="flex flex-col gap-4 w-full">
+                      {networkConfig.role === 'gm' && (
+                        <div className="flex flex-col gap-2 p-3 bg-red-950/20 border border-red-500/20">
+                          <label className="flex items-center gap-2 text-xs text-white/50 cursor-pointer font-bold tracking-wider">
+                            <input 
+                              type="checkbox"
+                              checked={showDeleteAllRooms}
+                              onChange={(e) => setShowDeleteAllRooms(e.target.checked)}
+                            />
+                            Delete ALL rooms on server
+                          </label>
+                          {showDeleteAllRooms && (
+                            <input 
+                              type="password"
+                              placeholder="Admin Password"
+                              value={deleteAllRoomsAuth}
+                              onChange={(e) => setDeleteAllRoomsAuth(e.target.value)}
+                              className="w-full skeuo-input px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 mt-1"
+                            />
+                          )}
+                        </div>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (networkConfig.roomKey) {
+                            try {
+                              if (networkConfig.role === 'gm') {
+                                if (showDeleteAllRooms) {
+                                  const adminPass = (import.meta as any).env?.VITE_FIREBASE_ADMIN_PASSWORD;
+                                  if (!adminPass || deleteAllRoomsAuth !== adminPass) {
+                                    setNetworkError("Incorrect admin password.");
+                                    return;
+                                  }
+                                  // Attempt to delete all players and GM states via collectionGroup
+                                  try {
+                                    const playersQuery = collectionGroup(db, 'players');
+                                    const playersSnap = await getDocs(playersQuery);
+                                    playersSnap.forEach(d => deleteDoc(d.ref));
+                                    
+                                    const gmQuery = collectionGroup(db, 'gm');
+                                    const gmSnap = await getDocs(gmQuery);
+                                    gmSnap.forEach(d => deleteDoc(d.ref));
+                                  } catch (err) {
+                                    console.error("Failed to delete all rooms:", err);
+                                  }
+                                } else {
+                                  // Delete current room's GM state and players
+                                  await deleteDoc(doc(db, `rooms/${networkConfig.roomKey}/gm/state`));
+                                  try {
+                                    const roomPlayers = await getDocs(collection(db, `rooms/${networkConfig.roomKey}/players`));
+                                    roomPlayers.forEach(p => deleteDoc(p.ref));
+                                  } catch (e) {
+                                    console.error("Failed to delete room players:", e);
+                                  }
+                                }
+                              } else {
+                                // Player disconnecting
+                                if (networkConfig.pin) {
+                                  await deleteDoc(doc(db, `rooms/${networkConfig.roomKey}/players/${networkConfig.pin}`));
+                                }
+                              }
+                            } catch (e) {
+                              console.error("Error during disconnect cleanup:", e);
+                            }
+                          }
+                          
+                          setIsNetworkActive(false);
+                          setNetworkPlayers({});
+                          setNetworkGmState(null);
+                          setActiveViewId('me');
+                          setShowDeleteAllRooms(false);
+                          setDeleteAllRoomsAuth('');
+                          setIsNetworkModalOpen(false);
+                        }}
+                        className="w-full bg-red-950/80 border border-red-500/50 hover:bg-red-900/80 text-red-400 py-2.5 rounded-none font-bold tracking-widest uppercase text-xs transition-colors cursor-pointer"
+                      >
+                        {networkConfig.role === 'gm' ? (showDeleteAllRooms ? 'Disconnect & Erase ALL' : 'Disconnect & Delete Room') : 'Disconnect'}
+                      </button>
+                    </div>
                   )}
                 </div>
              </div>
@@ -3312,7 +3434,9 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
         }
         
         if (base64) {
-          setData(prev => ({ ...prev, image: `data:image/jpeg;base64,${base64}` }));
+          const rawDataUrl = `data:image/jpeg;base64,${base64}`;
+          const compressed = await compressImage(rawDataUrl);
+          setData(prev => ({ ...prev, image: compressed }));
         } else {
           setGenerateError("Failed to generate image.");
         }
@@ -3344,11 +3468,9 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
               isInsufficientCredits = true;
             }
           }
-
           if (isInsufficientCredits) {
             throw optionsError;
           }
-
           // Fallback to direct string parameter
           imgElement = await puter.ai.txt2img(promptText, modelToUse);
         }
@@ -3361,7 +3483,7 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
               // Create a new image to ensure crossOrigin is set
               const img = new Image();
               img.crossOrigin = "anonymous";
-              img.onload = () => {
+              img.onload = async () => {
                 try {
                   const canvas = document.createElement('canvas');
                   canvas.width = img.naturalWidth || img.width || 512;
@@ -3370,7 +3492,8 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
                   if (ctx) {
                     ctx.drawImage(img, 0, 0);
                     const dataURL = canvas.toDataURL('image/jpeg', 0.9);
-                    resolve(dataURL);
+                    const compressed = await compressImage(dataURL);
+                    resolve(compressed);
                   } else {
                     reject(new Error("Could not get canvas context"));
                   }
@@ -3384,7 +3507,10 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
                   .then(res => res.blob())
                   .then(blob => {
                     const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onloadend = async () => {
+                       const compressed = await compressImage(reader.result as string);
+                       resolve(compressed);
+                    };
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                   })
@@ -3463,8 +3589,12 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setData(prev => ({ ...prev, image: ev.target?.result as string }));
+      reader.onload = async (ev) => {
+        const result = ev.target?.result as string;
+        if (result) {
+          const compressed = await compressImage(result);
+          setData(prev => ({ ...prev, image: compressed }));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -3795,8 +3925,12 @@ function GlobalSettingsModal({ gameState, onClose, onSave }: { gameState: GameSt
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setCharacterImage(ev.target?.result as string);
+      reader.onload = async (ev) => {
+        const result = ev.target?.result as string;
+        if (result) {
+          const compressed = await compressImage(result);
+          setCharacterImage(compressed);
+        }
       };
       reader.readAsDataURL(file);
     }

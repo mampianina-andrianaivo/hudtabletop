@@ -45,25 +45,37 @@ service cloud.firestore {
           !('encounterLevel' in data.keys()) ||
           data.encounterLevel == null ||
           (data.encounterLevel is string && data.encounterLevel.size() <= 10)
+        ) &&
+        (
+          !('pin' in data.keys()) ||
+          data.pin == null ||
+          (data.pin is string && data.pin.size() == 5)
         );
     }
 
+    match /{path=**}/players/{playerCode} {
+      allow read: if true;
+    }
+    match /{path=**}/gm/{docId} {
+      allow read: if true;
+    }
+
     match /rooms/{roomId}/players/{playerCode} {
-      allow read: if isValidId(roomId);
-      
+      allow read, list: if true;
       allow create: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
                     isValidPlayer(incoming());
-                    
+      
       allow update: if isValidId(roomId) && isValidId(playerCode) && playerCode.size() == 5 &&
                     isValidPlayer(incoming());
-                    
+      
       allow delete: if isValidId(roomId) && isValidId(playerCode);
     }
     
     match /rooms/{roomId}/gm/state {
-      allow read: if isValidId(roomId);
-      allow create: if isValidId(roomId) && isValidGMState(incoming()) && incoming().keys().size() <= 5;
-      allow update: if isValidId(roomId) && isValidGMState(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['rollState', 'diceResult', 'checkedEncounters', 'encounterRolls', 'encounterLevel']);
+      allow read, list: if true;
+      allow create: if isValidId(roomId) && isValidGMState(incoming()) && incoming().keys().size() <= 6;
+      allow update: if isValidId(roomId) && isValidGMState(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['rollState', 'diceResult', 'checkedEncounters', 'encounterRolls', 'encounterLevel', 'pin']);
+      allow delete: if isValidId(roomId);
     }
   }
 }

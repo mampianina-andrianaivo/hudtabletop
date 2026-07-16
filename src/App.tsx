@@ -5,7 +5,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set } from 'idb-keyval';
-import { GoogleGenAI } from '@google/genai';
 import { GameState, SlotData, CustomStat, Requirement } from './types';
 import { Heart, Droplet, Settings, Edit2, Sparkles, Loader2, Info, X, Image as ImageIcon, Trash2, Download, Upload, Plus, Minus, ArrowUp, ArrowDown, Check, Eye, EyeOff, Sun, Moon, RotateCcw, Copy, Wifi, User, Shield, Star } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -156,8 +155,6 @@ const DEFAULT_STATE: GameState = {
   slotTextSize: 12,
   charStatsTextSize: 10,
   characterDiceType: 'd12',
-  imageService: 'puter',
-  puterModel: 'flux-schnell',
   gmCustomDiceMin: 1,
   gmCustomDiceMax: 100,
 };
@@ -610,7 +607,6 @@ export default function App() {
     // Strip API keys from network sync
     const syncGameState = {
       ...gameState,
-      geminiApiKey: undefined,
     };
     
     const timeout = setTimeout(() => {
@@ -687,7 +683,6 @@ export default function App() {
   const [editingSlot, setEditingSlot] = useState<{ slot: SlotData; side: 'left' | 'right' } | null>(null);
   const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
   const [isQuickStatsOpen, setIsQuickStatsOpen] = useState(false);
-  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isGmResetConfirmOpen, setIsGmResetConfirmOpen] = useState(false);
 
@@ -1151,10 +1146,6 @@ export default function App() {
     statBarsMax: gameState.statBarsMax,
     slotTextSize: gameState.slotTextSize,
     charStatsTextSize: gameState.charStatsTextSize,
-    imageService: gameState.imageService,
-    puterModel: gameState.puterModel,
-    geminiApiKey: gameState.geminiApiKey,
-    geminiGlobalPrompt: gameState.geminiGlobalPrompt,
     showHp: gameState.showHp,
     showChakra: gameState.showChakra,
     showOrange: gameState.showOrange,
@@ -1474,14 +1465,6 @@ export default function App() {
                   className="w-9 h-9 flex items-center justify-center rounded-none skeuo-button-green outline-none"
                 >
                   <Upload className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setIsGeminiModalOpen(true); }}
-                  title="AI Image Generation Settings"
-                  className="h-9 px-3 flex items-center gap-2 rounded-none skeuo-button-orange font-bold text-xs tracking-widest outline-none uppercase"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>AI IMAGE SETTINGS</span>
                 </button>
                 <input
                   type="file"
@@ -3261,10 +3244,6 @@ export default function App() {
       {editingSlot && (
         <EditSlotModal 
           slot={editingSlot.slot} 
-          geminiApiKey={gameState.geminiApiKey}
-          geminiGlobalPrompt={gameState.geminiGlobalPrompt}
-          imageService={gameState.imageService || 'puter'}
-          puterModel={gameState.puterModel || 'flux-schnell'}
           onClose={() => setEditingSlot(null)}
           onSave={(updated) => updateSlot(updated, editingSlot.side)}
         />
@@ -3313,19 +3292,6 @@ export default function App() {
         />
       )}
 
-      {isGeminiModalOpen && (
-        <GeminiApiModal
-          gameState={gameState}
-          onClose={() => setIsGeminiModalOpen(false)}
-          onSave={(updates) => {
-            setGameState(prev => ({
-              ...prev,
-              ...updates
-            }));
-            setIsGeminiModalOpen(false);
-          }}
-        />
-      )}
       </div>
     </div>
   );
@@ -3333,54 +3299,8 @@ export default function App() {
 
 // --- Modals Components ---
 
-function loadPuterScript(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).puter) {
-      resolve((window as any).puter);
-      return;
-    }
-    // Check if the script is already added in the document but just not loaded yet
-    const existing = document.querySelector('script[src="https://js.puter.com/v2/"]') || document.querySelector('script[src="https://js.puter.com/v2/puter.js"]');
-    if (existing) {
-      const handleLoad = () => {
-        if ((window as any).puter) {
-          resolve((window as any).puter);
-        } else {
-          reject(new Error("Puter script loaded but window.puter is undefined"));
-        }
-      };
-      existing.addEventListener('load', handleLoad);
-      existing.addEventListener('error', () => {
-        reject(new Error("Failed to load Puter script from existing script tag"));
-      });
-      // Just in case it loaded in the background while setting up listeners
-      setTimeout(() => {
-        if ((window as any).puter) {
-          resolve((window as any).puter);
-        }
-      }, 500);
-      return;
-    }
 
-    // Otherwise create it dynamically
-    const script = document.createElement('script');
-    script.src = "https://js.puter.com/v2/";
-    script.async = true;
-    script.onload = () => {
-      if ((window as any).puter) {
-        resolve((window as any).puter);
-      } else {
-        reject(new Error("Puter script loaded dynamically but window.puter is undefined"));
-      }
-    };
-    script.onerror = () => {
-      reject(new Error("Failed to load Puter.js script dynamically from CDN"));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, puterModel, onClose, onSave }: { slot: SlotData, geminiApiKey?: string, geminiGlobalPrompt?: string, imageService?: 'puter' | 'gemini', puterModel?: string, onClose: () => void, onSave: (s: SlotData) => void }) {
+function EditSlotModal({ slot, onClose, onSave }: { slot: SlotData, onClose: () => void, onSave: (s: SlotData) => void }) {
   const [data, setData] = useState<SlotData>(slot);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewError, setPreviewError] = useState(false);
@@ -3397,204 +3317,38 @@ function EditSlotModal({ slot, geminiApiKey, geminiGlobalPrompt, imageService, p
       setGenerateError("Prompt is empty");
       return;
     }
-
-    const useGemini = imageService === 'gemini';
-    if (useGemini && !geminiApiKey) {
-      setGenerateError("API Key missing (set via 'GEMINI API IMAGE' button in edit mode or switch to Puter.js)");
-      return;
-    }
     
     setIsGenerating(true);
     setGenerateError(null);
     try {
-      let promptText = `A beautiful icon for a fantasy tabletop game, highly detailed, dark background: ${aiPrompt}`;
-      if (geminiGlobalPrompt && geminiGlobalPrompt.trim()) {
-        promptText += `\nGlobal style instructions: ${geminiGlobalPrompt}`;
+      const promptText = `A beautiful icon for a fantasy tabletop game, highly detailed, dark background: ${aiPrompt}`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText)}?width=200&height=200&nologo=true`;
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Échec de la génération de l'image.");
       }
-
-      if (useGemini) {
-        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-        try {
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-lite-image',
-            contents: {
-              parts: [{ text: promptText }]
-            },
-            config: {
-              imageConfig: {
-                aspectRatio: "1:1"
-              }
-            }
-          });
-          
-          let base64 = "";
-          if (response.candidates && response.candidates.length > 0 && response.candidates[0].content.parts) {
-            for (const part of response.candidates[0].content.parts) {
-              if (part.inlineData && part.inlineData.data) {
-                base64 = part.inlineData.data;
-                break;
-              }
-            }
-          }
-          
-          if (base64) {
-            const rawDataUrl = `data:image/jpeg;base64,${base64}`;
-            const compressed = await compressImage(rawDataUrl);
-            setData(prev => ({ ...prev, image: compressed }));
-          } else {
-            setGenerateError("Failed to generate image.");
-          }
-        } catch (err: any) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          if (errorMsg.includes("429")) {
-            setGenerateError("Error 429: Too many requests. Your API key might have hit a quota limit or billing is required for image generation.");
-          } else if (errorMsg.includes("403")) {
-            setGenerateError("Error 403: API Key invalid or restricted.");
-          } else {
-            setGenerateError(`AI Error: ${errorMsg}`);
-          }
-        }
-      } else {
-        // Use Puter.js
-        const puter = await loadPuterScript();
-        const modelToUse = puterModel || 'flux-schnell';
-        
-        let imgElement;
-        try {
-          // Attempt with options object
-          imgElement = await puter.ai.txt2img(promptText, { model: modelToUse });
-        } catch (optionsError: any) {
-          console.warn("Failed with options object, falling back to string model name...", optionsError);
-          
-          let isInsufficientCredits = false;
-          try {
-            const errStr = typeof optionsError === 'object' ? JSON.stringify(optionsError) : String(optionsError);
-            if (errStr.includes("insufficient_funds") || errStr.includes("Insufficient credits")) {
-              isInsufficientCredits = true;
-            }
-          } catch (e) {}
-          
-          if (optionsError) {
-            if (optionsError.code === "insufficient_funds" || 
-                (typeof optionsError.message === 'string' && optionsError.message.includes("Insufficient credits")) ||
-                (optionsError.error && typeof optionsError.error === 'object' && optionsError.error.message && optionsError.error.message.includes("Insufficient credits")) ||
-                (typeof optionsError.error === 'string' && optionsError.error.includes("Insufficient credits"))) {
-              isInsufficientCredits = true;
-            }
-          }
-          if (isInsufficientCredits) {
-            throw optionsError;
-          }
-          // Fallback to direct string parameter
-          imgElement = await puter.ai.txt2img(promptText, modelToUse);
-        }
-
-        if (imgElement && imgElement.src) {
-          try {
-            // First try to fetch the image to convert it to a blob and then Base64
-            // This is necessary because Puter.js URLs expire.
-            const base64Data = await new Promise<string>((resolve, reject) => {
-              // Create a new image to ensure crossOrigin is set
-              const img = new Image();
-              img.crossOrigin = "anonymous";
-              img.onload = async () => {
-                try {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = img.naturalWidth || img.width || 512;
-                  canvas.height = img.naturalHeight || img.height || 512;
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    ctx.drawImage(img, 0, 0);
-                    const dataURL = canvas.toDataURL('image/jpeg', 0.9);
-                    const compressed = await compressImage(dataURL);
-                    resolve(compressed);
-                  } else {
-                    reject(new Error("Could not get canvas context"));
-                  }
-                } catch (e) {
-                  reject(e);
-                }
-              };
-              img.onerror = () => {
-                // Fallback to fetch if Image load fails (e.g. CORS block on anonymous)
-                fetch(imgElement.src)
-                  .then(res => res.blob())
-                  .then(blob => {
-                    const reader = new FileReader();
-                    reader.onloadend = async () => {
-                       const compressed = await compressImage(reader.result as string);
-                       resolve(compressed);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                  })
-                  .catch(reject);
-              };
-              img.src = imgElement.src;
-            });
-            setData(prev => ({ ...prev, image: base64Data }));
-          } catch (fetchErr) {
-            console.warn("Failed to fetch Puter image as blob, using raw src", fetchErr);
-            setData(prev => ({ ...prev, image: imgElement.src }));
-          }
-        } else {
-          throw new Error("Puter.js n'a pas retourné d'image valide.");
-        }
-      }
+      
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+         const base64Data = reader.result as string;
+         try {
+           const compressed = await compressImage(base64Data);
+           setData(prev => ({ ...prev, image: compressed }));
+         } catch (e) {
+           setData(prev => ({ ...prev, image: base64Data }));
+         }
+         setIsGenerating(false);
+      };
+      reader.onerror = () => {
+        setGenerateError("Erreur de lecture de l'image générée.");
+        setIsGenerating(false);
+      };
+      reader.readAsDataURL(blob);
     } catch (err: any) {
       console.warn("AI Generation warning:", err);
-      let errorMsg = "An error occurred";
-      let errStr = "";
-      
-      try {
-        if (err && typeof err === 'object') {
-          if (err.message) {
-            errorMsg = err.message;
-          } else if (err.error && typeof err.error === 'object' && err.error.message) {
-            errorMsg = err.error.message;
-          } else if (err.error) {
-            errorMsg = String(err.error);
-          } else {
-            errorMsg = JSON.stringify(err);
-          }
-        } else {
-          errorMsg = String(err);
-        }
-        errStr = typeof err === 'object' ? JSON.stringify(err) : String(err);
-      } catch (stringifyError) {
-        errorMsg = err?.message || String(err) || "An unexpected circular/complex error occurred";
-        errStr = String(err);
-      }
-      
-      if (!useGemini) {
-        errorMsg = `⚠️ Puter.js Error: ${errorMsg}. Conseil : Si l'application tourne dans l'aperçu AI Studio (iframe), la politique de sécurité de votre navigateur bloque l'accès aux cookies de Puter.js. Ouvrez l'application dans un nouvel onglet, ou configurez l'API Google Gemini dans les réglages en haut à droite avec votre propre clé API Gemini.`;
-      } else {
-        if (
-          errStr.includes("RESOURCE_EXHAUSTED") || 
-          errStr.includes("429") || 
-          errStr.toLowerCase().includes("quota") || 
-          errorMsg.includes("RESOURCE_EXHAUSTED") || 
-          errorMsg.includes("429") ||
-          errorMsg.toLowerCase().includes("quota")
-        ) {
-          errorMsg = "⚠️ Quota dépassé (Error 429 / RESOURCE_EXHAUSTED). Votre clé API Gemini a épuisé son quota ou ses limites de requêtes. Veuillez vérifier l'état de votre facturation, vos limites de taux sur Google AI Studio, ou réessayez dans quelques minutes.";
-        } else if (
-          errStr.includes("API_KEY_INVALID") || 
-          errStr.toLowerCase().includes("invalid api key") || 
-          (errorMsg.toLowerCase().includes("api key") && (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("not found")))
-        ) {
-          errorMsg = "⚠️ Clé API invalide. Veuillez vérifier que vous avez copié correctement votre clé Gemini API dans le menu 'REGLAGES IMAGE'.";
-        } else if (
-          errStr.includes("NOT_FOUND") || 
-          errStr.includes("404") || 
-          errorMsg.includes("not found")
-        ) {
-          errorMsg = "⚠️ Modèle introuvable ou non supporté par votre clé (Error 404). Assurez-vous d'utiliser une clé valide et active sur Google AI Studio avec accès au modèle de génération d'image.";
-        }
-      }
-      
-      setGenerateError(errorMsg);
-    } finally {
+      setGenerateError(err.message || String(err) || "Une erreur s'est produite lors de la génération.");
       setIsGenerating(false);
     }
   };
@@ -4572,137 +4326,4 @@ const DiceShape: React.FC<{ type: 'd6' | 'd8' | 'd12' | 'd20', value: number, is
     </div>
   );
 };
-
-function GeminiApiModal({ 
-  gameState, 
-  onClose, 
-  onSave 
-}: { 
-  gameState: GameState; 
-  onClose: () => void; 
-  onSave: (updates: Partial<GameState>) => void; 
-}) {
-  const [imageService, setImageService] = useState<'puter' | 'gemini'>(gameState.imageService || 'puter');
-  const [geminiApiKey, setGeminiApiKey] = useState(gameState.geminiApiKey || '');
-  const [geminiGlobalPrompt, setGeminiGlobalPrompt] = useState(gameState.geminiGlobalPrompt || '');
-  const [puterModel, setPuterModel] = useState<string>(gameState.puterModel || 'flux-schnell');
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="skeuo-panel p-8 w-full max-w-lg shadow-2xl relative">
-        {/* Top-level absolute border overlay to prevent image or gradients from overlapping the border */}
-        <div className="absolute inset-0 border border-white/5 pointer-events-none z-30" />
-        
-        <div className="flex justify-between items-center mb-6 relative z-10">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-400" />
-            <h2 className="text-xl font-bold text-amber-400 tracking-wider">AI IMAGE GENERATION</h2>
-          </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="space-y-6 relative z-10">
-          {/* Service Selector */}
-          <div>
-            <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white uppercase">
-              Générateur d'images / Image Provider
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setImageService('puter')}
-                className={`px-4 py-3 border text-left flex flex-col justify-between transition-all ${
-                  imageService === 'puter'
-                    ? 'border-amber-500 bg-amber-500/10 text-white'
-                    : 'border-white/10 bg-black/40 text-white/60 hover:border-white/20'
-                }`}
-              >
-                <span className="font-bold text-xs">Puter.js</span>
-                <span className="text-[9px] opacity-80 mt-1">Gratuit et illimité, aucune clé requise !</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setImageService('gemini')}
-                className={`px-4 py-3 border text-left flex flex-col justify-between transition-all ${
-                  imageService === 'gemini'
-                    ? 'border-amber-500 bg-amber-500/10 text-white'
-                    : 'border-white/10 bg-black/40 text-white/60 hover:border-white/20'
-                }`}
-              >
-                <span className="font-bold text-xs">Google Gemini API</span>
-                <span className="text-[9px] opacity-80 mt-1">Requiert votre propre clé API Gemini</span>
-              </button>
-            </div>
-          </div>
-
-          {imageService === 'puter' && (
-            <div className="p-4 bg-amber-500/5 border border-amber-500/10 space-y-4">
-              <div>
-                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white uppercase">
-                  Modèle Puter.js / Model
-                </label>
-                <div className="w-full bg-[#141824] border border-white/10 rounded-none px-3 py-2 text-white/50 text-xs font-bold">
-                  FLUX Schnell
-                </div>
-                <p className="text-[9px] text-amber-500/60 mt-1.5 italic leading-relaxed">
-                  Modèle d'IA par défaut pour la génération d'images.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {imageService === 'gemini' && (
-            <div className="p-4 bg-amber-500/5 border border-amber-500/10 space-y-4">
-              <div>
-                <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white uppercase">
-                  Google Gemini API Key
-                </label>
-                <input 
-                  type="password"
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full bg-black/50 border border-white/10 rounded-none px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-amber-500/50 shadow-inner"
-                />
-                <p className="text-[9px] text-amber-500/60 mt-1 italic leading-relaxed">
-                  Your API key is used directly from your browser to perform local client-side image generation and is never sent to any third-party servers.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] opacity-60 mb-2 font-bold tracking-widest text-white uppercase">
-              Global Image Style / Instructions (Consigne Globale)
-            </label>
-            <textarea 
-              value={geminiGlobalPrompt}
-              onChange={(e) => setGeminiGlobalPrompt(e.target.value)}
-              placeholder="e.g. style fantasy sketch, neon glowing details, dark minimal emblem style"
-              className="w-full h-24 bg-black/50 border border-white/10 rounded-none p-3 text-white text-xs resize-none focus:outline-none focus:border-amber-500/50 shadow-inner leading-relaxed"
-            />
-            <p className="text-[9px] text-gray-500 mt-1 italic leading-relaxed">
-              These style rules will be appended to every single image generation prompt in your slots to maintain a cohesive visual style.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 flex justify-end gap-3 relative z-10 border-t border-white/10 pt-4">
-          <button 
-            onClick={onClose} 
-            className="px-5 py-2 skeuo-button font-bold text-xs tracking-widest transition-colors"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={() => onSave({ imageService, geminiApiKey, geminiGlobalPrompt, puterModel })} 
-            className="px-6 py-2 skeuo-button-orange font-bold text-xs tracking-widest transition-all text-amber-950"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 

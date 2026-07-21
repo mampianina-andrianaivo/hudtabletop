@@ -54,7 +54,7 @@ async function startServer() {
 
   // API: Create GM Room
   app.post('/api/rooms/create', (req, res) => {
-    const { roomName, password, shopSpells } = req.body;
+    const { roomName, password, shopSpells, publicNotes } = req.body;
     if (!roomName || !password) {
       return res.status(400).json({ error: 'Room name and password are required' });
     }
@@ -72,7 +72,7 @@ async function startServer() {
       links,
       players: {},
       publishedEncounter: null,
-      publicNotes: '',
+      publicNotes: publicNotes || '',
       shopSpells: shopSpells || [],
       rollLogs: [{ id: 'init', pseudo: 'System', text: `Room ${roomName} created!`, timestamp: Date.now() }],
       lastUpdate: Date.now()
@@ -106,8 +106,8 @@ async function startServer() {
   // API: Join Room as Player
   app.post('/api/rooms/join', (req, res) => {
     const { roomName, password, joinCode, pseudo } = req.body;
-    if (!password || !joinCode || !pseudo) {
-      return res.status(400).json({ error: 'All fields are required' });
+    if (!password || !joinCode) {
+      return res.status(400).json({ error: 'Password and join code are required' });
     }
 
     const cleanCode = joinCode.trim().toUpperCase();
@@ -138,16 +138,13 @@ async function startServer() {
       return res.status(400).json({ error: 'Invalid join code link' });
     }
 
-    // Check if joinCode is already in use by a different pseudo
+    const resolvedPseudo = (pseudo || '').trim() || 'Awaiting Hero Name...';
     const existingPlayer = room.players[cleanCode];
-    if (existingPlayer && existingPlayer.pseudo.toLowerCase() !== pseudo.trim().toLowerCase()) {
-      return res.status(400).json({ error: 'This join code is already in use by another player!' });
-    }
 
     // Register or update player
     room.players[cleanCode] = {
       joinCode: cleanCode,
-      pseudo: pseudo.trim(),
+      pseudo: resolvedPseudo,
       characterState: existingPlayer?.characterState || {},
       lastActive: Date.now()
     };
@@ -156,7 +153,7 @@ async function startServer() {
     room.rollLogs.push({
       id: `join-${Date.now()}`,
       pseudo: 'System',
-      text: `${pseudo.trim()} joined the room!`,
+      text: `${resolvedPseudo} joined the room!`,
       timestamp: Date.now()
     });
 
@@ -164,7 +161,7 @@ async function startServer() {
 
     res.json({
       roomName: room.roomName,
-      pseudo: pseudo.trim(),
+      pseudo: resolvedPseudo,
       joinCode: cleanCode,
       message: 'Joined successfully'
     });
@@ -214,6 +211,9 @@ async function startServer() {
       if (playerState) {
         player.characterState = playerState;
         player.lastActive = Date.now();
+        if (playerState.name) {
+          player.pseudo = playerState.name;
+        }
       }
     }
 

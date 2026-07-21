@@ -83,7 +83,7 @@ export function GMView({ onGoHome }: GMViewProps) {
   const handleDisconnect = async () => {
     if (mpStore.isConnected && mpStore.roomName) {
       try {
-        await fetch('/api/rooms/delete', {
+        await fetch('/api/rooms/disconnect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -467,23 +467,33 @@ export function GMView({ onGoHome }: GMViewProps) {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 mt-2">
-              {mpStore.links.map((linkCode, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleCopyLink(linkCode, idx)}
-                  className="bg-black/40 border border-[#5a4b3c]/30 hover:border-green-500 hover:bg-black/60 p-2 rounded text-left font-sans text-xs transition-colors flex items-center justify-between"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player Slot #{idx + 1}</span>
-                    <span className="font-mono text-white text-[11px]">{linkCode}</span>
-                  </div>
-                  {copiedIndex === idx ? (
-                    <span className="text-green-400 text-[10px] font-semibold flex items-center gap-0.5"><Check size={12} /> Copied!</span>
-                  ) : (
-                    <span className="text-gray-500 hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
-                  )}
-                </button>
-              ))}
+              {mpStore.links.map((linkCode, idx) => {
+                const connectedPlayer = mpStore.roomPlayers[linkCode];
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleCopyLink(linkCode, idx)}
+                    className="bg-black/40 border border-[#5a4b3c]/30 hover:border-green-500 hover:bg-black/60 p-2 rounded text-left font-sans text-xs transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player Slot #{idx + 1}</span>
+                        {connectedPlayer && (
+                          <span className="text-green-400 font-sans text-[11px] font-bold animate-pulse">
+                            ● {connectedPlayer.pseudo || 'Connected'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-mono text-white text-[11px]">{linkCode}</span>
+                    </div>
+                    {copiedIndex === idx ? (
+                      <span className="text-green-400 text-[10px] font-semibold flex items-center gap-0.5"><Check size={12} /> Copied!</span>
+                    ) : (
+                      <span className="text-gray-500 hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="flex justify-end mt-2">

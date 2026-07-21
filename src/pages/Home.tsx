@@ -4,6 +4,22 @@ import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useGMStore } from '@/store/useGMStore';
 
+// Helper to wipe Firestore players if configured (to wipe everything)
+async function wipeFirestorePlayers() {
+  try {
+    const { db } = await import('@/lib/firebase');
+    if (!db) return;
+    const { collection, getDocs, deleteDoc, doc } = await import('firebase/firestore');
+    const colRef = collection(db, 'players');
+    const snapshot = await getDocs(colRef);
+    const promises = snapshot.docs.map(document => deleteDoc(doc(db, 'players', document.id)));
+    await Promise.all(promises);
+    console.log("Firestore 'players' collection successfully wiped.");
+  } catch (err) {
+    console.error("Gracefully handled error during Firestore wipe:", err);
+  }
+}
+
 interface HomeProps {
   onSelectRole: (role: 'player' | 'gm') => void;
 }
@@ -15,11 +31,10 @@ export function Home({ onSelectRole }: HomeProps) {
   // GM Create fields
   const [gmRoomName, setGmRoomName] = useState('');
   const [gmPassword, setGmPassword] = useState('');
-  const [loadedShopSpells, setLoadedShopSpells] = useState<any[]>([]);
+  const [loadedCampaignData, setLoadedCampaignData] = useState<any | null>(null);
   const [jsonLoadedName, setJsonLoadedName] = useState<string | null>(null);
 
   // Player Join fields
-  const [playPseudo, setPlayPseudo] = useState('');
   const [playRoomName, setPlayRoomName] = useState('');
   const [playPassword, setPlayPassword] = useState('');
   const [playLink, setPlayLink] = useState('');
@@ -69,18 +84,23 @@ export function Home({ onSelectRole }: HomeProps) {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        // Supports full GM store export or shop spells array
-        let spells: any[] = [];
-        if (Array.isArray(data)) {
-          spells = data;
-        } else if (data && Array.isArray(data.shopSpells)) {
-          spells = data.shopSpells;
-        } else {
-          alert('Could not find spells list in this JSON.');
+        const text = event.target?.result as string;
+        if (!text || text.trim() === '') {
+          alert('Loaded file is empty.');
           return;
         }
-        setLoadedShopSpells(spells);
+        const data = JSON.parse(text);
+        
+        // Supports full GM store export or shop spells array
+        if (Array.isArray(data)) {
+          setLoadedCampaignData({ shopSpells: data });
+        } else if (data) {
+          setLoadedCampaignData(data);
+        } else {
+          alert('Invalid JSON file format.');
+          return;
+        }
+        
         setJsonLoadedName(file.name);
       } catch (err) {
         console.error(err);
@@ -108,24 +128,62 @@ export function Home({ onSelectRole }: HomeProps) {
     setErrorMessage(null);
 
     try {
+      // 1. Wipe Firestore Players collection (completely wipe Firebase)
+      await wipeFirestorePlayers();
+
+      // Extract shop spells & public notes from loaded JSON campaign if exists
+      const shopSpells = loadedCampaignData?.shopSpells || [];
+      const publicNotes = loadedCampaignData?.publicNotes || '';
+
+      // 2. Request new room creation on server
       const res = await fetch('/api/rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomName: gmRoomName,
           password: gmPassword,
-          shopSpells: loadedShopSpells,
+          shopSpells: shopSpells,
+          publicNotes: publicNotes,
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        throw new Error(`Server returned invalid response: ${text.substring(0, 100) || 'empty response'}`);
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to create room.');
       }
 
-      // Initialize GM store shopSpells if json was loaded
-      if (loadedShopSpells.length > 0) {
-        useGMStore.getState().loadShopSpells(loadedShopSpells);
+      // 3. Initialize GM local state
+      if (loadedCampaignData) {
+        // Load completely from parsed campaign data
+        useGMStore.setState({
+          shopSpells: loadedCampaignData.shopSpells || [],
+          encounters: loadedCampaignData.encounters || [{ id: 'default-1', actionName: '', isSub: false, isEnabled: true }],
+          currentDraw: null,
+          notes: loadedCampaignData.notes || '',
+        });
+        useMultiplayerStore.setState({
+          publicNotes: loadedCampaignData.publicNotes || '',
+          localPublicNotes: loadedCampaignData.publicNotes || '',
+        });
+      } else {
+        // Initialize as completely clean slate (scratch)
+        useGMStore.setState({
+          shopSpells: [],
+          encounters: [{ id: 'default-1', actionName: '', isSub: false, isEnabled: true }],
+          currentDraw: null,
+          notes: '',
+        });
+        useMultiplayerStore.setState({
+          publicNotes: '',
+          localPublicNotes: '',
+        });
       }
 
       // Save credentials and connect
@@ -137,7 +195,7 @@ export function Home({ onSelectRole }: HomeProps) {
         gmSessionId: data.gmSessionId,
         links: data.links,
         isConnected: true,
-        rollLogs: [],
+        rollLogs: data.rollLogs || [],
         roomPlayers: {},
       });
 
@@ -152,7 +210,7 @@ export function Home({ onSelectRole }: HomeProps) {
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!playPseudo.trim() || !playPassword.trim() || !playLink.trim()) {
+    if (!playPassword.trim() || !playLink.trim()) {
       setErrorMessage('All fields are required.');
       return;
     }
@@ -161,6 +219,8 @@ export function Home({ onSelectRole }: HomeProps) {
     setErrorMessage(null);
 
     try {
+      const characterName = usePlayerStore.getState().name || 'Unknown Hero';
+
       const res = await fetch('/api/rooms/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -168,7 +228,7 @@ export function Home({ onSelectRole }: HomeProps) {
           roomName: playRoomName.trim() || undefined,
           password: playPassword.trim(),
           joinCode: playLink.trim().toUpperCase(),
-          pseudo: playPseudo.trim(),
+          pseudo: characterName,
         }),
       });
 
@@ -177,9 +237,6 @@ export function Home({ onSelectRole }: HomeProps) {
         throw new Error(data.error || 'Failed to join room.');
       }
 
-      // Initialize player state with their name
-      usePlayerStore.getState().updateName(playPseudo.trim());
-
       // Save credentials and connect
       useMultiplayerStore.getState().disconnect(); // Reset previous session
       useMultiplayerStore.getState().setCredentials({
@@ -187,7 +244,7 @@ export function Home({ onSelectRole }: HomeProps) {
         password: playPassword.trim(),
         role: 'player',
         joinCode: playLink.trim().toUpperCase(),
-        pseudo: playPseudo.trim(),
+        pseudo: characterName,
         isConnected: true,
         rollLogs: [],
         roomPlayers: {},
@@ -377,21 +434,6 @@ export function Home({ onSelectRole }: HomeProps) {
             <h3 className="font-cinzel text-green-400 text-2xl text-center border-b border-green-900/40 pb-2">Join Campaign</h3>
 
             <form onSubmit={handleJoinRoom} className="flex flex-col gap-4 font-sans text-sm">
-              <div>
-                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Name (Pseudo)</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><User size={16} /></span>
-                  <input 
-                    type="text" 
-                    required
-                    value={playPseudo}
-                    onChange={(e) => setPlayPseudo(e.target.value)}
-                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
-                    placeholder="Enter your hero name..."
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Join Code Link</label>
                 <div className="relative">

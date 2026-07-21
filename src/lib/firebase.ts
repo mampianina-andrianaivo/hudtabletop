@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
+import firebaseConfigJson from '../../firebase-applet-config.json';
 
 // The user is providing these via AI Studio secrets / .env
 const firebaseConfig = {
@@ -14,7 +15,7 @@ const firebaseConfig = {
 
 // Initialize Firebase only if config is provided
 export const app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
-export const db = app ? getFirestore(app) : null;
+export const db = app ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId) : null;
 export const auth = app ? getAuth(app) : null;
 
 // Helper to ensure auth is ready

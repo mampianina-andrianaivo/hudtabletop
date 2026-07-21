@@ -54,7 +54,12 @@ export function Home({ onSelectRole }: HomeProps) {
             setPlayRoomName(data.roomName);
           }
         })
-        .catch(err => console.log('Join code does not map to an active room yet:', err));
+        .catch(err => {
+          console.log('Join code does not map to an active room yet:', err);
+          setPlayRoomName('');
+        });
+    } else {
+      setPlayRoomName('');
     }
   }, [playLink]);
 
@@ -147,7 +152,7 @@ export function Home({ onSelectRole }: HomeProps) {
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!playPseudo.trim() || !playRoomName.trim() || !playPassword.trim() || !playLink.trim()) {
+    if (!playPseudo.trim() || !playPassword.trim() || !playLink.trim()) {
       setErrorMessage('All fields are required.');
       return;
     }
@@ -160,7 +165,7 @@ export function Home({ onSelectRole }: HomeProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roomName: playRoomName.trim(),
+          roomName: playRoomName.trim() || undefined,
           password: playPassword.trim(),
           joinCode: playLink.trim().toUpperCase(),
           pseudo: playPseudo.trim(),
@@ -178,7 +183,7 @@ export function Home({ onSelectRole }: HomeProps) {
       // Save credentials and connect
       useMultiplayerStore.getState().disconnect(); // Reset previous session
       useMultiplayerStore.getState().setCredentials({
-        roomName: playRoomName.trim(),
+        roomName: data.roomName,
         password: playPassword.trim(),
         role: 'player',
         joinCode: playLink.trim().toUpperCase(),
@@ -388,23 +393,24 @@ export function Home({ onSelectRole }: HomeProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider flex justify-between">
-                  <span>Room Name</span>
-                  {playRoomName && (
-                    <span className="text-[10px] text-green-500 font-sans lowercase tracking-normal font-semibold">Prefilled automatically!</span>
-                  )}
-                </label>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Join Code Link</label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Swords size={16} /></span>
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Link size={16} /></span>
                   <input 
                     type="text" 
                     required
-                    value={playRoomName}
-                    onChange={(e) => setPlayRoomName(e.target.value)}
+                    value={playLink}
+                    onChange={(e) => setPlayLink(e.target.value)}
                     className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
-                    placeholder="Enter Room Name exactly..."
+                    placeholder="P-XXXXXX"
                   />
                 </div>
+                {playRoomName && (
+                  <div className="text-green-400 text-xs mt-1.5 font-mono flex items-center gap-1 bg-black/40 border border-green-500/20 px-2 py-1 rounded">
+                    <span>✓ Room detected:</span>
+                    <span className="font-bold underline">{playRoomName}</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -418,21 +424,6 @@ export function Home({ onSelectRole }: HomeProps) {
                     onChange={(e) => setPlayPassword(e.target.value)}
                     className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
                     placeholder="Enter Room password..."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Join Code Link</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Link size={16} /></span>
-                  <input 
-                    type="text" 
-                    required
-                    value={playLink}
-                    onChange={(e) => setPlayLink(e.target.value)}
-                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
-                    placeholder="P-XXXXXX"
                   />
                 </div>
               </div>

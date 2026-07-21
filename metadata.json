@@ -1,6 +1,6 @@
 {
-  "name": "Tabletop HUD",
-  "description": "A dark theme HUD for tabletop RPG with character stats, slots, HP, and Chakra.",
+  "name": "Tabletop HUD Dashboard",
+  "description": "A World of Warcraft inspired skeuomorphic tabletop RPG dashboard for Game Masters and Players.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

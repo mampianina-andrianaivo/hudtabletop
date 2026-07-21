@@ -1,0 +1,470 @@
+import React, { useState } from 'react';
+import { Shield, ScrollText, Swords, Upload, Sparkles, User, Key, Link } from 'lucide-react';
+import { useMultiplayerStore } from '@/store/useMultiplayerStore';
+import { usePlayerStore } from '@/store/usePlayerStore';
+import { useGMStore } from '@/store/useGMStore';
+
+interface HomeProps {
+  onSelectRole: (role: 'player' | 'gm') => void;
+}
+
+export function Home({ onSelectRole }: HomeProps) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+
+  // GM Create fields
+  const [gmRoomName, setGmRoomName] = useState('');
+  const [gmPassword, setGmPassword] = useState('');
+  const [loadedShopSpells, setLoadedShopSpells] = useState<any[]>([]);
+  const [jsonLoadedName, setJsonLoadedName] = useState<string | null>(null);
+
+  // Player Join fields
+  const [playPseudo, setPlayPseudo] = useState('');
+  const [playRoomName, setPlayRoomName] = useState('');
+  const [playPassword, setPlayPassword] = useState('');
+  const [playLink, setPlayLink] = useState('');
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (joinCode) {
+      setPlayLink(joinCode.toUpperCase());
+      setShowJoinModal(true);
+      const rName = params.get('room');
+      if (rName) {
+        setPlayRoomName(rName);
+      }
+    }
+  }, []);
+
+  // Auto-resolve room name from join code when it changes
+  React.useEffect(() => {
+    const code = playLink.trim().toUpperCase();
+    if (code.startsWith('P-') && code.length === 8) {
+      fetch(`/api/rooms/resolve-join?joinCode=${encodeURIComponent(code)}`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Not found');
+        })
+        .then(data => {
+          if (data.roomName) {
+            setPlayRoomName(data.roomName);
+          }
+        })
+        .catch(err => console.log('Join code does not map to an active room yet:', err));
+    }
+  }, [playLink]);
+
+  const handleJsonLoad = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        // Supports full GM store export or shop spells array
+        let spells: any[] = [];
+        if (Array.isArray(data)) {
+          spells = data;
+        } else if (data && Array.isArray(data.shopSpells)) {
+          spells = data.shopSpells;
+        } else {
+          alert('Could not find spells list in this JSON.');
+          return;
+        }
+        setLoadedShopSpells(spells);
+        setJsonLoadedName(file.name);
+      } catch (err) {
+        console.error(err);
+        alert('Invalid JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gmRoomName.trim() || !gmPassword.trim()) {
+      setErrorMessage('Room Name and Password are required.');
+      return;
+    }
+
+    // Optional environment password restriction
+    const envPassword = import.meta.env.VITE_GAME_PASSWORD;
+    if (envPassword && gmPassword !== envPassword) {
+      setErrorMessage('Incorrect master connection password.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/rooms/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName: gmRoomName,
+          password: gmPassword,
+          shopSpells: loadedShopSpells,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create room.');
+      }
+
+      // Initialize GM store shopSpells if json was loaded
+      if (loadedShopSpells.length > 0) {
+        useGMStore.getState().loadShopSpells(loadedShopSpells);
+      }
+
+      // Save credentials and connect
+      useMultiplayerStore.getState().disconnect(); // Reset previous session
+      useMultiplayerStore.getState().setCredentials({
+        roomName: data.roomName,
+        password: gmPassword,
+        role: 'gm',
+        gmSessionId: data.gmSessionId,
+        links: data.links,
+        isConnected: true,
+        rollLogs: [],
+        roomPlayers: {},
+      });
+
+      setShowCreateModal(false);
+      onSelectRole('gm');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error occurred while creating.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleJoinRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!playPseudo.trim() || !playRoomName.trim() || !playPassword.trim() || !playLink.trim()) {
+      setErrorMessage('All fields are required.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/rooms/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName: playRoomName.trim(),
+          password: playPassword.trim(),
+          joinCode: playLink.trim().toUpperCase(),
+          pseudo: playPseudo.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to join room.');
+      }
+
+      // Initialize player state with their name
+      usePlayerStore.getState().updateName(playPseudo.trim());
+
+      // Save credentials and connect
+      useMultiplayerStore.getState().disconnect(); // Reset previous session
+      useMultiplayerStore.getState().setCredentials({
+        roomName: playRoomName.trim(),
+        password: playPassword.trim(),
+        role: 'player',
+        joinCode: playLink.trim().toUpperCase(),
+        pseudo: playPseudo.trim(),
+        isConnected: true,
+        rollLogs: [],
+        roomPlayers: {},
+      });
+
+      setShowJoinModal(false);
+      onSelectRole('player');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error occurred while joining.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-iron text-gray-200 flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] relative overflow-hidden">
+      
+      {/* Background Decor */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+        <Swords size={600} />
+      </div>
+
+      <div className="wow-panel max-w-xl w-full p-8 flex flex-col items-center shadow-2xl relative z-10">
+        <h1 className="font-cinzel font-bold text-5xl text-wow-gold mb-2 text-center drop-shadow-[0_4px_4px_rgba(0,0,0,1)]">
+          D12 Roll
+        </h1>
+        <h2 className="font-macondo text-2xl text-wow-gold mb-10 text-center tracking-widest uppercase drop-shadow-md">
+          Dashboard
+        </h2>
+
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent mb-8"></div>
+
+        <div className="flex flex-col w-full gap-8 px-4">
+          
+          {/* Offline Section */}
+          <div className="text-center space-y-4">
+            <h3 className="font-cinzel text-white text-sm tracking-widest border-b border-[#5a4b3c] pb-2 inline-block">Play Offline</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button 
+                onClick={() => {
+                  useMultiplayerStore.getState().disconnect();
+                  onSelectRole('player');
+                }}
+                className="wow-button py-3 text-lg flex items-center justify-center gap-2"
+              >
+                <Shield size={20} className="text-wow-gold" />
+                Player HUD
+              </button>
+              
+              <button 
+                onClick={() => {
+                  useMultiplayerStore.getState().disconnect();
+                  onSelectRole('gm');
+                }}
+                className="wow-button py-3 text-lg flex items-center justify-center gap-2"
+              >
+                <ScrollText size={20} className="text-wow-gold" />
+                Game Master
+              </button>
+            </div>
+          </div>
+
+          {/* Online Section */}
+          <div className="text-center space-y-4 mt-2">
+            <h3 className="font-cinzel text-wow-gold text-sm tracking-widest border-b border-wow-gold/30 pb-2 inline-block">Play Online</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button 
+                onClick={() => {
+                  setErrorMessage(null);
+                  setShowJoinModal(true);
+                }}
+                className="wow-button py-4 text-lg flex items-center justify-center gap-2 border-green-700/60 hover:border-green-500 bg-green-950/20"
+              >
+                <User size={20} className="text-wow-gold" />
+                Join as Player
+              </button>
+
+              <button 
+                onClick={() => {
+                  setErrorMessage(null);
+                  setShowCreateModal(true);
+                }}
+                className="wow-button py-4 text-lg flex items-center justify-center gap-2 border-wow-gold/40 hover:border-wow-gold bg-wow-gold/5"
+              >
+                <Sparkles size={20} className="text-wow-gold animate-spin-slow" />
+                Create as GM
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent mt-8 mb-4"></div>
+        <p className="font-cinzel text-xs text-white text-center">Copyright Mampianina</p>
+      </div>
+
+      {/* CREATE AS GAME MASTER MODAL */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-wow-dark border-2 border-wow-gold/50 p-6 rounded shadow-2xl w-full max-w-md relative flex flex-col gap-4">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-wow-gold m-1"></div>
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-wow-gold m-1"></div>
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold m-1"></div>
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold m-1"></div>
+
+            <h3 className="font-cinzel text-wow-gold text-2xl text-center border-b border-[#5a4b3c]/40 pb-2">Create Online Room</h3>
+
+            <form onSubmit={handleCreateRoom} className="flex flex-col gap-4 font-sans text-sm">
+              <div>
+                <label className="block text-xs font-cinzel text-wow-gold mb-1 uppercase tracking-wider">Room Name</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-wow-gold/50"><Swords size={16} /></span>
+                  <input 
+                    type="text" 
+                    required
+                    value={gmRoomName}
+                    onChange={(e) => setGmRoomName(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-[#5a4b3c] rounded text-white font-mono focus:border-wow-gold focus:outline-none transition-colors"
+                    placeholder="Enter unique campaign name..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-cinzel text-wow-gold mb-1 uppercase tracking-wider">Connection Password</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-wow-gold/50"><Key size={16} /></span>
+                  <input 
+                    type="password" 
+                    required
+                    value={gmPassword}
+                    onChange={(e) => setGmPassword(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-[#5a4b3c] rounded text-white font-mono focus:border-wow-gold focus:outline-none transition-colors"
+                    placeholder="Shared room password..."
+                  />
+                </div>
+              </div>
+
+              <div className="border border-[#5a4b3c]/30 rounded p-3 bg-black/40 flex justify-between items-center">
+                <div className="flex flex-col">
+                  <span className="font-cinzel text-xs text-wow-gold">Load Campaign / Shop JSON</span>
+                  <span className="text-[11px] text-gray-400 truncate max-w-[200px]">{jsonLoadedName || 'No JSON loaded'}</span>
+                </div>
+                <label className="wow-button px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1 shrink-0">
+                  <Upload size={12} /> Load JSON
+                  <input type="file" accept=".json" className="hidden" onChange={handleJsonLoad} />
+                </label>
+              </div>
+
+              {errorMessage && (
+                <div className="text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
+                  {errorMessage}
+                </div>
+              )}
+
+              <div className="flex gap-4 mt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowCreateModal(false)}
+                  className="wow-button flex-1 py-2 text-sm"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="wow-button flex-1 py-2 text-sm text-wow-gold font-bold bg-wow-gold/10 hover:bg-wow-gold/20"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* JOIN AS PLAYER MODAL */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-wow-dark border-2 border-green-900/50 p-6 rounded shadow-2xl w-full max-w-md relative flex flex-col gap-4">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-green-500 m-1 opacity-50"></div>
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-green-500 m-1 opacity-50"></div>
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-green-500 m-1 opacity-50"></div>
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-green-500 m-1 opacity-50"></div>
+
+            <h3 className="font-cinzel text-green-400 text-2xl text-center border-b border-green-900/40 pb-2">Join Campaign</h3>
+
+            <form onSubmit={handleJoinRoom} className="flex flex-col gap-4 font-sans text-sm">
+              <div>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Name (Pseudo)</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><User size={16} /></span>
+                  <input 
+                    type="text" 
+                    required
+                    value={playPseudo}
+                    onChange={(e) => setPlayPseudo(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
+                    placeholder="Enter your hero name..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider flex justify-between">
+                  <span>Room Name</span>
+                  {playRoomName && (
+                    <span className="text-[10px] text-green-500 font-sans lowercase tracking-normal font-semibold">Prefilled automatically!</span>
+                  )}
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Swords size={16} /></span>
+                  <input 
+                    type="text" 
+                    required
+                    value={playRoomName}
+                    onChange={(e) => setPlayRoomName(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
+                    placeholder="Enter Room Name exactly..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Connection Password</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Key size={16} /></span>
+                  <input 
+                    type="password" 
+                    required
+                    value={playPassword}
+                    onChange={(e) => setPlayPassword(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
+                    placeholder="Enter Room password..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Join Code Link</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Link size={16} /></span>
+                  <input 
+                    type="text" 
+                    required
+                    value={playLink}
+                    onChange={(e) => setPlayLink(e.target.value)}
+                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
+                    placeholder="P-XXXXXX"
+                  />
+                </div>
+              </div>
+
+              {errorMessage && (
+                <div className="text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
+                  {errorMessage}
+                </div>
+              )}
+
+              <div className="flex gap-4 mt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowJoinModal(false)}
+                  className="wow-button flex-1 py-2 text-sm"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="wow-button flex-1 py-2 text-sm text-green-400 font-bold bg-green-950/20 hover:bg-green-950/40 border-green-700/60"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Joining...' : 'Join'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

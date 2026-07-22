@@ -59,20 +59,23 @@ export function Home({ onSelectRole }: HomeProps) {
   React.useEffect(() => {
     const code = playLink.trim().toUpperCase();
     if (code.startsWith('P-') && code.length === 8) {
-      fetch(`/api/rooms/resolve-join?joinCode=${encodeURIComponent(code)}`)
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Not found');
-        })
-        .then(data => {
-          if (data.roomName) {
+      import('@/lib/firebase').then(async ({ db }) => {
+        if (!db) return;
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const q = query(collection(db, 'rooms'), where('links', 'array-contains', code));
+        try {
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const data = snapshot.docs[0].data();
             setPlayRoomName(data.roomName);
+          } else {
+            setPlayRoomName('');
           }
-        })
-        .catch(err => {
+        } catch (err) {
           console.log('Join code does not map to an active room yet:', err);
           setPlayRoomName('');
-        });
+        }
+      });
     } else {
       setPlayRoomName('');
     }
@@ -112,15 +115,27 @@ export function Home({ onSelectRole }: HomeProps) {
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gmRoomName.trim() || !gmPassword.trim()) {
-      setErrorMessage('Room Name and Password are required.');
+
+    if (!loadedCampaignData) {
+      setErrorMessage('Un fichier JSON de campagne est OBLIGATOIRE pour créer une room.');
+      return;
+    }
+
+    const roomNameToUse = (loadedCampaignData.roomName || gmRoomName || '').trim();
+    if (!roomNameToUse) {
+      setErrorMessage('Le fichier JSON de campagne doit contenir un nom de room ("roomName").');
+      return;
+    }
+
+    if (!gmPassword.trim()) {
+      setErrorMessage('Le mot de passe de connexion est requis.');
       return;
     }
 
     // Optional environment password restriction
     const envPassword = import.meta.env.VITE_GAME_PASSWORD;
     if (envPassword && gmPassword !== envPassword) {
-      setErrorMessage('Incorrect master connection password.');
+      setErrorMessage('Mot de passe de connexion incorrect.');
       return;
     }
 
@@ -136,28 +151,57 @@ export function Home({ onSelectRole }: HomeProps) {
       const publicNotes = loadedCampaignData?.publicNotes || '';
 
       // 2. Request new room creation on server
-      const res = await fetch('/api/rooms/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomName: gmRoomName,
-          password: gmPassword,
-          shopSpells: shopSpells,
-          publicNotes: publicNotes,
-        }),
+      const { db } = await import('@/lib/firebase');
+      if (!db) throw new Error("Firebase database not initialized.");
+      const { doc, setDoc } = await import('firebase/firestore');
+
+      const cleanName = roomNameToUse.toLowerCase();
+      const gmSessionId = 'GM-' + Math.random().toString(36).substring(2, 15);
+      
+      const { useGMStore } = await import('@/store/useGMStore');
+      const gmState = useGMStore.getState();
+      
+      const baseLinks = loadedCampaignData?.scratchLinks || gmState.scratchLinks || [];
+      const basePlayersData = loadedCampaignData?.scratchPlayers || gmState.scratchPlayers || {};
+      
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const generateLink = () => 'P-' + Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+      
+      const links = baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 10}, generateLink);
+      while (links.length < 10) links.push(generateLink());
+
+      const initialPlayers: any = {};
+      Object.keys(basePlayersData).forEach(link => {
+        const sp = basePlayersData[link];
+        if (sp && sp.pseudo) {
+          initialPlayers[link] = {
+            pseudo: sp.pseudo,
+            joinCode: link,
+            lastActive: Date.now(),
+            characterState: sp.characterState || null
+          };
+        }
       });
 
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        throw new Error(`Server returned invalid response: ${text.substring(0, 100) || 'empty response'}`);
-      }
+      await setDoc(doc(db, 'rooms', cleanName), {
+        roomName: roomNameToUse,
+        passwordHash: gmPassword,
+        gmSessionId,
+        links,
+        players: initialPlayers,
+        publishedEncounter: null,
+        publicNotes: publicNotes,
+        shopSpells: shopSpells,
+        rollLogs: [],
+        lastUpdate: Date.now()
+      });
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create room.');
-      }
+      const data = {
+        roomName: roomNameToUse,
+        gmSessionId,
+        links,
+        rollLogs: []
+      };
 
       // 3. Initialize GM local state
       if (loadedCampaignData) {
@@ -221,21 +265,66 @@ export function Home({ onSelectRole }: HomeProps) {
     try {
       const characterName = usePlayerStore.getState().name || 'Unknown Hero';
 
-      const res = await fetch('/api/rooms/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomName: playRoomName.trim() || undefined,
-          password: playPassword.trim(),
-          joinCode: playLink.trim().toUpperCase(),
-          pseudo: characterName,
-        }),
+      const { db } = await import('@/lib/firebase');
+      if (!db) throw new Error("Firebase database not initialized.");
+      const { collection, query, where, getDocs, doc, getDoc, updateDoc } = await import('firebase/firestore');
+
+      const joinCode = playLink.trim().toUpperCase();
+      let roomData = null;
+      let actualRoomName = playRoomName.trim().toLowerCase();
+
+      if (!actualRoomName) {
+        const q = query(collection(db, 'rooms'), where('links', 'array-contains', joinCode));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) throw new Error("Room not found for this code.");
+        actualRoomName = snapshot.docs[0].id;
+        roomData = snapshot.docs[0].data();
+      } else {
+        const docSnap = await getDoc(doc(db, 'rooms', actualRoomName));
+        if (!docSnap.exists()) throw new Error("Room not found.");
+        roomData = docSnap.data();
+      }
+
+      if (roomData.passwordHash !== playPassword.trim()) {
+        throw new Error("Invalid password.");
+      }
+
+      if (!roomData.links.includes(joinCode)) {
+        throw new Error("Invalid join code for this room.");
+      }
+
+      const existingPlayer = roomData.players?.[joinCode];
+      const actualCharacterName = existingPlayer?.pseudo || characterName;
+
+      if (existingPlayer?.characterState) {
+        usePlayerStore.setState(existingPlayer.characterState);
+      } else {
+        usePlayerStore.setState({ name: actualCharacterName });
+      }
+
+      // Add player join log
+      const rollLogs = roomData.rollLogs || [];
+      const newRoll = {
+        id: `join-${Date.now()}`,
+        pseudo: 'System',
+        text: `${actualCharacterName} joined the room!`,
+        timestamp: Date.now()
+      };
+      
+      await updateDoc(doc(db, 'rooms', actualRoomName), {
+        [`players.${joinCode}`]: {
+          pseudo: actualCharacterName,
+          lastActive: Date.now(),
+          joinCode,
+          characterState: existingPlayer?.characterState || null
+        },
+        rollLogs: [...rollLogs.slice(-49), newRoll]
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to join room.');
-      }
+      const data = {
+        roomName: roomData.roomName,
+        rollLogs: [...rollLogs.slice(-49), newRoll]
+      };
 
       // Save credentials and connect
       useMultiplayerStore.getState().disconnect(); // Reset previous session
@@ -244,7 +333,7 @@ export function Home({ onSelectRole }: HomeProps) {
         password: playPassword.trim(),
         role: 'player',
         joinCode: playLink.trim().toUpperCase(),
-        pseudo: characterName,
+        pseudo: actualCharacterName,
         isConnected: true,
         rollLogs: [],
         roomPlayers: {},
@@ -281,19 +370,8 @@ export function Home({ onSelectRole }: HomeProps) {
           
           {/* Offline Section */}
           <div className="text-center space-y-4">
-            <h3 className="font-cinzel text-white text-sm tracking-widest border-b border-[#5a4b3c] pb-2 inline-block">Play Offline</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
-                onClick={() => {
-                  useMultiplayerStore.getState().disconnect();
-                  onSelectRole('player');
-                }}
-                className="wow-button py-3 text-lg flex items-center justify-center gap-2"
-              >
-                <Shield size={20} className="text-wow-gold" />
-                Player HUD
-              </button>
-              
+            <h3 className="font-cinzel text-white text-sm tracking-widest border-b border-[#5a4b3c] pb-2 inline-block">Scratch Play</h3>
+            <div className="grid grid-cols-1 gap-4">
               <button 
                 onClick={() => {
                   useMultiplayerStore.getState().disconnect();
@@ -302,7 +380,7 @@ export function Home({ onSelectRole }: HomeProps) {
                 className="wow-button py-3 text-lg flex items-center justify-center gap-2"
               >
                 <ScrollText size={20} className="text-wow-gold" />
-                Game Master
+                Scratch Play
               </button>
             </div>
           </div>
@@ -353,19 +431,23 @@ export function Home({ onSelectRole }: HomeProps) {
             <h3 className="font-cinzel text-wow-gold text-2xl text-center border-b border-[#5a4b3c]/40 pb-2">Create Online Room</h3>
 
             <form onSubmit={handleCreateRoom} className="flex flex-col gap-4 font-sans text-sm">
-              <div>
-                <label className="block text-xs font-cinzel text-wow-gold mb-1 uppercase tracking-wider">Room Name</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-wow-gold/50"><Swords size={16} /></span>
-                  <input 
-                    type="text" 
-                    required
-                    value={gmRoomName}
-                    onChange={(e) => setGmRoomName(e.target.value)}
-                    className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-[#5a4b3c] rounded text-white font-mono focus:border-wow-gold focus:outline-none transition-colors"
-                    placeholder="Enter unique campaign name..."
-                  />
+              <div className="border border-wow-gold/40 rounded p-3 bg-black/60 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <span className="font-cinzel text-xs text-wow-gold uppercase tracking-wider font-bold">Fichier Campaign JSON (Obligatoire)</span>
+                    <span className="text-[11px] text-gray-300 font-mono mt-0.5 truncate max-w-[200px]">{jsonLoadedName || 'Aucun fichier chargé'}</span>
+                  </div>
+                  <label className="wow-button px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1 shrink-0">
+                    <Upload size={13} /> Charger JSON
+                    <input type="file" accept=".json" className="hidden" onChange={handleJsonLoad} />
+                  </label>
                 </div>
+                {loadedCampaignData?.roomName && (
+                  <div className="text-xs font-mono text-wow-gold bg-wow-gold/10 border border-wow-gold/30 px-2.5 py-1.5 rounded flex items-center justify-between">
+                    <span className="text-gray-400 font-cinzel">Room Name :</span>
+                    <span className="font-bold text-white text-sm">{loadedCampaignData.roomName}</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -381,17 +463,6 @@ export function Home({ onSelectRole }: HomeProps) {
                     placeholder="Shared room password..."
                   />
                 </div>
-              </div>
-
-              <div className="border border-[#5a4b3c]/30 rounded p-3 bg-black/40 flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="font-cinzel text-xs text-wow-gold">Load Campaign / Shop JSON</span>
-                  <span className="text-[11px] text-gray-400 truncate max-w-[200px]">{jsonLoadedName || 'No JSON loaded'}</span>
-                </div>
-                <label className="wow-button px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1 shrink-0">
-                  <Upload size={12} /> Load JSON
-                  <input type="file" accept=".json" className="hidden" onChange={handleJsonLoad} />
-                </label>
               </div>
 
               {errorMessage && (

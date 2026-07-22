@@ -6,28 +6,54 @@ import { Stat, usePlayerStore } from '@/store/usePlayerStore';
 interface StatBarProps {
   stat: Stat;
   onChange: (delta: number) => void;
+  isFreeEdit?: boolean;
+  targetModeProps?: {
+    isSelectingTarget: boolean;
+    isSelected: boolean;
+    isOtherSelected: boolean;
+    onSelectTarget: () => void;
+  };
 }
 
-const nameSizes = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl'];
-const valueSizes = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl'];
+const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
+const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
 
-export function StatBar({ stat, onChange }: StatBarProps) {
+export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBarProps) {
   const max = 12;
   const percentage = Math.min(100, Math.max(0, (stat.current / max) * 100));
   const textSizeLevel = usePlayerStore(state => state.textSizeLevel);
 
   return (
     <div className="flex flex-col mb-1.5">
-      <div className="flex justify-between items-end mb-0.5 px-1">
-        <span className={cn("font-macondo text-gray-200", nameSizes[textSizeLevel] || 'text-xs')}>{stat.name}</span>
+      <div className="flex justify-between items-center mb-0.5 px-1">
+        {targetModeProps?.isSelectingTarget ? (
+          <button
+            onClick={targetModeProps.onSelectTarget}
+            className={cn(
+              "font-macondo rounded px-1.5 py-0.5 border text-left transition-all duration-200 cursor-pointer select-none",
+              nameSizes[textSizeLevel] || 'text-xs',
+              targetModeProps.isSelected
+                ? "bg-green-600 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.9)] font-bold"
+                : "bg-red-950/80 text-red-300 border-red-800 hover:bg-red-900 hover:text-white"
+            )}
+          >
+            {stat.name}
+          </button>
+        ) : (
+          <span className={cn("font-macondo text-gray-200 rounded px-1.5 py-0.5 border border-transparent", nameSizes[textSizeLevel] || 'text-xs')}>
+            {stat.name}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-1">
-        <button 
-          onClick={() => onChange(-1)}
-          className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
-        >
-          <Minus size={12} />
-        </button>
+        {isFreeEdit && (
+          <button 
+            onClick={() => onChange(-1)}
+            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
+          >
+            <Minus size={12} />
+          </button>
+        )}
         
         <div className="flex-1 h-2.5 bg-black/60 border border-[#3b2c19] rounded-sm relative overflow-hidden flex">
           {/* Segments for stats since max is 12 */}
@@ -43,16 +69,18 @@ export function StatBar({ stat, onChange }: StatBarProps) {
         </div>
 
         {/* Golden stat value with reserved 2 digit space */}
-        <span className={cn("font-mono font-bold text-wow-gold text-center w-6 shrink-0 select-none", valueSizes[textSizeLevel] || 'text-xs')}>
+        <span className={cn("font-mono font-bold text-wow-gold text-center w-8 shrink-0 select-none", valueSizes[textSizeLevel] || 'text-base')}>
           {stat.current}
         </span>
 
-        <button 
-          onClick={() => onChange(1)}
-          className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
-        >
-          <Plus size={12} />
-        </button>
+        {isFreeEdit && (
+          <button 
+            onClick={() => onChange(1)}
+            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
+          >
+            <Plus size={12} />
+          </button>
+        )}
       </div>
     </div>
   );

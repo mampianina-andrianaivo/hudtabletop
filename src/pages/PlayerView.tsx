@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock } from 'lucide-react';
+import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
-import { useOnlineSync } from '@/lib/useOnlineSync';
+import { useGMStore } from '@/store/useGMStore';
+import { useOnlineSync, sendOnlineRoll } from '@/lib/useOnlineSync';
 import { ResourceBar } from '@/components/ResourceBar';
 import { StatBar } from '@/components/StatBar';
-import { DiceRoller } from '@/components/DiceRoller';
 import { SpellBook } from '@/components/SpellBook';
 import { PlayerConfigModal } from '@/components/PlayerConfigModal';
-import { cn, parseMax } from '@/lib/utils';
+import { NoteTextarea } from '@/components/NoteTextarea';
+import { cn, parseMax, parseMpCost } from '@/lib/utils';
 
 interface PlayerViewProps {
   onGoHome: () => void;
+  onSwitchToGM: () => void;
 }
 
-export function PlayerView({ onGoHome }: PlayerViewProps) {
+export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const store = usePlayerStore();
   const mpStore = useMultiplayerStore();
   
@@ -28,6 +30,25 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
 
   const [showConfig, setShowConfig] = useState(false);
 
+  // Target Rolling State for Player
+  const [isSelectingTarget, setIsSelectingTarget] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<{
+    type: 'stat' | 'spell';
+    id?: string;
+    name: string;
+    value: number;
+    spell?: any;
+  } | null>(null);
+
+  const [rollResult, setRollResult] = useState<{
+    roll: number;
+    isSuccess: boolean;
+    isCrit: boolean;
+    targetName: string;
+  } | null>(null);
+
+  const [rolling, setRolling] = useState(false);
+
   // Determine if we are viewing another player's sheet (View Mode)
   const isViewMode = mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me';
   const viewedPlayer = isViewMode ? mpStore.roomPlayers[mpStore.activePlayerView || ''] : null;
@@ -36,24 +57,205 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
   // Resolve active sheet fields
   const activeName = isViewMode ? (activeCharState?.name || viewedPlayer?.pseudo || 'Awaiting Sync...') : store.name;
   const activePhoto = isViewMode ? activeCharState?.photo : store.photo;
-  const activeResources = isViewMode ? (activeCharState?.resources || []) : store.resources;
   const activeStats = isViewMode ? (activeCharState?.stats || []) : store.stats;
-  const activeSpells = isViewMode ? (activeCharState?.spells || []) : store.spells;
-
-  const visibleResources = activeResources.filter((r: any) => r.isVisible);
+  
   const visibleStats = activeStats.filter((s: any) => s.isVisible);
+  let mpMax = 0;
+  if (visibleStats.length === 1) {
+    mpMax = visibleStats[0].current * 2;
+  } else if (visibleStats.length >= 2) {
+    const sortedStats = [...visibleStats].sort((a, b) => a.current - b.current);
+    mpMax = sortedStats[0].current + sortedStats[1].current;
+  }
+
+  const isScratch = !mpStore.isConnected;
+
+  const resetScratchState = () => {
+    // 1. Reset HP to 3, MP to 0, EXP to 0
+    store.updateResource(0, { current: 3 });
+    store.updateResource(1, { current: 0 });
+    store.updateResource(2, { current: 0 });
+
+    // 2. Reset stats to 0
+    store.stats.forEach((_, idx) => {
+      store.updateStat(idx, { current: 0 });
+    });
+
+    // 3. Reset spell uses to max
+    store.spells.forEach((spell) => {
+      const cleanMax = (spell.maxUses || '').trim();
+      const isNumeric = /^\d+$/.test(cleanMax);
+      if (isNumeric) {
+        const maxVal = parseInt(cleanMax, 10);
+        const delta = maxVal - spell.uses;
+        if (delta !== 0) {
+          store.updateSpellUses(spell.id, delta);
+        }
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (isScratch) {
+      resetScratchState();
+    }
+  }, [isScratch]);
+
+  const rawResources = isViewMode ? (activeCharState?.resources || store.resources) : store.resources;
+  const activeResources = [
+    { ...rawResources[0], name: 'HP', color: 'red', isVisible: true, max: '3' },
+    { ...rawResources[1], name: 'MP', color: 'blue', isVisible: true, max: isScratch ? '0' : String(mpMax), current: isScratch ? 0 : rawResources[1].current },
+    { ...rawResources[2], name: 'EXP', color: 'purple', isVisible: true, max: '3', current: isScratch ? 0 : rawResources[2].current }
+  ];
+
+  const activeSpells = isViewMode ? (activeCharState?.spells || []) : store.spells;
+  
+  const visibleResources = activeResources;
+  const gmStore = useGMStore();
+  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : true;
+
+  const handlePlayerRoll = () => {
+    if (rollResult !== null) {
+      // Clear result & reset target
+      setRollResult(null);
+      setSelectedTarget(null);
+      setIsSelectingTarget(false);
+      if (isScratch) {
+        resetScratchState();
+      }
+      return;
+    }
+
+    if (!selectedTarget) {
+      // Toggle target selection mode
+      setIsSelectingTarget(!isSelectingTarget);
+      return;
+    }
+
+    // Perform roll on selected target
+    setRolling(true);
+    setTimeout(() => {
+      const roll = Math.floor(Math.random() * 12) + 1;
+      const isSuccess = roll <= selectedTarget.value;
+      const isCrit = roll === 1 || roll === 12;
+
+      // Critical bonus (+1 EXP)
+      if (isCrit && !isScratch) {
+        const expIdx = activeResources.findIndex(r => r.name === 'EXP');
+        if (expIdx !== -1) {
+          const currentExp = activeResources[expIdx].current;
+          store.updateResource(expIdx, { current: Math.min(3, currentExp + 1) });
+        }
+      }
+
+      // MP / HP deduction
+      const mpIdx = activeResources.findIndex(r => r.name === 'MP');
+      const hpIdx = activeResources.findIndex(r => r.name === 'HP');
+      if (selectedTarget.type === 'spell') {
+        const mpCost = parseMpCost(selectedTarget.spell?.r2 ?? selectedTarget.spell?.r1);
+        if (mpCost > 0) {
+          const currentMp = mpIdx !== -1 ? activeResources[mpIdx].current : 0;
+          if (currentMp >= mpCost) {
+            if (mpIdx !== -1) {
+              store.updateResource(mpIdx, { current: currentMp - mpCost });
+            }
+          } else {
+            // Player lacks required MP -> cost is 1 HP
+            if (hpIdx !== -1) {
+              const currentHp = activeResources[hpIdx].current;
+              store.updateResource(hpIdx, { current: Math.max(0, currentHp - 1) });
+            }
+          }
+        }
+      }
+
+      // Spell use deduction if success
+      if (selectedTarget.type === 'spell' && selectedTarget.id && isSuccess) {
+        store.updateSpellUses(selectedTarget.id, -1);
+      }
+
+      // Log text format
+      const targetLabel = selectedTarget.name;
+      const critText = isCrit ? ' (critical)' : '';
+      const statusText = isSuccess ? 'succeeded' : 'failed';
+      const rollText = `Player ${activeName} ${statusText} to roll ${targetLabel} (${roll})${critText}`;
+
+      if (mpStore.isConnected) {
+        sendOnlineRoll(rollText);
+      }
+
+      setRollResult({
+        roll,
+        isSuccess,
+        isCrit,
+        targetName: targetLabel
+      });
+      setRolling(false);
+      setIsSelectingTarget(false);
+    }, 1500);
+  };
 
   // Latest public roll log
   const latestRoll = mpStore.rollLogs[mpStore.rollLogs.length - 1];
 
   const handleExportJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "character_sheet.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    if (isScratch) {
+      // Export full campaign campaignData
+      const gmState = useGMStore.getState();
+      if (!gmState.roomName || !gmState.roomName.trim()) {
+        alert("Le nom de la Room ne peut pas être vide pour l'export.");
+        return;
+      }
+
+      const pStore = usePlayerStore.getState();
+      const currentCharacterState = {
+        name: pStore.name || 'Scratch Base',
+        photo: pStore.photo || '',
+        stats: pStore.stats || [],
+        resources: pStore.resources || [],
+        spells: pStore.spells || [],
+        notes: pStore.notes || '',
+      };
+
+      const finalScratchPlayers: Record<string, any> = {};
+      gmState.scratchLinks.forEach((link, idx) => {
+        const existing = gmState.scratchPlayers[link] || { pseudo: '' };
+        const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
+        finalScratchPlayers[link] = {
+          ...existing,
+          pseudo,
+          characterState: {
+            ...currentCharacterState,
+            name: pseudo,
+          }
+        };
+      });
+
+      const campaignData = {
+        roomName: gmState.roomName,
+        shopSpells: gmState.shopSpells,
+        encounters: gmState.encounters,
+        notes: gmState.notes,
+        publicNotes: mpStore.publicNotes,
+        scratchLinks: gmState.scratchLinks,
+        scratchPlayers: finalScratchPlayers,
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(campaignData, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `${gmState.roomName || 'scratch'}_campaign.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    } else {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "character_sheet.json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    }
   };
 
   const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,10 +265,33 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        store.loadState(json);
+        if (isScratch) {
+          const gmState = useGMStore.getState();
+          if (json.roomName) gmState.updateRoomName(json.roomName);
+          if (json.shopSpells) gmState.loadShopSpells(json.shopSpells);
+          if (json.encounters) {
+            useGMStore.setState({ encounters: json.encounters });
+          }
+          if (json.scratchLinks) {
+            useGMStore.setState({ scratchLinks: json.scratchLinks });
+          }
+          if (json.scratchPlayers) {
+            useGMStore.setState({ scratchPlayers: json.scratchPlayers });
+          }
+          if (json.publicNotes) {
+            useMultiplayerStore.setState({ publicNotes: json.publicNotes, localPublicNotes: json.publicNotes });
+          }
+          if (json.notes) {
+            useGMStore.setState({ notes: json.notes });
+          }
+          alert("Fichier JSON de campagne chargé avec succès !");
+        } else {
+          store.loadState(json);
+          alert("Fichier personnage chargé avec succès !");
+        }
       } catch (err) {
         console.error("Failed to parse JSON", err);
-        alert("Invalid character file.");
+        alert("Fichier JSON invalide.");
       }
     };
     reader.readAsText(file);
@@ -91,9 +316,17 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
                 <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-gray-400 bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                <WifiOff size={12} />
-                <span className="font-cinzel tracking-wider">OFFLINE MODE</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-gray-400 bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                  <WifiOff size={12} />
+                  <span className="font-cinzel tracking-wider">OFFLINE</span>
+                </div>
+                <button 
+                  onClick={onSwitchToGM}
+                  className="wow-button px-2 py-0.5 text-[10px] bg-wow-gold/20 text-wow-gold border-wow-gold/50 flex items-center gap-1"
+                >
+                  <Users size={10} /> SCRATCH GM
+                </button>
               </div>
             )}
           </div>
@@ -115,11 +348,11 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
           {!mpStore.isConnected ? (
             <>
               <label className="wow-button px-3 py-1.5 cursor-pointer flex items-center gap-1.5 text-xs">
-                <Upload size={14} /> <span>Load JSON</span>
+                <Upload size={14} /> <span>LOAD JSON</span>
                 <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
               </label>
               <button onClick={handleExportJSON} className="wow-button px-3 py-1.5 flex items-center gap-1.5 text-xs">
-                <Download size={14} /> <span>Export JSON</span>
+                <Download size={14} /> <span>EXPORT JSON</span>
               </button>
             </>
           ) : (
@@ -140,52 +373,117 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
           <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
           <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
           
-          <SpellBook spells={activeSpells} readOnly={isViewMode} />
+          <SpellBook 
+            spells={activeSpells} 
+            readOnly={isViewMode} 
+            targetModeProps={{
+              isSelectingTarget,
+              selectedTargetId: selectedTarget?.type === 'spell' ? (selectedTarget.id || null) : null,
+              onSelectTarget: (spell) => {
+                if (selectedTarget?.type === 'spell' && selectedTarget?.id === spell.id) {
+                  setSelectedTarget(null);
+                } else {
+                  const mpCost = parseMpCost(spell.r2 ?? spell.r1);
+                  const playerMp = activeResources.find(r => r.name === 'MP')?.current || 0;
+                  const playerHp = activeResources.find(r => r.name === 'HP')?.current || 0;
+                  if (!isScratch && mpCost > 0 && playerMp < mpCost && playerHp <= 0) {
+                    return;
+                  }
+                  const match = (spell.dice || '').match(/\d+/);
+                  const diceVal = match ? parseInt(match[0], 10) : 12;
+                  setSelectedTarget({
+                    type: 'spell',
+                    id: spell.id,
+                    name: spell.name,
+                    value: diceVal,
+                    spell
+                  });
+                }
+              },
+              playerMp: activeResources.find(r => r.name === 'MP')?.current || 0,
+              playerHp: activeResources.find(r => r.name === 'HP')?.current || 0,
+              isConnected: mpStore.isConnected
+            }}
+          />
         </div>
 
         {/* COLUMN 2: CHARACTER stats, resource trackers, and toggleable Encounter board (col-span-4) */}
         <div className="lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden h-full">
           
-          {/* Controls row (Zoom & Gear) - perfectly centered and grouped! */}
+          {/* Controls row (ASK FOR STAT + Zoom & Gear) - centered above 3 squares */}
           {!isViewMode && (
-            <div className="flex items-center justify-center gap-4 w-full border-b border-[#5a4b3c]/20 pb-1 mb-1.5 shrink-0">
+            <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0">
               <button 
                 onClick={() => store.decreaseTextSize()}
-                className="p-1 text-wow-gold hover:text-white transition-colors"
+                className="wow-button p-1 text-wow-gold hover:text-white"
                 title="Réduire le texte"
               >
-                <ZoomOut size={16} />
+                <ZoomOut size={14} />
               </button>
+
               <button 
-                onClick={() => setShowConfig(true)}
-                className="p-1 text-wow-gold hover:text-white transition-colors hover:rotate-45 duration-300"
-                title="Paramètres de fiche"
+                disabled={!isFreeEdit && (!activeResources.find(r => r.name === 'EXP') || activeResources.find(r => r.name === 'EXP')!.current < 3)}
+                onClick={async () => {
+                   if (!mpStore.isConnected) {
+                     if (!isFreeEdit) {
+                       const expIdx = store.resources.findIndex(r => r.name === 'EXP');
+                       if (expIdx !== -1) {
+                         store.updateResource(expIdx, { current: Math.max(0, store.resources[expIdx].current - 3) });
+                       }
+                     }
+                   } else {
+                     const { db } = await import('@/lib/firebase');
+                     const { updateDoc, arrayUnion, doc } = await import('firebase/firestore');
+                     if (db && mpStore.roomName) {
+                        await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
+                           gmRequests: arrayUnion({ type: 'ask_stat', from: activeName, joinCode: mpStore.joinCode, isFreeEdit, ts: Date.now() })
+                        });
+                     }
+                   }
+                }}
+                className={cn(
+                  "px-2.5 py-0.5 text-[10px] flex items-center gap-1 uppercase tracking-wider font-cinzel transition-all",
+                  isFreeEdit 
+                    ? "wow-button-green font-bold" 
+                    : "wow-button text-wow-gold disabled:opacity-30"
+                )}
+                title={isFreeEdit ? "Demander une nouvelle stat au MJ (Gratuit)" : "Demander une nouvelle stat au MJ (Coûte 3 EXP)"}
               >
-                <Settings size={18} />
+                <Sparkles size={12} /> ASK FOR STAT
               </button>
+
               <button 
                 onClick={() => store.increaseTextSize()}
-                className="p-1 text-wow-gold hover:text-white transition-colors"
+                className="wow-button p-1 text-wow-gold hover:text-white"
                 title="Agrandir le texte"
               >
-                <ZoomIn size={16} />
+                <ZoomIn size={14} />
               </button>
             </div>
           )}
 
           {/* Top Section: Photo / Encounter Toggle / Dice (ALWAYS VISIBLE!) */}
-          <div className="grid grid-cols-3 gap-2 mb-1.5 mt-1 shrink-0">
+          <div className="grid grid-cols-3 gap-2 mb-1.5 shrink-0">
             
             {/* Photo & Name */}
             <div className="flex flex-col items-center justify-start">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded border-4 border-wow-gold overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0">
+              <button
+                disabled={isViewMode}
+                onClick={() => setShowConfig(true)}
+                className={cn(
+                  "w-20 h-20 sm:w-24 sm:h-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
+                  !isViewMode && "cursor-pointer hover:brightness-110 active:scale-95",
+                  isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
+                )}
+                title={!isViewMode ? "Configurer le personnage" : undefined}
+              >
                 {activePhoto ? (
                   <img src={activePhoto} alt="Character" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center font-cinzel text-[10px] text-white/50 text-center uppercase">No Hero</div>
                 )}
                 <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] pointer-events-none"></div>
-              </div>
+              </button>
               <h2 className="mt-1 font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md text-center h-10 flex items-start justify-center px-1 w-full uppercase tracking-wider line-clamp-2">{activeName}</h2>
             </div>
 
@@ -210,9 +508,95 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
               </span>
             </div>
             
-            {/* Dice Roller */}
+            {/* Target Dice Roller */}
             <div className="flex flex-col items-center justify-start">
-              <DiceRoller disabled={isViewMode} />
+              <button
+                onClick={handlePlayerRoll}
+                disabled={isViewMode || rolling}
+                className={cn(
+                  "w-20 h-20 sm:w-24 sm:h-24 rounded flex flex-col items-center justify-center relative overflow-hidden transition-all select-none active:scale-95 shadow-md wow-button p-1 text-center",
+                  selectedTarget !== null ? "bg-green-950/90 border-2 border-green-400 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.6)]" : "",
+                  isSelectingTarget && selectedTarget === null ? "bg-green-900/40 border-2 border-green-500/80 animate-pulse" : "",
+                  (isViewMode || rolling) && "opacity-60 cursor-not-allowed"
+                )}
+                title={selectedTarget !== null ? "Click to roll D12 against target" : "Click to select target"}
+              >
+                {rolling ? (
+                  <span className="font-macondo text-3xl text-wow-gold animate-bounce">...</span>
+                ) : rollResult !== null ? (
+                  <div className="flex flex-col items-center">
+                    <span className={cn("font-macondo text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,1)]", rollResult.isSuccess ? "text-green-400" : "text-red-400")}>
+                      {rollResult.roll}
+                    </span>
+                    <span className={cn("font-cinzel text-[9px] font-bold uppercase", rollResult.isSuccess ? "text-green-300" : "text-red-300")}>
+                      {rollResult.isSuccess ? "SUCCESS" : "FAILED"}
+                    </span>
+                  </div>
+                ) : selectedTarget !== null ? (
+                  <div className="flex flex-col items-center justify-center gap-0.5">
+                    <Dices size={28} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                    <span className="font-cinzel text-[9px] text-green-200 font-bold uppercase truncate max-w-[80px]">
+                      {selectedTarget.name}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center">
+                    <Dices size={28} className={cn("text-wow-gold transition-transform", isSelectingTarget ? "animate-pulse scale-110 text-green-400" : "")} />
+                  </div>
+                )}
+              </button>
+
+              <div className="mt-1 font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md text-center h-10 flex flex-col items-center justify-start px-1 w-full uppercase tracking-wider">
+                {rollResult !== null ? (
+                  <button 
+                    onClick={() => setRollResult(null)}
+                    className="hover:text-white transition-colors cursor-pointer font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider"
+                  >
+                    CLEAR
+                  </button>
+                ) : selectedTarget !== null ? (
+                  <button 
+                    disabled={rolling}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (rolling) return;
+                      setSelectedTarget(null);
+                      setIsSelectingTarget(false);
+                    }}
+                    className={cn(
+                      "text-red-400 hover:text-red-200 cursor-pointer font-cinzel font-bold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider transition-all",
+                      rolling && "opacity-30 cursor-not-allowed pointer-events-none"
+                    )}
+                  >
+                    CANCEL
+                  </button>
+                ) : isSelectingTarget ? (
+                  <button 
+                    disabled={rolling}
+                    onClick={() => {
+                      if (rolling) return;
+                      setIsSelectingTarget(false);
+                    }}
+                    className={cn(
+                      "text-red-400 hover:text-red-200 cursor-pointer font-cinzel font-bold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider transition-all",
+                      rolling && "opacity-30 cursor-not-allowed pointer-events-none"
+                    )}
+                  >
+                    CANCEL
+                  </button>
+                ) : (
+                  <button 
+                    disabled={rolling}
+                    onClick={() => {
+                      if (rolling) return;
+                      setIsSelectingTarget(true);
+                    }}
+                    className="hover:text-white transition-colors cursor-pointer font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider"
+                  >
+                    TARGET
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -267,7 +651,7 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
               </div>
             ) : (
               // STANDARD CHARACTER VIEW CONTENT BELOW THE 3 SQUARES
-              <div className="flex flex-col h-full">
+              <div className={cn("flex flex-col h-full rounded transition-colors", isFreeEdit && "p-2 bg-green-950/40 border border-green-900/50 shadow-[inset_0_0_15px_rgba(22,163,74,0.1)]")}>
                 {/* Resources Zone */}
                 <div className={cn(
                   "grid gap-x-3 gap-y-1 mb-3 shrink-0", 
@@ -279,7 +663,9 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
                       <ResourceBar 
                         key={idx} 
                         resource={res} 
+                        isFreeEdit={isFreeEdit && !isViewMode}
                         onChange={isViewMode ? () => {} : (delta) => {
+                          if (isScratch && (res.name === 'MP' || res.name === 'EXP')) return; // locked to 0
                           const max = parseMax(res.max) || 1;
                           store.updateResource(idx, { current: Math.max(0, Math.min(max, res.current + delta)) });
                         }} 
@@ -303,9 +689,26 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
                       <StatBar 
                         key={idx} 
                         stat={stat} 
+                        isFreeEdit={isFreeEdit && !isViewMode}
                         onChange={isViewMode ? () => {} : (delta) => {
                           store.updateStat(idx, { current: Math.max(0, Math.min(12, stat.current + delta)) });
                         }} 
+                        targetModeProps={{
+                          isSelectingTarget,
+                          isSelected: selectedTarget?.type === 'stat' && selectedTarget?.name === stat.name,
+                          isOtherSelected: selectedTarget !== null && !(selectedTarget?.type === 'stat' && selectedTarget?.name === stat.name),
+                          onSelectTarget: () => {
+                            if (selectedTarget?.type === 'stat' && selectedTarget?.name === stat.name) {
+                              setSelectedTarget(null);
+                            } else {
+                              setSelectedTarget({
+                                type: 'stat',
+                                name: stat.name,
+                                value: stat.current
+                              });
+                            }
+                          }
+                        }}
                       />
                     );
                   })}
@@ -461,12 +864,12 @@ export function PlayerView({ onGoHome }: PlayerViewProps) {
                   <div className="text-[10px] uppercase font-cinzel tracking-wider text-wow-gold/60 mb-1 border-b border-[#5a4b3c]/30 pb-0.5">
                     <span>My Private Journal (Tab #{mpStore.playerNotesTab + 1})</span>
                   </div>
-                  <textarea
+                  <NoteTextarea
+                    id="player-private-notes"
                     value={mpStore.playerNotes[mpStore.playerNotesTab] || ''}
-                    onChange={(e) => mpStore.setPlayerNote(mpStore.playerNotesTab, e.target.value)}
+                    onChange={(val) => mpStore.setPlayerNote(mpStore.playerNotesTab, val)}
                     className="flex-1 w-full bg-transparent resize-none focus:outline-none font-macondo text-base leading-relaxed custom-scrollbar overflow-y-scroll text-white"
                     placeholder="Ecrivez vos notes d'aventure privées ici..."
-                    spellCheck="false"
                   />
                 </div>
               )}

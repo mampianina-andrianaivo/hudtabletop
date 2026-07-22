@@ -28,9 +28,11 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
       setRolling(false);
 
       const mp = useMultiplayerStore.getState();
+      const name = mp.role === 'gm' ? 'MJ' : (mp.pseudo || 'Player');
+      const rollText = `${name} just rolled ${roll} on D12`;
+
       if (mp.isConnected) {
-        const name = mp.role === 'gm' ? 'MJ' : (mp.pseudo || 'Player');
-        sendOnlineRoll(`${name} just rolled ${roll} on D12`);
+        sendOnlineRoll(rollText);
       }
     }, 1500);
   };

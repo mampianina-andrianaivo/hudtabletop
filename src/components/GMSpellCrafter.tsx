@@ -86,10 +86,7 @@ export function GMSpellCrafter() {
               <th className="pb-2 w-6"></th>
               <th className="pb-2 pl-3 pr-2 w-full">Name</th>
               <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">D</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">R1</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">R2</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">R3</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">R4</th>
+              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-12">MP</th>
               <th className="pb-2 text-center border-l border-[#5a4b3c]/50 pl-1 w-12">Max</th>
             </tr>
           </thead>
@@ -125,10 +122,7 @@ export function GMSpellCrafter() {
                 </td>
                 <td className="py-2 pl-3 font-macondo text-white pr-2 truncate" title={spell.name}><div className="flex items-center gap-2"><span>{spell.name}</span>{spell.tag && <span className="font-cinzel text-[10px] text-wow-gold border border-wow-gold/30 bg-wow-gold/10 px-1 py-0.5 rounded shadow-sm leading-none drop-shadow-md">{spell.tag}</span>}</div></td>
                 <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1">{spell.dice}</td>
-                <td className="py-2 text-red-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r1}</td>
-                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r2}</td>
-                <td className="py-2 text-purple-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r3}</td>
-                <td className="py-2 text-green-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r4}</td>
+                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r2 ?? spell.r1 ?? ''}</td>
                 <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 pl-1">{spell.maxUses}</td>
               </tr>
             ))}
@@ -251,23 +245,9 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             <input type="text" value={draft.maxUses} onChange={e => setDraft(p => ({ ...p, maxUses: e.target.value }))} className="wow-input w-full p-2 text-center bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
           </div>
 
-          <div className="grid grid-cols-4 col-span-2 gap-2">
-            <div>
-              <label className="block text-xs font-cinzel text-red-400 mb-1">R1</label>
-              <input type="text" value={draft.r1} onChange={e => setDraft(p => ({ ...p, r1: e.target.value }))} className="wow-input w-full p-1 text-center font-mono bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-cinzel text-blue-400 mb-1">R2</label>
-              <input type="text" value={draft.r2} onChange={e => setDraft(p => ({ ...p, r2: e.target.value }))} className="wow-input w-full p-1 text-center font-mono bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-cinzel text-purple-400 mb-1">R3</label>
-              <input type="text" value={draft.r3} onChange={e => setDraft(p => ({ ...p, r3: e.target.value }))} className="wow-input w-full p-1 text-center font-mono bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-cinzel text-green-400 mb-1">R4</label>
-              <input type="text" value={draft.r4} onChange={e => setDraft(p => ({ ...p, r4: e.target.value }))} className="wow-input w-full p-1 text-center font-mono bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-cinzel text-blue-400 mb-1">MP Cost</label>
+            <input type="text" value={draft.r2 ?? draft.r1 ?? ''} onChange={e => setDraft(p => ({ ...p, r2: e.target.value, r1: e.target.value }))} className="wow-input w-full p-2 text-center font-mono bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" placeholder="e.g. 0, 1, 2, or any text..." />
           </div>
 
           <div className="col-span-2">

@@ -13,8 +13,8 @@ export default function App() {
   return (
     <>
       {currentView === 'home' && <Home onSelectRole={setCurrentView} />}
-      {currentView === 'player' && <PlayerView onGoHome={() => setCurrentView('home')} />}
-      {currentView === 'gm' && <GMView onGoHome={() => setCurrentView('home')} />}
+      {currentView === 'player' && <PlayerView onGoHome={() => setCurrentView('home')} onSwitchToGM={() => setCurrentView('gm')} />}
+      {currentView === 'gm' && <GMView onGoHome={() => setCurrentView('home')} onSwitchToPlayer={() => setCurrentView('player')} />}
     </>
   );
 }

@@ -18,6 +18,8 @@ export interface MultiplayerState {
   roomPlayers: Record<string, { joinCode: string, pseudo: string, characterState: any, lastActive: number }>;
   isEncounterViewActive: boolean; // toggle to show published encounter in character zone
   shopSpells: any[];
+  isFreeEdit: boolean;
+  gmRequests: any[];
   playerNotes: string[]; // 3 tabs for private notes
   playerNotesTab: number; // 0, 1, 2 (private notes), 3 (PUB public notes)
 
@@ -49,6 +51,8 @@ export const useMultiplayerStore = create<MultiplayerState>()(
       roomPlayers: {},
       isEncounterViewActive: false,
       shopSpells: [],
+      isFreeEdit: false,
+      gmRequests: [],
       playerNotes: ['', '', ''],
       playerNotesTab: 3, // Default to PUB (public) tab
 
@@ -70,6 +74,8 @@ export const useMultiplayerStore = create<MultiplayerState>()(
         roomPlayers: {},
         isEncounterViewActive: false,
         shopSpells: [],
+        isFreeEdit: false,
+        gmRequests: [],
         playerNotes: ['', '', ''],
         playerNotesTab: 3
       }),

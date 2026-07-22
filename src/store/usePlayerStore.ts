@@ -38,7 +38,7 @@ export interface PlayerState {
   photo: string | null;
   name: string;
   tag?: string;
-  resources: [Resource, Resource, Resource, Resource];
+  resources: [Resource, Resource, Resource];
   stats: Stat[];
   spells: Spell[];
   notes: string;
@@ -59,11 +59,10 @@ export interface PlayerState {
   loadState: (state: Partial<PlayerState>) => void;
 }
 
-const defaultResources: [Resource, Resource, Resource, Resource] = [
-  { name: 'XXX', current: 10, max: '10', isVisible: true, color: 'red' },
-  { name: 'XXX', current: 10, max: '10', isVisible: false, color: 'blue' },
-  { name: 'XXX', current: 10, max: '10', isVisible: false, color: 'purple' },
-  { name: 'XXX', current: 10, max: '10', isVisible: false, color: 'green' },
+const defaultResources: [Resource, Resource, Resource] = [
+  { name: 'HP', current: 3, max: '3', isVisible: true, color: 'red' },
+  { name: 'MP', current: 0, max: '0', isVisible: true, color: 'blue' },
+  { name: 'EXP', current: 0, max: '3', isVisible: true, color: 'purple' },
 ];
 
 const defaultStats: Stat[] = Array.from({ length: 12 }, (_, i) => ({
@@ -86,7 +85,7 @@ export const usePlayerStore = create<PlayerState>()(
       updatePhoto: (photo) => set({ photo }),
       updateName: (name) => set({ name }),
       updateResource: (index, data) => set((state) => {
-        const newResources = [...state.resources] as [Resource, Resource, Resource, Resource];
+        const newResources = [...state.resources] as [Resource, Resource, Resource];
         newResources[index] = { ...newResources[index], ...data };
         return { resources: newResources };
       }),
@@ -135,7 +134,7 @@ export const usePlayerStore = create<PlayerState>()(
       loadState: (newState) => set((state) => ({ ...state, ...newState })),
     }),
     {
-      name: 'hud-player-storage-v2',
+      name: 'hud-player-storage-v5',
     }
   )
 );

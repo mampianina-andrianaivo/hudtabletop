@@ -2,25 +2,26 @@ import { useEffect, useRef, useCallback } from 'react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useGMStore } from '@/store/useGMStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export function sendOnlineRoll(text: string) {
-  const { roomName, role, joinCode, pseudo, gmSessionId, isConnected } = useMultiplayerStore.getState();
-  if (!isConnected || !roomName) return;
+export async function sendOnlineRoll(text: string) {
+  const { roomName, role, pseudo, isConnected } = useMultiplayerStore.getState();
+  if (!isConnected || !roomName || !db) return;
 
-  fetch('/api/rooms/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      roomName,
-      role,
-      joinCode,
-      gmSessionId,
-      newRoll: {
+  try {
+    const roomRef = doc(db, 'rooms', roomName.trim().toLowerCase());
+    await updateDoc(roomRef, {
+      rollLogs: arrayUnion({
+        id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         pseudo: role === 'gm' ? 'MJ' : (pseudo || 'Player'),
-        text
-      }
-    })
-  }).catch(err => console.error('Error sending online roll:', err));
+        text,
+        timestamp: Date.now()
+      })
+    });
+  } catch (err) {
+    console.error('Error sending online roll:', err);
+  }
 }
 
 export function useOnlineSync() {
@@ -31,33 +32,27 @@ export function useOnlineSync() {
   const gmSessionId = useMultiplayerStore(state => state.gmSessionId);
   const onDisconnectRef = useRef<(() => void) | null>(null);
 
+  // Poll state to Firestore periodically
   useEffect(() => {
-    if (!isConnected || !roomName) return;
+    if (!isConnected || !roomName || !db) return;
 
-    let active = true;
-    let timerId: NodeJS.Timeout;
-
-    const performSync = async () => {
-      if (!active) return;
-
+    const interval = setInterval(async () => {
       try {
-        const payload: any = {
-          roomName,
-          role,
-          joinCode,
-          gmSessionId,
-        };
-
+        const roomRef = doc(db, 'rooms', roomName.trim().toLowerCase());
+        
         if (role === 'gm') {
           const gmState = useGMStore.getState();
           const mpState = useMultiplayerStore.getState();
-          payload.publishedEncounter = gmState.currentDraw;
-          payload.publicNotes = mpState.publicNotes;
-          payload.shopSpells = gmState.shopSpells;
-        } else {
-          // Player pushes their state
+          await updateDoc(roomRef, {
+            publishedEncounter: gmState.currentDraw,
+            publicNotes: mpState.publicNotes,
+            shopSpells: gmState.shopSpells,
+            isFreeEdit: gmState.isFreeEdit,
+            lastUpdate: Date.now()
+          });
+        } else if (role === 'player') {
           const state = usePlayerStore.getState();
-          payload.playerState = {
+          const playerState = {
             name: state.name,
             photo: state.photo,
             resources: state.resources,
@@ -65,75 +60,123 @@ export function useOnlineSync() {
             spells: state.spells,
             notes: state.notes,
           };
+          await updateDoc(roomRef, {
+            [`players.${joinCode}.characterState`]: playerState,
+            [`players.${joinCode}.lastActive`]: Date.now(),
+            [`players.${joinCode}.pseudo`]: playerState.name,
+            [`players.${joinCode}.joinCode`]: joinCode
+          });
         }
-
-        const res = await fetch('/api/rooms/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-          throw new Error('Sync failed with status: ' + res.status);
-        }
-
-        const data = await res.json();
-
-        if (data.roomDeleted) {
-          if (role === 'player') {
-            alert('The Game Master has closed this online session.');
-          }
-          useMultiplayerStore.getState().disconnect();
-          if (onDisconnectRef.current) onDisconnectRef.current();
-          return;
-        }
-
-        // Update local store with server response data
-        const updates: any = {
-          rollLogs: data.rollLogs || [],
-          roomPlayers: data.players || {},
-        };
-
-        if (role === 'player') {
-          updates.publishedEncounter = data.publishedEncounter;
-          updates.publicNotes = data.publicNotes || '';
-          
-          // Also sync shopSpells from server to player
-          if (data.shopSpells) {
-            updates.shopSpells = data.shopSpells;
-          }
-        } else if (role === 'gm') {
-          // Sync any shopSpells if updated externally, or keep it synced
-          if (data.shopSpells) {
-            // Keep local store in sync with master
-            useGMStore.getState().loadShopSpells(data.shopSpells);
-          }
-        }
-
-        useMultiplayerStore.setState(updates);
-
       } catch (err) {
-        console.error('Multiplayer Sync Error:', err);
-      } finally {
-        if (active) {
-          timerId = setTimeout(performSync, 1500);
+        console.error('Sync error:', err);
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isConnected, roomName, role, joinCode, gmSessionId]);
+
+  // Real-time listener for room changes
+  useEffect(() => {
+    if (!isConnected || !roomName || !db) return;
+
+    const roomRef = doc(db, 'rooms', roomName.trim().toLowerCase());
+    const unsubscribe = onSnapshot(roomRef, (docSnap) => {
+      if (!docSnap.exists()) {
+        if (role === 'player') {
+          alert('The Game Master has closed this online session.');
+        }
+        useMultiplayerStore.getState().disconnect();
+        if (onDisconnectRef.current) onDisconnectRef.current();
+        return;
+      }
+
+      const data = docSnap.data();
+
+      // Only keep the last 50 rolls
+      if (data.rollLogs && data.rollLogs.length > 50) {
+        const trimmedLogs = data.rollLogs.slice(-50);
+        updateDoc(roomRef, { rollLogs: trimmedLogs }).catch(console.error);
+      }
+
+      const updates: any = {
+        rollLogs: data.rollLogs || [],
+        roomPlayers: data.players || {},
+        isFreeEdit: data.isFreeEdit || false,
+        gmRequests: data.gmRequests || []
+      };
+
+      if (role === 'player') {
+        updates.publishedEncounter = data.publishedEncounter;
+        updates.publicNotes = data.publicNotes || '';
+        if (data.shopSpells) updates.shopSpells = data.shopSpells;
+
+        // Process pending commands
+        const myPlayer = data.players?.[joinCode || ''];
+        if (myPlayer?.pendingCommands?.length > 0) {
+          const pStore = usePlayerStore.getState();
+          let newResources = [...pStore.resources];
+          
+          let mpIndex = newResources.findIndex(r => r.name === 'MP');
+          let hpIndex = newResources.findIndex(r => r.name === 'HP');
+          
+          myPlayer.pendingCommands.forEach((cmd: any) => {
+            if (cmd.type === 'add_mp' && mpIndex !== -1) {
+              const res = newResources[mpIndex];
+              const max = Number(res.max) || 0;
+              let newCurrent = res.current + cmd.value;
+              if (newCurrent > max) newCurrent = max;
+              if (newCurrent < 0) newCurrent = 0;
+              newResources[mpIndex] = { ...res, current: newCurrent };
+            } else if (cmd.type === 'damage_mp' && mpIndex !== -1 && hpIndex !== -1) {
+              // HP drops only if MP is 0
+              if (newResources[mpIndex].current > 0) {
+                 newResources[mpIndex] = { ...newResources[mpIndex], current: newResources[mpIndex].current - 1 };
+              } else {
+                 newResources[hpIndex] = { ...newResources[hpIndex], current: Math.max(0, newResources[hpIndex].current - 1) };
+              }
+            } else if (cmd.type === 'deduct_exp') {
+              const expIndex = newResources.findIndex(r => r.name === 'EXP');
+              if (expIndex !== -1) {
+                 newResources[expIndex] = { ...newResources[expIndex], current: Math.max(0, newResources[expIndex].current - cmd.value) };
+              }
+            } else if (cmd.type === 'add_spell' && cmd.spell) {
+              const currentSpells = pStore.spells;
+              if (!currentSpells.some(s => s.name.toLowerCase() === cmd.spell.name.toLowerCase())) {
+                const cleanMax = (cmd.spell.maxUses || '').trim();
+                const isNumeric = /^\d+$/.test(cleanMax);
+                const initialUses = isNumeric ? parseInt(cleanMax, 10) : 0;
+                pStore.addSpell({
+                  ...cmd.spell,
+                  id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+                  uses: initialUses,
+                });
+              }
+            }
+          });
+          
+          usePlayerStore.setState({ resources: newResources as any });
+          
+          // Clear commands
+          updateDoc(roomRef, {
+            [`players.${joinCode}.pendingCommands`]: []
+          }).catch(console.error);
+        }
+
+      } else if (role === 'gm') {
+        if (data.shopSpells) {
+          useGMStore.getState().loadShopSpells(data.shopSpells);
         }
       }
-    };
 
-    performSync();
+      useMultiplayerStore.setState(updates);
+    });
 
-    return () => {
-      active = false;
-      clearTimeout(timerId);
-    };
-  }, [isConnected, roomName, role, joinCode, gmSessionId]);
+    return () => unsubscribe();
+  }, [isConnected, roomName, role, gmSessionId]);
 
   const registerOnDisconnect = useCallback((cb: () => void) => {
     onDisconnectRef.current = cb;
   }, []);
 
-  return {
-    registerOnDisconnect
-  };
+  return { registerOnDisconnect };
 }

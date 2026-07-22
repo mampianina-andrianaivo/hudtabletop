@@ -17,9 +17,9 @@ const colorClasses: Record<string, string> = {
 };
 
 const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
-const valueSizes = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl'];
+const valueSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
 
-export function ResourceBar({ resource, onChange }: ResourceBarProps) {
+export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps & { isFreeEdit?: boolean }) {
   const max = parseMax(resource.max) || 1; // avoid division by zero
   const percentage = Math.min(100, Math.max(0, (resource.current / max) * 100));
   const textSizeLevel = usePlayerStore(state => state.textSizeLevel);
@@ -33,12 +33,14 @@ export function ResourceBar({ resource, onChange }: ResourceBarProps) {
         </span>
       </div>
       <div className="flex items-center gap-1.5">
-        <button 
-          onClick={() => onChange(-1)}
-          className="w-5 h-5 flex items-center justify-center wow-button rounded-full shrink-0"
-        >
-          <Minus size={12} />
-        </button>
+        {isFreeEdit && (
+          <button 
+            onClick={() => onChange(-1)}
+            className="w-5 h-5 flex items-center justify-center wow-button rounded-full shrink-0"
+          >
+            <Minus size={12} />
+          </button>
+        )}
         
         <div className="flex-1 h-2.5 bg-wow-dark border border-[#5a4b3c] rounded-sm relative overflow-hidden">
           {/* Inner shadow / background texture */}
@@ -53,12 +55,14 @@ export function ResourceBar({ resource, onChange }: ResourceBarProps) {
           </div>
         </div>
 
-        <button 
-          onClick={() => onChange(1)}
-          className="w-5 h-5 flex items-center justify-center wow-button rounded-full shrink-0"
-        >
-          <Plus size={12} />
-        </button>
+        {isFreeEdit && (
+          <button 
+            onClick={() => onChange(1)}
+            className="w-5 h-5 flex items-center justify-center wow-button rounded-full shrink-0"
+          >
+            <Plus size={12} />
+          </button>
+        )}
       </div>
     </div>
   );

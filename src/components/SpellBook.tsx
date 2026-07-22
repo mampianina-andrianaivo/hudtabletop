@@ -14,12 +14,23 @@ export function RenderSpellIcon({ icon, size = 18 }: { icon: string, size?: numb
   return <RenderGMIcon iconName={icon} size={size} />;
 }
 
+import { cn, parseMpCost } from '@/lib/utils';
+
 interface SpellBookProps {
   spells?: Spell[];
   readOnly?: boolean;
+  targetModeProps?: {
+    isSelectingTarget: boolean;
+    selectedTargetId: string | null;
+    onSelectTarget: (spell: Spell) => void;
+    playerMp?: number;
+    playerHp?: number;
+    hasMP?: boolean;
+    isConnected?: boolean;
+  };
 }
 
-export function SpellBook({ spells, readOnly }: SpellBookProps) {
+export function SpellBook({ spells, readOnly, targetModeProps }: SpellBookProps) {
   const store = usePlayerStore();
   const mpStore = useMultiplayerStore();
   const [showShop, setShowShop] = useState(false);
@@ -55,6 +66,9 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
     reader.readAsText(file);
   };
 
+  const gmStore = useGMStore();
+  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : true;
+
   return (
     <div className="flex flex-col h-full bg-black/40 border border-[#5a4b3c] rounded p-2 relative">
       
@@ -72,7 +86,12 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
             )}
             <button 
               onClick={() => setShowShop(true)}
-              className="wow-button w-24 h-7 text-[10px] flex items-center justify-center gap-1 shrink-0"
+              className={cn(
+                "w-24 h-7 text-[10px] flex items-center justify-center gap-1 shrink-0 font-bold transition-all",
+                isFreeEdit 
+                  ? "wow-button-green"
+                  : "wow-button text-wow-gold"
+              )}
             >
               <ShoppingBag size={12} />
               <span>OPEN SHOP</span>
@@ -90,10 +109,7 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
               <th className="pb-2 w-6"></th>
               <th className="pb-2 pl-3 pr-2 w-full">Name</th>
               <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">D</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[0].name}>R1</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[1].name}>R2</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[2].name}>R3</th>
-              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[3].name}>R4</th>
+              <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-12">MP</th>
               <th className="pb-2 text-center border-l border-[#5a4b3c]/50 pl-1 w-20">Uses</th>
             </tr>
           </thead>
@@ -133,7 +149,45 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                 </td>
                 <td className="py-2 pl-3 font-macondo text-white pr-2 truncate">
                   <div className="flex items-center gap-2">
-                    <span className="truncate">{spell.name}</span>
+                    {targetModeProps?.isSelectingTarget ? (
+                      (() => {
+                        const mpCost = parseMpCost(spell.r2 ?? spell.r1);
+                        const cleanMax = (spell.maxUses || '').trim();
+                        const isMaxNumeric = /^\d+$/.test(cleanMax);
+                        const hasNoUses = isMaxNumeric && spell.uses <= 0;
+                        const playerMp = targetModeProps.playerMp ?? 0;
+                        const playerHp = targetModeProps.playerHp ?? 0;
+                        const isScratch = !targetModeProps.isConnected;
+                        const needsHpInsteadOfMp = mpCost > 0 && playerMp < mpCost;
+                        const hasNoResourceLeft = !isScratch && mpCost > 0 && playerMp < mpCost && playerHp <= 0;
+                        const isSpellDisabled = spell.isDisabled || (hasNoUses && !isScratch) || hasNoResourceLeft;
+                        return (
+                          <button
+                            disabled={isSpellDisabled}
+                            onClick={() => targetModeProps.onSelectTarget(spell)}
+                            className={cn(
+                              "font-macondo rounded px-1.5 py-0.5 border text-left transition-all duration-200 truncate select-none flex items-center gap-1",
+                              isSpellDisabled
+                                ? "bg-gray-900/90 text-gray-600 border-gray-800 opacity-40 cursor-not-allowed"
+                                : targetModeProps.selectedTargetId === spell.id
+                                ? "bg-green-600 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.9)] font-bold cursor-pointer"
+                                : needsHpInsteadOfMp
+                                ? "bg-amber-950/80 text-amber-200 border-amber-800 hover:bg-amber-900 hover:text-white cursor-pointer"
+                                : "bg-red-950/80 text-red-300 border-red-800 hover:bg-red-900 hover:text-white cursor-pointer"
+                            )}
+                          >
+                            {needsHpInsteadOfMp && (
+                              <span className="text-amber-400 font-bold text-[10px] tracking-tight bg-amber-950/90 border border-amber-600/50 px-1 rounded shrink-0">
+                                [HP]
+                              </span>
+                            )}
+                            <span className="truncate">{spell.name}</span>
+                          </button>
+                        );
+                      })()
+                    ) : (
+                      <span className="truncate border border-transparent px-1.5 py-0.5">{spell.name}</span>
+                    )}
                     {spell.tag && (
                       <span className="font-cinzel text-[10px] text-wow-gold border border-wow-gold/30 bg-wow-gold/10 px-1 py-0.5 rounded shadow-sm leading-none drop-shadow-md shrink-0">
                         {spell.tag}
@@ -142,12 +196,9 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                   </div>
                 </td>
                 <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1">{spell.dice}</td>
-                <td className="py-2 text-red-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r1}</td>
-                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r2}</td>
-                <td className="py-2 text-purple-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r3}</td>
-                <td className="py-2 text-green-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r4}</td>
+                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{spell.r2 ?? spell.r1 ?? ''}</td>
                 <td className="py-2 border-l border-[#5a4b3c]/50 pl-2">
-                  {!readOnly ? (
+                  {!readOnly && isFreeEdit ? (
                     (() => {
                       const cleanMax = (spell.maxUses || '').trim();
                       const isMaxNumeric = /^\d+$/.test(cleanMax);
@@ -161,7 +212,7 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                             >
                               -
                             </button>
-                            <span className="font-mono text-wow-gold w-4 text-center">{spell.uses}</span>
+                            <span className="font-mono text-wow-gold w-4 text-center select-none">{spell.uses}</span>
                             <button 
                               onClick={() => store.updateSpellUses(spell.id, 1)} 
                               className="p-1 text-white/60 hover:text-white hover:bg-white/10 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center min-w-[1.5rem]"
@@ -173,28 +224,14 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                         );
                       } else {
                         return (
-                          <div className="flex items-center justify-center gap-1 opacity-60">
-                            <button 
-                              className="p-1 text-white/30 rounded cursor-not-allowed flex items-center justify-center min-w-[1.25rem]"
-                              disabled={true}
-                            >
-                              -
-                            </button>
-                            <span className="font-mono text-wow-gold text-xs text-center px-1 truncate max-w-[4rem]" title={spell.maxUses}>
-                              {spell.maxUses}
-                            </span>
-                            <button 
-                              className="p-1 text-white/30 rounded cursor-not-allowed flex items-center justify-center min-w-[1.25rem]"
-                              disabled={true}
-                            >
-                              +
-                            </button>
+                          <div className="text-center font-mono text-wow-gold text-xs px-1 truncate max-w-[4rem]" title={spell.maxUses}>
+                            {spell.maxUses}
                           </div>
                         );
                       }
                     })()
                   ) : (
-                    <div className="text-center font-mono text-wow-gold">
+                    <div className="text-center font-mono text-wow-gold text-xs">
                       {/^\d+$/.test((spell.maxUses || '').trim()) ? `${spell.uses} / ${spell.maxUses}` : spell.maxUses}
                     </div>
                   )}
@@ -317,10 +354,7 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                   <th className="pb-2 w-6"></th>
                   <th className="pb-2 pl-3 pr-2 w-full">Name</th>
                   <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10">D</th>
-                  <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[0].name}>R1</th>
-                  <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[1].name}>R2</th>
-                  <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[2].name}>R3</th>
-                  <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-10" title={store.resources[3].name}>R4</th>
+                  <th className="pb-2 text-center border-l border-[#5a4b3c]/50 px-1 w-12">MP</th>
                   <th className="pb-2 text-center border-l border-[#5a4b3c]/50 pl-1 w-20">Uses</th>
                 </tr>
               </thead>
@@ -354,10 +388,7 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                         </div>
                       </td>
                       <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.dice}</td>
-                      <td className="py-2 text-red-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.r1 || '-'}</td>
-                      <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.r2 || '-'}</td>
-                      <td className="py-2 text-purple-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.r3 || '-'}</td>
-                      <td className="py-2 text-green-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.r4 || '-'}</td>
+                      <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1">{shopSpell.r2 ?? shopSpell.r1 ?? ''}</td>
                       <td className="py-2 border-l border-[#5a4b3c]/50 pl-2 text-center font-mono text-wow-gold">
                         {/^\d+$/.test((shopSpell.maxUses || '').trim()) ? `0 / ${shopSpell.maxUses}` : shopSpell.maxUses}
                       </td>
@@ -418,21 +449,60 @@ export function SpellBook({ spells, readOnly }: SpellBookProps) {
                 <div className="px-4 py-2 text-gray-400 font-cinzel text-sm bg-black/40 border border-[#5a4b3c]/30 rounded w-full">
                   ALREADY OWNED
                 </div>
-              ) : (
-                <button 
-                  onClick={() => {
-                    store.addSpell({
-                      ...detailedShopSpell,
-                      id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
-                      uses: 0,
-                    });
-                    setShopSpellDetailsId(null);
-                  }}
-                  className="wow-button px-6 py-2 text-sm rounded flex-1 text-green-400 border-green-500"
-                >
-                  BUY SPELL
-                </button>
-              )}
+              ) : (() => {
+                const expRes = store.resources.find(r => r.name === 'EXP');
+                const has3Exp = expRes ? expRes.current >= 3 : false;
+                const canBuy = isFreeEdit || has3Exp;
+
+                return (
+                  <button 
+                    disabled={!canBuy}
+                    onClick={async () => {
+                      if (!mpStore.isConnected) {
+                        if (!isFreeEdit) {
+                          const expIdx = store.resources.findIndex(r => r.name === 'EXP');
+                          if (expIdx !== -1) {
+                            store.updateResource(expIdx, { current: Math.max(0, store.resources[expIdx].current - 3) });
+                          }
+                        }
+                        const cleanMax = (detailedShopSpell.maxUses || '').trim();
+                        const isNumeric = /^\d+$/.test(cleanMax);
+                        const initialUses = isNumeric ? parseInt(cleanMax, 10) : 0;
+                        store.addSpell({
+                          ...detailedShopSpell,
+                          id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+                          uses: initialUses,
+                        });
+                      } else {
+                        const { db } = await import('@/lib/firebase');
+                        const { updateDoc, arrayUnion, doc } = await import('firebase/firestore');
+                        if (db && mpStore.roomName) {
+                          await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
+                            gmRequests: arrayUnion({ 
+                              type: 'ask_spell', 
+                              spellName: detailedShopSpell.name,
+                              spell: detailedShopSpell,
+                              from: mpStore.pseudo || store.name || 'Player', 
+                              joinCode: mpStore.joinCode, 
+                              isFreeEdit, 
+                              ts: Date.now() 
+                            })
+                          });
+                        }
+                      }
+                      setShopSpellDetailsId(null);
+                    }}
+                    className={cn(
+                      "px-4 py-2 text-sm rounded flex-1 font-cinzel font-bold transition-all",
+                      canBuy 
+                        ? "wow-button-green" 
+                        : "wow-button text-gray-500 border-gray-700 cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    {isFreeEdit ? "BUY (FREE)" : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP")}
+                  </button>
+                );
+              })()}
               <button 
                 onClick={() => setShopSpellDetailsId(null)} 
                 className="wow-button px-6 py-2 text-sm rounded flex-1"

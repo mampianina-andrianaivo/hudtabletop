@@ -11,6 +11,12 @@ interface NoteTextareaProps {
 
 export function NoteTextarea({ value, onChange, placeholder, className, readOnly, id }: NoteTextareaProps) {
   const [localValue, setLocalValue] = useState(value);
+  const onChangeRef = React.useRef(onChange);
+
+  // Keep ref up to date with the latest onChange callback
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   // Sync local value when the prop value changes (e.g., loaded from file or synchronized from Firestore)
   useEffect(() => {
@@ -21,20 +27,20 @@ export function NoteTextarea({ value, onChange, placeholder, className, readOnly
     setLocalValue(e.target.value);
   };
 
-  // Debounced update to the global store
+  // Debounced update to the global store using the ref to prevent timer cancellation on render
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localValue !== value) {
-        onChange(localValue);
+        onChangeRef.current(localValue);
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [localValue, onChange, value]);
+  }, [localValue, value]);
 
   // Ensure final update on blur
   const handleBlur = () => {
     if (localValue !== value) {
-      onChange(localValue);
+      onChangeRef.current(localValue);
     }
   };
 

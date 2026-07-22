@@ -5,18 +5,42 @@ import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export async function sendOnlineRoll(text: string) {
+export async function sendOnlineRoll(logInput: string | {
+  text: string;
+  type?: 'roll' | 'encounter' | 'notes' | 'info';
+  playerName?: string;
+  targetLabel?: string;
+  roll?: number;
+  requiredValue?: number;
+  isSuccess?: boolean;
+  isCrit?: boolean;
+}) {
   const { roomName, role, pseudo, isConnected } = useMultiplayerStore.getState();
-  if (!isConnected || !roomName || !db) return;
+  const logObj = typeof logInput === 'string' ? { text: logInput } : logInput;
+  const logPseudo = role === 'gm' ? 'MJ' : (pseudo || 'Player');
+
+  if (!isConnected || !roomName || !db) {
+    // Offline mode: append directly to local multiplayer state log list
+    const currentLogs = useMultiplayerStore.getState().rollLogs || [];
+    useMultiplayerStore.setState({
+      rollLogs: [...currentLogs.slice(-49), {
+        id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        pseudo: logPseudo,
+        timestamp: Date.now(),
+        ...logObj
+      }]
+    });
+    return;
+  }
 
   try {
     const roomRef = doc(db, 'rooms', roomName.trim().toLowerCase());
     await updateDoc(roomRef, {
       rollLogs: arrayUnion({
         id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        pseudo: role === 'gm' ? 'MJ' : (pseudo || 'Player'),
-        text,
-        timestamp: Date.now()
+        pseudo: logPseudo,
+        timestamp: Date.now(),
+        ...logObj
       })
     });
   } catch (err) {
@@ -99,6 +123,7 @@ export function useOnlineSync() {
       }
 
       const updates: any = {
+        links: data.links || [],
         rollLogs: data.rollLogs || [],
         roomPlayers: data.players || {},
         isFreeEdit: data.isFreeEdit || false,
@@ -116,29 +141,35 @@ export function useOnlineSync() {
           const pStore = usePlayerStore.getState();
           let newResources = [...pStore.resources];
           
-          let mpIndex = newResources.findIndex(r => r.name === 'MP');
-          let hpIndex = newResources.findIndex(r => r.name === 'HP');
+          const hpIndex = 0;
+          const mpIndex = 1;
+          const expIndex = 2;
+          
+          const parseMaxVal = (val: string) => {
+            const parsed = parseInt(val, 10);
+            return isNaN(parsed) ? 0 : parsed;
+          };
           
           myPlayer.pendingCommands.forEach((cmd: any) => {
-            if (cmd.type === 'add_mp' && mpIndex !== -1) {
+            if (cmd.type === 'add_mp') {
               const res = newResources[mpIndex];
-              const max = Number(res.max) || 0;
+              const max = parseMaxVal(res.max);
               let newCurrent = res.current + cmd.value;
               if (newCurrent > max) newCurrent = max;
               if (newCurrent < 0) newCurrent = 0;
               newResources[mpIndex] = { ...res, current: newCurrent };
-            } else if (cmd.type === 'damage_mp' && mpIndex !== -1 && hpIndex !== -1) {
+            } else if (cmd.type === 'damage_mp') {
+              const res = newResources[mpIndex];
               // HP drops only if MP is 0
-              if (newResources[mpIndex].current > 0) {
-                 newResources[mpIndex] = { ...newResources[mpIndex], current: newResources[mpIndex].current - 1 };
+              if (res.current > 0) {
+                 newResources[mpIndex] = { ...res, current: res.current - 1 };
               } else {
-                 newResources[hpIndex] = { ...newResources[hpIndex], current: Math.max(0, newResources[hpIndex].current - 1) };
+                 const hpRes = newResources[hpIndex];
+                 newResources[hpIndex] = { ...hpRes, current: Math.max(0, hpRes.current - 1) };
               }
             } else if (cmd.type === 'deduct_exp') {
-              const expIndex = newResources.findIndex(r => r.name === 'EXP');
-              if (expIndex !== -1) {
-                 newResources[expIndex] = { ...newResources[expIndex], current: Math.max(0, newResources[expIndex].current - cmd.value) };
-              }
+              const res = newResources[expIndex];
+              newResources[expIndex] = { ...res, current: Math.max(0, res.current - cmd.value) };
             } else if (cmd.type === 'add_spell' && cmd.spell) {
               const currentSpells = pStore.spells;
               if (!currentSpells.some(s => s.name.toLowerCase() === cmd.spell.name.toLowerCase())) {

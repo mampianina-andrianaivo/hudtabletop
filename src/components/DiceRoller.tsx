@@ -31,8 +31,25 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
       const name = mp.role === 'gm' ? 'MJ' : (mp.pseudo || 'Player');
       const rollText = `${name} just rolled ${roll} on D12`;
 
+      const rollObj = {
+        text: rollText,
+        type: 'info' as const,
+        playerName: name,
+        roll: roll
+      };
+
       if (mp.isConnected) {
-        sendOnlineRoll(rollText);
+        sendOnlineRoll(rollObj);
+      } else {
+        const currentLogs = useMultiplayerStore.getState().rollLogs || [];
+        useMultiplayerStore.setState({
+          rollLogs: [...currentLogs.slice(-49), {
+            id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            pseudo: name,
+            timestamp: Date.now(),
+            ...rollObj
+          }]
+        });
       }
     }, 1500);
   };

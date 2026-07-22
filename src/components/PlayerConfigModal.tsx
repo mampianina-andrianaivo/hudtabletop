@@ -71,13 +71,21 @@ export function PlayerConfigModal({ onClose }: PlayerConfigModalProps) {
   const renderTabs = () => {
     if (isFreeEdit) return null; // No tabs in free edit mode - photo only
 
+    const tabs = [
+      { id: 'aesthetic', label: 'Aesthetic' },
+    ];
+    if (!mpStore.isConnected) {
+      tabs.push(
+        { id: 'stats1', label: 'Stats 1-6' },
+        { id: 'stats2', label: 'Stats 7-12' }
+      );
+    }
+
+    if (tabs.length <= 1) return null;
+
     return (
       <div className="flex border-b border-[#5a4b3c] mb-6">
-        {[
-          { id: 'aesthetic', label: 'Aesthetic' },
-          { id: 'stats1', label: 'Stats 1-6' },
-          { id: 'stats2', label: 'Stats 7-12' },
-        ].map(tab => (
+        {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}

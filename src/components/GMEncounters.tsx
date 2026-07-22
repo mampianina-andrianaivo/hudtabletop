@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { Settings, Plus, X, ArrowDown, Copy } from 'lucide-react';
+import { Settings, Plus, X, ArrowDown, Copy, Swords } from 'lucide-react';
 import { useGMStore } from '@/store/useGMStore';
 import { DiceRoller } from './DiceRoller';
+import { useMultiplayerStore } from '@/store/useMultiplayerStore';
+import { sendOnlineRoll } from '@/lib/useOnlineSync';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export function GMEncounters() {
   const store = useGMStore();
@@ -14,6 +18,37 @@ export function GMEncounters() {
       `#${idx + 1} ` + line.map(action => action.sub ? `${action.name} (+${action.sub})` : action.name).join(' → ')
     ).join('\n');
     navigator.clipboard.writeText(text);
+  };
+
+  const handlePublish = async () => {
+    store.publishDraw();
+    
+    // Log the published encounter in the public log
+    if (store.currentDraw) {
+      const linesText = store.currentDraw.lines.map((line, lIdx) => 
+        `Ligne #${lIdx + 1}: ${line.map(act => act.name + (act.sub ? ` (+${act.sub})` : '')).join(' / ')}`
+      ).join(' | ');
+      
+      const logMsg = `⚔️ MJ a publié une rencontre (Niv ${store.currentDraw.level}): ${linesText}`;
+      await sendOnlineRoll(logMsg);
+    }
+
+    // Write immediately to Firestore
+    const mpState = useMultiplayerStore.getState();
+    if (mpState.isConnected && mpState.roomName && db) {
+      try {
+        const roomRef = doc(db, 'rooms', mpState.roomName.trim().toLowerCase());
+        await updateDoc(roomRef, {
+          publishedEncounter: {
+            ...store.currentDraw,
+            published: true,
+            timestamp: Date.now()
+          }
+        });
+      } catch (err) {
+        console.error("Error publishing encounter immediately:", err);
+      }
+    }
   };
 
   const handleRollEncounter = (level: number) => {
@@ -132,7 +167,7 @@ export function GMEncounters() {
                 Clear
               </button>
               <button 
-                onClick={() => store.publishDraw()}
+                onClick={handlePublish}
                 
                 className={`wow-button font-cinzel text-sm w-32 h-10 ${store.currentDraw.published ? "!bg-green-800/80 !border-green-700 !text-white" : ""}`}
               >

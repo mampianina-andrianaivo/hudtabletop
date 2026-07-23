@@ -441,20 +441,26 @@ export function Home({ onSelectRole }: HomeProps) {
               <div className="border border-wow-gold/40 rounded p-3 bg-black/60 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
-                    <span className="font-cinzel text-xs text-wow-gold uppercase tracking-wider font-bold">Fichier Campaign JSON (Obligatoire)</span>
-                    <span className="text-[11px] text-white font-mono mt-0.5 truncate max-w-[200px]">{jsonLoadedName || 'Aucun fichier chargé'}</span>
+                    <span className="font-cinzel text-xs text-wow-gold uppercase tracking-wider font-bold">Campaign JSON File (Required)</span>
+                    <span className="text-[11px] text-white font-mono mt-0.5 truncate max-w-[200px]">{jsonLoadedName || 'No file loaded'}</span>
                   </div>
                   <label className="wow-button px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1 shrink-0">
-                    <Upload size={13} /> Charger JSON
+                    <Upload size={13} /> Load JSON
                     <input type="file" accept=".json" className="hidden" onChange={handleJsonLoad} />
                   </label>
                 </div>
-                {loadedCampaignData?.roomName && (
-                  <div className="text-xs font-mono text-wow-gold bg-wow-gold/10 border border-wow-gold/30 px-2.5 py-1.5 rounded flex items-center justify-between">
-                    <span className="text-white font-cinzel">Room Name :</span>
-                    <span className="font-bold text-white text-sm">{loadedCampaignData.roomName}</span>
-                  </div>
-                )}
+                <div className="min-h-[30px] flex flex-col justify-center">
+                  {loadedCampaignData?.roomName ? (
+                    <div className="text-xs font-mono text-wow-gold bg-wow-gold/10 border border-wow-gold/30 px-2.5 py-1.5 rounded flex items-center justify-between">
+                      <span className="text-white font-cinzel">Room Name :</span>
+                      <span className="font-bold text-white text-sm">{loadedCampaignData.roomName}</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-gray-500 font-mono italic text-center py-1 select-none opacity-50">
+                      (Awaiting campaign file upload...)
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -472,11 +478,13 @@ export function Home({ onSelectRole }: HomeProps) {
                 </div>
               </div>
 
-              {errorMessage && (
-                <div className="text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
-                  {errorMessage}
-                </div>
-              )}
+              <div className="min-h-[38px] flex items-center justify-center">
+                {errorMessage ? (
+                  <div className="w-full text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
+                    {errorMessage}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="flex gap-4 mt-2">
                 <button 
@@ -525,12 +533,18 @@ export function Home({ onSelectRole }: HomeProps) {
                     placeholder="P-XXXXXX"
                   />
                 </div>
-                {playRoomName && (
-                  <div className="text-green-400 text-xs mt-1.5 font-mono flex items-center gap-1 bg-black/40 border border-green-500/20 px-2 py-1 rounded">
-                    <span>✓ Room detected:</span>
-                    <span className="font-bold underline">{playRoomName}</span>
-                  </div>
-                )}
+                <div className="min-h-[26px] mt-1.5 flex flex-col justify-center">
+                  {playRoomName ? (
+                    <div className="text-green-400 text-xs font-mono flex items-center gap-1 bg-black/40 border border-green-500/20 px-2 py-1 rounded">
+                      <span>✓ Room detected:</span>
+                      <span className="font-bold underline">{playRoomName}</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-gray-500 font-mono italic text-center py-1 select-none opacity-50">
+                      (Awaiting valid join code...)
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -548,11 +562,13 @@ export function Home({ onSelectRole }: HomeProps) {
                 </div>
               </div>
 
-              {errorMessage && (
-                <div className="text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
-                  {errorMessage}
-                </div>
-              )}
+              <div className="min-h-[38px] flex items-center justify-center">
+                {errorMessage ? (
+                  <div className="text-red-400 text-xs text-center font-semibold bg-red-950/30 border border-red-900/40 py-2 px-3 rounded">
+                    {errorMessage}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="flex gap-4 mt-2">
                 <button 

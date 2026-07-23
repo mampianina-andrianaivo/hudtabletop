@@ -458,7 +458,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 <div className="h-1/2 min-h-0 flex flex-col overflow-hidden border-t border-[#5a4b3c]/60 pt-2 relative">
                   <div className="text-wow-gold font-cinzel text-[11px] uppercase tracking-wider mb-1 flex items-center gap-1.5 px-1 font-bold shrink-0">
                     <FileText size={12} className="text-wow-gold" />
-                    <span>GRIMOIRE DE {viewedPlayer.pseudo}</span>
+                    <span>GRIMOIRE OF {viewedPlayer.pseudo}</span>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border border-[#5a4b3c]/30 rounded">
                     <SpellBook spells={activeSpells} readOnly={true} playerName={viewedPlayer.pseudo} />

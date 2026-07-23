@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles } from 'lucide-react';
+import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { GMSpellCrafter } from '@/components/GMSpellCrafter';
 import { GMEncounters } from '@/components/GMEncounters';
 import { useGMStore } from '@/store/useGMStore';
@@ -27,6 +27,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
   // Scratch init
   useEffect(() => {
+    useMultiplayerStore.setState({ role: 'gm' });
     if (!mpStore.isConnected) {
       store.initScratchLinks();
     }
@@ -42,10 +43,54 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
   const [showPlayersModal, setShowPlayersModal] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showVisibilityToggles, setShowVisibilityToggles] = useState(false);
+  const [visiblePlayers, setVisiblePlayers] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const roomKey = mpStore.roomName ? mpStore.roomName.trim().toLowerCase() : 'default';
+      const saved = localStorage.getItem(`gm_visible_players_${roomKey}`);
+      if (saved) {
+        setVisiblePlayers(JSON.parse(saved));
+      } else {
+        setVisiblePlayers({});
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [mpStore.roomName]);
+
+  const togglePlayerVisibility = (joinCode: string) => {
+    const updated = { ...visiblePlayers, [joinCode]: !(visiblePlayers[joinCode] !== false) };
+    setVisiblePlayers(updated);
+    try {
+      const roomKey = mpStore.roomName ? mpStore.roomName.trim().toLowerCase() : 'default';
+      localStorage.setItem(`gm_visible_players_${roomKey}`, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [disabledButtons, setDisabledButtons] = useState<Record<string, boolean>>({});
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [inspectEncounterViewActive, setInspectEncounterViewActive] = useState(false);
+
+  const handleToggleLineInGMView = async (idx: number) => {
+    store.toggleDrawLineCompleted(idx);
+    
+    // Write immediately to Firestore if connected
+    const updatedDraw = useGMStore.getState().currentDraw;
+    if (updatedDraw && mpStore.isConnected && mpStore.roomName && db) {
+      try {
+        const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
+        await updateDoc(roomRef, {
+          publishedEncounter: updatedDraw
+        });
+      } catch (err) {
+        console.error("Error updating encounter line completion from GMView:", err);
+      }
+    }
+  };
 
   const currentRequest = mpStore.gmRequests?.[0];
 
@@ -60,7 +105,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
       if (accept) {
         const joinCode = currentRequest.joinCode;
-        const pendingCmds: any[] = [];
+        const pendingCmds = [];
 
         // Deduct 3 EXP if not free edit
         if (!currentRequest.isFreeEdit) {
@@ -77,11 +122,27 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         }
         
         // Log the acceptance
-        let text = `GM accepted ${currentRequest.from}'s request for a new Stat!`;
+        let text = `GM accepted ${currentRequest.from}'s request for a Stat Increase!`;
         if (currentRequest.type === 'ask_spell') {
-          text = `GM accepted ${currentRequest.from}'s request for Spell: ${currentRequest.spellName || currentRequest.spell?.name || 'Spell'}!`;
+          text = `GM accepted ${currentRequest.from}'s request for Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'Ability'}!`;
         } else if (currentRequest.type === 'ask_shop') {
           text = `GM accepted ${currentRequest.from}'s request to Open Shop!`;
+        }
+        
+        const rollLogs = mpStore.rollLogs || [];
+        const newRoll = {
+          id: `req-${Date.now()}`,
+          pseudo: 'System',
+          text,
+          timestamp: Date.now()
+        };
+        updates['rollLogs'] = [...rollLogs.slice(-49), newRoll];
+      } else {
+        let text = `GM declined ${currentRequest.from}'s request for a Stat Increase.`;
+        if (currentRequest.type === 'ask_spell') {
+          text = `GM declined ${currentRequest.from}'s request for Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'Ability'}.`;
+        } else if (currentRequest.type === 'ask_shop') {
+          text = `GM declined ${currentRequest.from}'s request to Open Shop.`;
         }
         
         const rollLogs = mpStore.rollLogs || [];
@@ -122,6 +183,13 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const isViewingPlayer = mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me';
   const viewedPlayer = isViewingPlayer ? mpStore.roomPlayers[mpStore.activePlayerView || ''] : null;
   const activeCharState = isViewingPlayer ? viewedPlayer?.characterState : null;
+  
+  const FIXED_STATS_NAMES = ['INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'SOCIAL', 'LUCK'];
+  const activeStats = FIXED_STATS_NAMES.map((name, i) => {
+    const existing = activeCharState?.stats?.[i] || { current: 0 };
+    return { name, current: existing.current, isVisible: true };
+  });
+
   const activeSpells = activeCharState?.spells || [];
 
   // Latest public roll log
@@ -130,12 +198,13 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const handleExportGMJSON = () => {
     const roomNameToCheck = !mpStore.isConnected ? store.roomName : mpStore.roomName;
     if (!roomNameToCheck || !roomNameToCheck.trim()) {
-      alert("Le nom de la Room ne peut pas être vide pour l'export.");
+      alert("Room name cannot be empty for export.");
       return;
     }
 
-    // If we are in scratch (offline) mode, embed the current player state as the default character state for all 6 slots
-    const finalScratchPlayers: Record<string, any> = {};
+    let finalScratchPlayers: Record<string, any> = {};
+    let finalLinks: string[] = [];
+
     if (!mpStore.isConnected) {
       const pStore = usePlayerStore.getState();
       const currentCharacterState = {
@@ -146,34 +215,53 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         spells: pStore.spells || [],
         notes: pStore.notes || '',
       };
-
+      
+      finalLinks = store.scratchLinks;
       store.scratchLinks.forEach((link, idx) => {
-        const existing = store.scratchPlayers[link] || { pseudo: '' };
+        const existing = store.scratchPlayers[link] || { pseudo: '', characterState: undefined };
         const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
         finalScratchPlayers[link] = {
           ...existing,
           pseudo,
-          characterState: {
+          characterState: existing.characterState || {
             ...currentCharacterState,
             name: pseudo,
           }
         };
       });
+    } else {
+      finalLinks = mpStore.links.length > 0 ? mpStore.links : store.scratchLinks;
+      finalLinks.forEach(link => {
+        const connected = mpStore.roomPlayers[link];
+        if (connected && connected.characterState) {
+          finalScratchPlayers[link] = {
+            pseudo: connected.pseudo,
+            characterState: connected.characterState
+          };
+        } else {
+          finalScratchPlayers[link] = store.scratchPlayers[link] || { pseudo: '' };
+        }
+      });
     }
 
     const campaignData = {
-      roomName: store.roomName,
+      roomName: roomNameToCheck,
       shopSpells: store.shopSpells,
       encounters: store.encounters,
+      currentDraw: store.currentDraw,
+      isFreeEdit: store.isFreeEdit,
+      isFreeShop: store.isFreeShop,
+      blockPlayerRolls: store.blockPlayerRolls,
       notes: store.notes,
       publicNotes: mpStore.publicNotes,
-      scratchLinks: store.scratchLinks,
-      scratchPlayers: !mpStore.isConnected ? finalScratchPlayers : store.scratchPlayers,
+      scratchLinks: finalLinks,
+      scratchPlayers: finalScratchPlayers,
     };
+
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(campaignData, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${store.roomName || 'scratch'}_campaign.json`);
+    downloadAnchorNode.setAttribute("download", `${roomNameToCheck || 'scratch'}_campaign.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -189,6 +277,18 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         if (json.shopSpells) store.loadShopSpells(json.shopSpells);
         if (json.encounters) {
           useGMStore.setState({ encounters: json.encounters });
+        }
+        if (json.currentDraw !== undefined) {
+          useGMStore.setState({ currentDraw: json.currentDraw });
+        }
+        if (json.isFreeEdit !== undefined) {
+          useGMStore.setState({ isFreeEdit: json.isFreeEdit });
+        }
+        if (json.isFreeShop !== undefined) {
+          useGMStore.setState({ isFreeShop: json.isFreeShop });
+        }
+        if (json.blockPlayerRolls !== undefined) {
+          useGMStore.setState({ blockPlayerRolls: json.blockPlayerRolls });
         }
         if (json.scratchLinks) {
           useGMStore.setState({ scratchLinks: json.scratchLinks });
@@ -232,8 +332,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
   const handleCopyLink = (linkCode: string, idx: number) => {
     // Generate actual browser enter link
-    const fullLink = `${window.location.origin}/?join=${linkCode}&room=${encodeURIComponent(mpStore.roomName || '')}`;
-    navigator.clipboard.writeText(fullLink);
+    navigator.clipboard.writeText(linkCode);
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
@@ -245,7 +344,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
     const previewText = mpStore.localPublicNotes.trim()
       ? (mpStore.localPublicNotes.length > 80 ? mpStore.localPublicNotes.substring(0, 80) + '...' : mpStore.localPublicNotes)
       : 'Vidé';
-    await sendOnlineRoll(`📜 MJ a publié des notes de campagne: "${previewText}"`);
+    await sendOnlineRoll(`📜 GM published campaign notes: "${previewText}"`);
 
     // Write immediately to Firestore
     if (mpStore.isConnected && mpStore.roomName && db) {
@@ -259,12 +358,12 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       }
     }
 
-    setSuccessToast("Notes de campagne publiées avec succès !");
+    setSuccessToast("Campaign notes published successfully!");
     setTimeout(() => setSuccessToast(null), 3000);
   };
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-iron text-white flex flex-col p-2 md:p-3 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] select-none">
+    <div className="h-[100dvh] overflow-hidden bg-iron text-white flex flex-col p-2 md:p-3  select-none">
       
       {/* TOP BANNER SPLIT IN 3 SECTIONS ALIGNED WITH MAIN COLUMNS Below */}
       <div className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
@@ -283,22 +382,25 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-gray-400 bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
                   <WifiOff size={12} />
-                  <span className="font-cinzel tracking-wider">OFFLINE (SCRATCH GM)</span>
+                  <span className="font-cinzel tracking-wider">OFFLINE</span>
                 </div>
-                <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel">
-                  To Player HUD
-                </button>
+                <div className="flex items-center gap-0">
+                  <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">GM EDITS</span>
+                  <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
+                    PLAYER EDITS
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Section 2: Real-time Public Roll Logs (lg:col-span-4) -> D12 ROLL DASHBOARD */}
+        {/* Section 2: Character Name / GM Dashboard Header (lg:col-span-4) */}
         <div className="lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center">
-            D12 ROLL DASHBOARD
+          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate w-full uppercase">
+            {activeCharState?.name || "GM CONTROL DASHBOARD"}
           </div>
         </div>
         
@@ -337,7 +439,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
           <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
           
           {/* Section 1/3 always: Roll Logs Section with large fonts */}
-          <div className="h-1/3 min-h-0 pb-2 flex flex-col overflow-hidden">
+          <div className="h-1/3 min-h-0 pb-2 flex flex-col overflow-visible">
             <RollLogsSection />
           </div>
           
@@ -372,6 +474,37 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         {/* COLUMN 2: ENCOUNTERS DRAW ZONE / VIEWED PLAYER HUD (col-span-4) */}
         <div className="lg:col-span-4 wow-panel !p-0 flex flex-col shadow-xl bg-leather relative overflow-hidden">
           
+          {/* GM REQUEST NOTIFICATION INLINE */}
+          {currentRequest && (
+            <div className="absolute top-0 left-0 right-0 z-50 bg-black/95 border-b-2 border-wow-gold shadow-[0_4px_20px_rgba(0,0,0,0.8)] p-4 flex flex-col gap-3 text-center animate-in slide-in-from-top-full duration-300">
+              <h3 className="font-cinzel text-wow-gold text-sm tracking-widest">PLAYER REQUEST</h3>
+              <p className="font-sans text-xs text-white">
+                <span className="font-bold text-wow-gold">{currentRequest.from}</span> asks for: <br />
+                <span className="uppercase text-white font-mono mt-1 inline-block">
+                  {currentRequest.type === 'ask_stat' 
+                    ? 'Stat Increase' 
+                    : currentRequest.type === 'ask_spell'
+                    ? `Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'New Ability'}`
+                    : 'Open Shop'}
+                </span>
+              </p>
+              <div className="flex justify-center gap-3 mt-1">
+                <button 
+                  onClick={() => handleProcessRequest(false)}
+                  className="wow-button bg-red-950/50 text-red-400 border border-red-900 px-4 py-1.5 text-xs"
+                >
+                  Decline
+                </button>
+                <button 
+                  onClick={() => handleProcessRequest(true)}
+                  className="wow-button-green px-4 py-1.5 text-xs font-bold"
+                >
+                  Accept
+                </button>
+              </div>
+            </div>
+          )}
+          
           {isViewingPlayer && viewedPlayer ? (
             // READ-ONLY PLAYER HUD MODE FOR THE GM - MATCHING THE PLAYER'S ORIGINAL HUD LAYOUT
             <div className="flex-1 flex flex-col bg-black/50 border border-wow-gold/30 rounded p-3 relative overflow-hidden">
@@ -383,7 +516,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               {/* Close viewing header banner */}
               <div className="flex items-center justify-between border-b border-[#5a4b3c]/60 pb-1 mb-2 mt-1 bg-wow-gold/10 px-2.5 py-1 rounded border border-wow-gold/20 shrink-0">
                 <span className="font-cinzel text-xs text-wow-gold flex items-center gap-1.5">
-                  <User size={12} className="animate-pulse" />
+                  <User size={12} className="" />
                   <span className="uppercase">INSPECTING: {viewedPlayer.pseudo}</span>
                 </span>
                 <button 
@@ -397,25 +530,10 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
               {activeCharState ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* TOP STATS/PHOTO/DICE ROW (3 Columns grid - Matches PlayerView layout exactly) */}
+                  {/* TOP STATS/PHOTO/DICE ROW (3 Columns grid - Matches PlayerView layout) */}
                   <div className="grid grid-cols-3 gap-2 border-b border-[#5a4b3c]/60 pb-2 mb-2 items-start shrink-0">
                     
-                    {/* 1. Photo & Name of inspected player */}
-                    <div className="flex flex-col items-center justify-start">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded border-2 border-[#FFD100] overflow-hidden bg-wow-dark shadow-[0_0_10px_rgba(0,0,0,0.8)] relative shrink-0">
-                        {activeCharState.photo ? (
-                          <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center font-cinzel text-[8px] text-white/50 text-center uppercase">No Hero</div>
-                        )}
-                        <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] pointer-events-none"></div>
-                      </div>
-                      <h2 className="mt-1 font-cinzel font-bold text-wow-gold text-[10px] sm:text-xs drop-shadow-md text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider line-clamp-2">
-                        {activeCharState.name || 'Unnamed'}
-                      </h2>
-                    </div>
-
-                    {/* 2. STATS / ENCOUNTERS Toggle */}
+                    {/* 1. STATS / ENCOUNTERS Toggle - Left */}
                     <div className="flex flex-col items-center justify-start">
                       <button
                         onClick={() => setInspectEncounterViewActive(!inspectEncounterViewActive)}
@@ -426,7 +544,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                         title="Toggle inspect view."
                       >
                         {inspectEncounterViewActive ? (
-                          <Swords size={22} className="text-wow-gold mt-1 animate-pulse" />
+                          <Swords size={22} className="text-wow-gold mt-1 " />
                         ) : (
                           <User size={20} className="text-wow-gold mt-1" />
                         )}
@@ -434,6 +552,18 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                       <span className="mt-1 font-cinzel font-bold text-wow-gold text-[10px] sm:text-xs drop-shadow-md text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider">
                         {inspectEncounterViewActive ? "ENCOUNTERS" : "STATS"}
                       </span>
+                    </div>
+
+                    {/* 2. Photo of inspected player - Middle (No name underneath) */}
+                    <div className="flex flex-col items-center justify-start">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded border-2 border-[#FFD100] overflow-hidden bg-wow-dark shadow-[0_0_10px_rgba(0,0,0,0.8)] relative shrink-0">
+                        {activeCharState.photo ? (
+                          <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-cinzel text-[8px] text-white/50 text-center uppercase">No Hero</div>
+                        )}
+                        <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] pointer-events-none"></div>
+                      </div>
                     </div>
 
                     {/* 3. ROLL VIEW info block */}
@@ -459,26 +589,38 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
                         {mpStore.publishedEncounter ? (
                           <div className="flex-1 flex flex-col gap-3 font-sans text-xs pt-1">
-                            <div className="flex items-center justify-between text-[10px] text-wow-gold/70 border-b border-[#5a4b3c]/30 pb-1 shrink-0">
-                              <span>ROOM LEVEL: {mpStore.publishedEncounter.level}</span>
-                              <span className="text-green-400">ACTIVE</span>
+                            <div className="flex items-center justify-center text-[10px] text-wow-gold/70 border-b border-[#5a4b3c]/30 pb-1 shrink-0">
+                              <span>LEVEL: {mpStore.publishedEncounter.level}</span>
                             </div>
-                            <div className="flex-1 flex flex-col gap-2">
-                              {mpStore.publishedEncounter.lines?.map((line: any, idx: number) => (
-                                <div key={idx} className="bg-black/60 border border-[#5a4b3c]/30 p-2 rounded shadow-sm relative">
-                                  <h5 className="font-cinzel text-wow-gold text-[10px] mb-1.5 border-b border-[#3b2c19]/50 pb-0.5 flex items-center justify-between">
-                                    <span>LIGNE #{idx + 1}</span>
-                                  </h5>
-                                  <div className="flex flex-col gap-1 pl-1.5 border-l-2 border-wow-gold/30">
-                                    {line.map((act: any, i: number) => (
-                                      <div key={i} className="flex flex-col">
-                                        <span className="font-medium text-gray-200">{act.name}</span>
-                                        {act.sub && <span className="text-[10px] text-gray-400 font-mono italic">↳ {act.sub}</span>}
+                            <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar">
+                              {mpStore.publishedEncounter.lines?.map((line: any, idx: number) => {
+                                const isCompleted = !!mpStore.publishedEncounter?.completedLines?.[idx];
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => handleToggleLineInGMView(idx)}
+                                    className={`w-full border rounded p-1 flex flex-row gap-1 shadow-md items-stretch justify-center transition-all duration-200 select-none text-left ${
+                                      isCompleted
+                                        ? 'bg-green-950/55 border-green-600/80 hover:bg-green-900/50 hover:border-green-500'
+                                        : 'bg-black/60 border border-[#5a4b3c]/30 hover:bg-black/80 hover:border-[#7d6752]'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-center min-w-8 px-1 shrink-0 font-cinzel text-wow-gold text-xs font-bold bg-[#1a110a] rounded border border-[#3b2c19]">
+                                      #{idx + 1}
+                                    </div>
+                                    {line.map((action: any, aIdx: number) => (
+                                      <div key={aIdx} className="bg-[#1a110a] px-1 py-1 rounded border border-[#3b2c19] flex flex-col items-center justify-start flex-1 text-center min-w-0 h-full gap-0.5">
+                                        <span className="font-macondo text-white text-[11px] leading-tight w-full truncate" title={action.name}>{action.name}</span>
+                                        {action.sub && (
+                                          <span className="text-[9px] font-sans bg-purple-900/40 text-purple-200 px-0.5 py-0.2 rounded mt-0.5 border border-purple-800 w-full truncate" title={action.sub}>
+                                            + {action.sub}
+                                          </span>
+                                        )}
                                       </div>
                                     ))}
-                                  </div>
-                                </div>
-                              ))}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         ) : (
@@ -508,16 +650,16 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                           })}
                         </div>
 
-                        {activeCharState.stats?.filter((s: any) => s.isVisible).length > 0 && (
+                        {activeStats.filter((s: any) => s.isVisible).length > 0 && (
                           <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent shrink-0 my-1"></div>
                         )}
 
                         {/* Stats Zone */}
                         <div className={cn(
                           "grid gap-x-2 gap-y-1.5", 
-                          (activeCharState.stats || []).filter((s: any) => s.isVisible).length > 4 ? 'grid-cols-2' : 'grid-cols-1'
+                          activeStats.filter((s: any) => s.isVisible).length > 4 ? 'grid-cols-2' : 'grid-cols-1'
                         )}>
-                          {activeCharState.stats?.map((stat: any, idx: number) => {
+                          {activeStats.map((stat: any, idx: number) => {
                             if (!stat.isVisible) return null;
                             return (
                               <StatBar 
@@ -535,8 +677,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-white/50 p-6 font-cinzel">
-                  <User size={30} className="text-wow-gold/40 mb-2 animate-pulse" />
-                  <p className="text-xs">Joueur connecté. En attente de la synchronisation de son personnage...</p>
+                  <User size={30} className="text-wow-gold/40 mb-2 " />
+                  <p className="text-xs">Player connected. Waiting for character sync...</p>
                 </div>
               )}
             </div>
@@ -552,41 +694,59 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
           {/* Upper Half: Players & GM list */}
           <div className="h-[35%] sm:h-[40%] wow-panel flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative shrink-0">
             <div className="flex items-center justify-between border-b border-[#5a4b3c]/40 pb-1.5 shrink-0">
-              <Users size={16} className="text-wow-gold" />
+              <div className="flex items-center gap-1.5">
+                <Users size={16} className="text-wow-gold" />
+                {mpStore.isConnected && (
+                  <button
+                    onClick={() => setShowVisibilityToggles(!showVisibilityToggles)}
+                    className={cn(
+                      "p-1 rounded transition-all hover:bg-[#5a4b3c]/20 text-xs",
+                      showVisibilityToggles ? "text-wow-gold brightness-125" : "text-white"
+                    )}
+                    title={showVisibilityToggles ? "Masquer les cases à cocher" : "Afficher les cases à cocher"}
+                  >
+                    {showVisibilityToggles ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-1.5">
                 {!mpStore.isConnected ? (
                   <>
                     <button 
                       onClick={() => {
-                        alert("Campagne enregistrée ! Le nom de la Room et des joueurs ont été sauvegardés.");
+                        alert("Campaign saved! Room name and players have been saved.");
                       }}
                       className="wow-button-green px-3 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white"
                     >
                       SAVE
                     </button>
-                    <span className="wow-button px-2.5 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-wow-gold border-wow-gold opacity-80 cursor-default select-none">
-                      FREE EDIT
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="wow-button px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold text-wow-gold border-wow-gold opacity-80 cursor-default select-none">
+                        FREE EDIT
+                      </span>
+                      <span className="wow-button px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold text-wow-gold border-wow-gold opacity-80 cursor-default select-none">
+                        FREE TO SHOP
+                      </span>
+                    </div>
                   </>
                 ) : (
+                  <div className="flex flex-col gap-1">
                   <button 
                     onClick={async () => {
                       const nextValue = !(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit);
                       store.setIsFreeEdit(nextValue);
                       if (mpStore.isConnected) {
-                        mpStore.setCredentials({ isFreeEdit: nextValue });
+                        mpStore.setCredentials({ isFreeEdit: nextValue, isFreeShop: mpStore.isFreeShop });
                         if (db && mpStore.roomName) {
-                          try {
-                            const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
-                            await updateDoc(roomRef, { isFreeEdit: nextValue });
-                          } catch (e) {
-                            console.error('Error toggling free edit:', e);
-                          }
+                          const { doc, updateDoc } = await import('firebase/firestore');
+                          await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
+                            isFreeEdit: nextValue
+                          });
                         }
                       }
                     }}
                     className={cn(
-                      "px-2.5 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold transition-all",
+                      "px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold transition-all w-[100px]",
                       (mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit) 
                         ? "wow-button-green" 
                         : "wow-button text-wow-gold"
@@ -594,6 +754,30 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                   >
                     {(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit) ? 'FINISH EDIT' : 'FREE EDIT'}
                   </button>
+                  <button 
+                    onClick={async () => {
+                      const nextValue = !(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop);
+                      store.setIsFreeShop(nextValue);
+                      if (mpStore.isConnected) {
+                        mpStore.setCredentials({ isFreeEdit: mpStore.isFreeEdit, isFreeShop: nextValue });
+                        if (db && mpStore.roomName) {
+                          const { doc, updateDoc } = await import('firebase/firestore');
+                          await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
+                            isFreeShop: nextValue
+                          });
+                        }
+                      }
+                    }}
+                    className={cn(
+                      "px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold transition-all w-[100px]",
+                      (mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop) 
+                        ? "wow-button-green" 
+                        : "wow-button text-wow-gold"
+                    )}
+                  >
+                    {(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop) ? 'FINISH SHOP' : 'FREE TO SHOP'}
+                  </button>
+                </div>
                 )}
               </div>
             </div>
@@ -602,40 +786,63 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               {mpStore.isConnected ? (
                 <>
                   {/* Me button to reset viewed HUD */}
-                  <button
-                    onClick={() => mpStore.setActivePlayerView('me')}
-                    className={cn(
-                      "w-full py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
-                      (!mpStore.activePlayerView || mpStore.activePlayerView === 'me')
-                        ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
-                        : "bg-black/30 text-gray-400 border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
-                    )}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles size={12} className="text-wow-gold" />
-                      <span>Me (Encounter Drawer)</span>
-                    </span>
-                    <span className="font-mono text-[9px] text-wow-gold/60">Active</span>
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0 w-full">
+                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                      <div className="w-3.5 h-3.5" />
+                    </div>
+                    <button
+                      onClick={() => mpStore.setActivePlayerView('me')}
+                      className={cn(
+                        "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
+                        (!mpStore.activePlayerView || mpStore.activePlayerView === 'me')
+                          ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
+                          : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles size={12} className="text-wow-gold" />
+                        <span>Me (Encounter Drawer)</span>
+                      </span>
+                      <span className="font-mono text-[9px] text-wow-gold/60">Active</span>
+                    </button>
+                  </div>
 
                   {/* Other players */}
                   {mpStore.links.map((linkCode, idx) => {
                     const connectedPlayer = mpStore.roomPlayers[linkCode];
+                    const isVisible = visiblePlayers[linkCode] !== false;
+
+                    // Hide player row if visibility settings say so, but keep it if toggles are visible so we can check it
+                    if (!showVisibilityToggles && !isVisible) {
+                      return null;
+                    }
+
                     if (connectedPlayer) {
                       const isViewingThis = mpStore.activePlayerView === linkCode;
                       return (
-                        <div key={linkCode} className="flex items-center gap-1 shrink-0">
+                        <div key={linkCode} className="flex items-center gap-1 shrink-0 w-full">
+                          <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={() => togglePlayerVisibility(linkCode)}
+                              className={cn(
+                                "w-3.5 h-3.5 cursor-pointer accent-wow-gold bg-black/60 border border-[#5a4b3c]/50 rounded transition-all duration-200",
+                                showVisibilityToggles ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                              )}
+                            />
+                          </div>
                           <button
                             onClick={() => mpStore.setActivePlayerView(linkCode)}
                             className={cn(
                               "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
                               isViewingThis
                                 ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
-                                : "bg-black/30 text-gray-400 border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
+                                : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
                             )}
                           >
                             <span className="flex items-center gap-1.5 truncate max-w-[70%]">
-                              <Users size={12} className="text-gray-400" />
+                              <Users size={12} className="text-white" />
                               <span className="truncate">{connectedPlayer.pseudo}</span>
                             </span>
                             <span className="font-mono text-[9px] text-wow-gold uppercase shrink-0">Inspect</span>
@@ -678,27 +885,40 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     } else {
                       // Offline / Empty Slot
                       return (
-                        <div key={linkCode} className="flex items-center justify-between bg-black/15 border border-[#5a4b3c]/15 rounded p-1.5 shrink-0" style={{ contentVisibility: 'auto' }}>
-                          <span className="text-[10px] font-cinzel text-gray-500 uppercase tracking-wider pl-1.5">
-                            Slot #{idx + 1} (Empty)
-                          </span>
-                          <button
-                            onClick={() => handleCopyLink(linkCode, idx)}
-                            className="wow-button py-1 px-2.5 text-[10px] uppercase font-cinzel flex items-center gap-1 text-wow-gold/70 hover:text-wow-gold border-wow-gold/20"
-                            title="Copy Join Link"
-                          >
-                            {copiedIndex === idx ? (
-                              <>
-                                <Check size={10} className="text-green-400" />
-                                <span className="text-green-400 font-bold">COPIED</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={10} />
-                                <span>COPY</span>
-                              </>
-                            )}
-                          </button>
+                        <div key={linkCode} className="flex items-center gap-1 shrink-0 w-full">
+                          <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={() => togglePlayerVisibility(linkCode)}
+                              className={cn(
+                                "w-3.5 h-3.5 cursor-pointer accent-wow-gold bg-black/60 border border-[#5a4b3c]/50 rounded transition-all duration-200",
+                                showVisibilityToggles ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                              )}
+                            />
+                          </div>
+                          <div className="flex-1 flex items-center justify-between bg-black/15 border border-[#5a4b3c]/15 rounded p-1.5 shrink-0 min-h-[34px]" style={{ contentVisibility: 'auto' }}>
+                            <span className="text-[10px] font-cinzel text-white uppercase tracking-wider pl-1.5">
+                              Slot #{idx + 1} (Empty)
+                            </span>
+                            <button
+                              onClick={() => handleCopyLink(linkCode, idx)}
+                              className="wow-button py-1 px-2.5 text-[10px] uppercase font-cinzel flex items-center gap-1 text-wow-gold/70 hover:text-wow-gold border-wow-gold/20"
+                              title="Copy Join Link"
+                            >
+                              {copiedIndex === idx ? (
+                                <>
+                                  <Check size={10} className="text-green-400" />
+                                  <span className="text-green-400 font-bold">COPIED</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={10} />
+                                  <span>COPY</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       );
                     }
@@ -718,7 +938,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     />
                   </div>
 
-                  <span className="text-[10px] font-cinzel text-gray-400 uppercase tracking-wider mb-1 shrink-0">Scratch Player Slots (Fixed Links)</span>
+                  <span className="text-[10px] font-cinzel text-white uppercase tracking-wider mb-1 shrink-0">Scratch Player Slots (Fixed Links)</span>
                   <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-1">
                     {store.scratchLinks.map((link, idx) => (
                       <div key={link} className="flex flex-col bg-black/30 border border-[#5a4b3c]/30 rounded p-2 gap-1.5 shadow-inner shrink-0">
@@ -752,7 +972,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
           {/* Lower Half: Notes / Journal split in 4 tabs */}
           <div className="flex-1 wow-panel flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/floral-texture.png')]"></div>
+            <div className="absolute inset-0 opacity-10 pointer-events-none "></div>
             
             {/* TABS HEADER: Styled unified as WoW buttons */}
             <div className="flex gap-1 p-1 bg-black/20 border-b border-[#5a4b3c]/40 relative z-10 shrink-0">
@@ -866,7 +1086,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
             <button 
               onClick={() => setShowPlayersModal(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-white transition-colors"
+              className="absolute top-3 right-3 text-white hover:text-white transition-colors"
             >
               <X size={18} />
             </button>
@@ -876,7 +1096,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               <span>Player Unique Invitations</span>
             </h3>
 
-            <p className="font-sans text-xs text-gray-300">
+            <p className="font-sans text-xs text-white">
               Share these 10 generated codes/links with your players. Each code corresponds to a unique slot in the campaign room. Click to copy the full join link.
             </p>
 
@@ -893,7 +1113,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player Slot #{idx + 1}</span>
                         {connectedPlayer && (
-                          <span className="text-green-400 font-sans text-[11px] font-bold animate-pulse">
+                          <span className="text-green-400 font-sans text-[11px] font-bold ">
                             ● {connectedPlayer.pseudo || 'Connected'}
                           </span>
                         )}
@@ -903,7 +1123,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     {copiedIndex === idx ? (
                       <span className="text-green-400 text-[10px] font-semibold flex items-center gap-0.5"><Check size={12} /> Copied!</span>
                     ) : (
-                      <span className="text-gray-500 hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
+                      <span className="text-white hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
                     )}
                   </button>
                 );
@@ -922,53 +1142,20 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         </div>
       )}
 
-      {/* GM REQUEST MODAL */}
-      {currentRequest && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-          <div className="bg-wow-dark border-2 border-wow-gold p-6 rounded shadow-2xl w-full max-w-sm relative flex flex-col gap-4 text-center">
-            <h3 className="font-cinzel text-wow-gold text-lg">Player Request</h3>
-            <p className="font-sans text-sm text-gray-200">
-              <span className="font-bold text-wow-gold">{currentRequest.from}</span> asks for: <br />
-              <span className="uppercase text-white font-mono mt-2 inline-block">
-                {currentRequest.type === 'ask_stat' 
-                  ? 'New Stat' 
-                  : currentRequest.type === 'ask_spell'
-                  ? `Spell: ${currentRequest.spellName || currentRequest.spell?.name || 'New Spell'}`
-                  : 'Open Shop'}
-              </span>
-            </p>
-            <div className="flex justify-center gap-4 mt-4">
-              <button 
-                onClick={() => handleProcessRequest(false)}
-                className="wow-button bg-red-950/50 text-red-400 border border-red-900 px-6 py-2"
-              >
-                Decline
-              </button>
-              <button 
-                onClick={() => handleProcessRequest(true)}
-                className="wow-button bg-green-950/50 text-green-400 border border-green-900 px-6 py-2"
-              >
-                Accept
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* DISCONNECT CONFIRMATION MODAL */}
       {showDisconnectConfirm && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-wow-dark border-2 border-red-900/60 p-6 rounded shadow-2xl w-full max-w-sm text-center relative flex flex-col gap-4">
             <h4 className="font-cinzel text-red-500 text-lg border-b border-red-950/40 pb-2 uppercase tracking-wide">Disconnect Session</h4>
             
-            <p className="font-sans text-sm text-gray-300 leading-relaxed">
+            <p className="font-sans text-sm text-white leading-relaxed">
               Are you sure you want to disconnect? 
               <br />
               <span className="text-red-400 font-semibold font-cinzel">This will delete the room on the server and disconnect all current players.</span>
             </p>
 
             <div className="bg-wow-gold/5 border border-wow-gold/20 p-3 rounded text-left text-xs text-wow-gold font-medium flex items-start gap-2">
-              <ShieldAlert size={16} className="shrink-0 mt-0.5 text-wow-gold animate-pulse" />
+              <ShieldAlert size={16} className="shrink-0 mt-0.5 text-wow-gold " />
               <span>
                 <strong>Duty of the Game Master:</strong> Ensure you have exported your campaign JSON so you do not lose any modifications before leaving!
               </span>

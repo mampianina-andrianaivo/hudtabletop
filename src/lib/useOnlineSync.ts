@@ -14,10 +14,19 @@ export async function sendOnlineRoll(logInput: string | {
   requiredValue?: number;
   isSuccess?: boolean;
   isCrit?: boolean;
+  isGM?: boolean;
 }) {
   const { roomName, role, pseudo, isConnected } = useMultiplayerStore.getState();
   const logObj = typeof logInput === 'string' ? { text: logInput } : logInput;
-  const logPseudo = role === 'gm' ? 'MJ' : (pseudo || 'Player');
+  const isGM = role === 'gm' || Boolean(logObj.isGM);
+  const logPseudo = isGM ? 'GM' : (pseudo || 'Player');
+
+  const formattedLog = {
+    pseudo: logPseudo,
+    playerName: logObj.playerName || (isGM ? 'GM' : logPseudo),
+    isGM: isGM,
+    ...logObj
+  };
 
   if (!isConnected || !roomName || !db) {
     // Offline mode: append directly to local multiplayer state log list
@@ -25,9 +34,8 @@ export async function sendOnlineRoll(logInput: string | {
     useMultiplayerStore.setState({
       rollLogs: [...currentLogs.slice(-49), {
         id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        pseudo: logPseudo,
         timestamp: Date.now(),
-        ...logObj
+        ...formattedLog
       }]
     });
     return;
@@ -38,9 +46,8 @@ export async function sendOnlineRoll(logInput: string | {
     await updateDoc(roomRef, {
       rollLogs: arrayUnion({
         id: `roll-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        pseudo: logPseudo,
         timestamp: Date.now(),
-        ...logObj
+        ...formattedLog
       })
     });
   } catch (err) {
@@ -60,6 +67,7 @@ export function useOnlineSync() {
   useEffect(() => {
     if (!isConnected || !roomName || !db) return;
 
+    const lastStateRef = { current: '' };
     const interval = setInterval(async () => {
       try {
         const roomRef = doc(db, 'rooms', roomName.trim().toLowerCase());
@@ -67,13 +75,26 @@ export function useOnlineSync() {
         if (role === 'gm') {
           const gmState = useGMStore.getState();
           const mpState = useMultiplayerStore.getState();
-          await updateDoc(roomRef, {
+          
+          const currentStateStr = JSON.stringify({
             publishedEncounter: gmState.currentDraw,
             publicNotes: mpState.publicNotes,
             shopSpells: gmState.shopSpells,
-            isFreeEdit: gmState.isFreeEdit,
-            lastUpdate: Date.now()
+            isFreeEdit: gmState.isFreeEdit, isFreeShop: gmState.isFreeShop,
+            blockPlayerRolls: gmState.blockPlayerRolls
           });
+          
+          if (lastStateRef.current !== currentStateStr) {
+            lastStateRef.current = currentStateStr;
+            await updateDoc(roomRef, {
+              publishedEncounter: gmState.currentDraw,
+              publicNotes: mpState.publicNotes,
+              shopSpells: gmState.shopSpells,
+              isFreeEdit: gmState.isFreeEdit, isFreeShop: gmState.isFreeShop,
+              blockPlayerRolls: gmState.blockPlayerRolls,
+              lastUpdate: Date.now()
+            });
+          }
         } else if (role === 'player') {
           const state = usePlayerStore.getState();
           const playerState = {
@@ -84,17 +105,22 @@ export function useOnlineSync() {
             spells: state.spells,
             notes: state.notes,
           };
-          await updateDoc(roomRef, {
-            [`players.${joinCode}.characterState`]: playerState,
-            [`players.${joinCode}.lastActive`]: Date.now(),
-            [`players.${joinCode}.pseudo`]: playerState.name,
-            [`players.${joinCode}.joinCode`]: joinCode
-          });
+          
+          const currentStateStr = JSON.stringify(playerState);
+          if (lastStateRef.current !== currentStateStr) {
+            lastStateRef.current = currentStateStr;
+            await updateDoc(roomRef, {
+              [`players.${joinCode}.characterState`]: playerState,
+              [`players.${joinCode}.lastActive`]: Date.now(),
+              [`players.${joinCode}.pseudo`]: playerState.name,
+              [`players.${joinCode}.joinCode`]: joinCode
+            });
+          }
         }
       } catch (err) {
         console.error('Sync error:', err);
       }
-    }, 1500);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isConnected, roomName, role, joinCode, gmSessionId]);
@@ -126,7 +152,8 @@ export function useOnlineSync() {
         links: data.links || [],
         rollLogs: data.rollLogs || [],
         roomPlayers: data.players || {},
-        isFreeEdit: data.isFreeEdit || false,
+        isFreeEdit: data.isFreeEdit || false, isFreeShop: data.isFreeShop || false,
+        blockPlayerRolls: data.blockPlayerRolls || false,
         gmRequests: data.gmRequests || []
       };
 
@@ -155,7 +182,7 @@ export function useOnlineSync() {
               const res = newResources[mpIndex];
               const max = parseMaxVal(res.max);
               let newCurrent = res.current + cmd.value;
-              if (newCurrent > max) newCurrent = max;
+              if (max > 0 && newCurrent > max) newCurrent = max;
               if (newCurrent < 0) newCurrent = 0;
               newResources[mpIndex] = { ...res, current: newCurrent };
             } else if (cmd.type === 'damage_mp') {

@@ -11,12 +11,13 @@ export function parseMax(val: string): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
-// Evaluate MP cost from string. If it contains non-digit characters or is empty, consider it as 0.
+// Evaluate MP cost from string. Extract first digit sequence, or return 0 if no digits.
 export function parseMpCost(val: string | number | undefined | null): number {
   if (val === undefined || val === null) return 0;
   const str = String(val).trim();
-  if (!/^\d+$/.test(str)) return 0;
-  const parsed = parseInt(str, 10);
+  const match = str.match(/\d+/);
+  if (!match) return 0;
+  const parsed = parseInt(match[0], 10);
   return isNaN(parsed) ? 0 : parsed;
 }
 

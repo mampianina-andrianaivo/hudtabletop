@@ -20,6 +20,7 @@ export interface Stat {
 export interface Spell {
   id: string;
   icon: string;
+  color?: string; // 'gold' | 'purple' | 'rose'
   name: string;
   tag?: string;
   description?: string;
@@ -65,11 +66,14 @@ const defaultResources: [Resource, Resource, Resource] = [
   { name: 'EXP', current: 0, max: '3', isVisible: true, color: 'purple' },
 ];
 
-const defaultStats: Stat[] = Array.from({ length: 12 }, (_, i) => ({
-  name: `Stat ${i + 1}`,
-  current: 0,
-  isVisible: false,
-}));
+const defaultStats: Stat[] = [
+  { name: 'INTELLIGENCE', current: 0, isVisible: true },
+  { name: 'STRENGTH', current: 0, isVisible: true },
+  { name: 'SPEED', current: 0, isVisible: true },
+  { name: 'ACCURACY', current: 0, isVisible: true },
+  { name: 'SOCIAL', current: 0, isVisible: true },
+  { name: 'LUCK', current: 0, isVisible: true },
+];
 
 export const usePlayerStore = create<PlayerState>()(
   persist(

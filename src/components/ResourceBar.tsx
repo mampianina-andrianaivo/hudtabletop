@@ -44,7 +44,7 @@ export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps
         
         <div className="flex-1 h-2.5 bg-wow-dark border border-[#5a4b3c] rounded-sm relative overflow-hidden">
           {/* Inner shadow / background texture */}
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] opacity-50"></div>
+          <div className="absolute inset-0  opacity-50"></div>
           
           {/* Progress fill */}
           <div 

@@ -34,13 +34,27 @@ export const GMIconCategories: Record<string, string[]> = {
 
 export const GMIcons = Object.values(GMIconCategories).flat();
 
+export function getAbilityColorClass(color?: string) {
+  if (color === 'purple') return 'text-purple-400';
+  if (color === 'rose') return 'text-rose-400';
+  return 'text-wow-gold';
+}
+
+export function getAbilityTagClass(color?: string) {
+  if (color === 'purple') return 'text-purple-300 bg-purple-500/20 border-purple-400/40';
+  if (color === 'rose') return 'text-rose-300 bg-rose-500/20 border-rose-400/40';
+  return 'text-wow-gold bg-wow-gold/20 border-wow-gold/40';
+}
+
 interface IconPickerProps {
   value: string;
+  color?: string;
   onChange: (icon: string) => void;
   onClose: () => void;
 }
 
-export function IconPicker({ value, onChange, onClose }: IconPickerProps) {
+export function IconPicker({ value, color, onChange, onClose }: IconPickerProps) {
+  const colorClass = getAbilityColorClass(color);
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
       <div className="bg-wow-dark border-2 border-[#5a4b3c] p-5 rounded shadow-2xl w-full max-w-2xl flex flex-col h-[550px]">
@@ -61,7 +75,7 @@ export function IconPicker({ value, onChange, onClose }: IconPickerProps) {
                       className={`p-2 rounded hover:bg-white/10 flex items-center justify-center transition-all ${value === iconName ? 'bg-white/20 ring-1 ring-wow-gold' : 'bg-black/20 border border-[#5a4b3c]/20'}`}
                       title={iconName}
                     >
-                      <IconComponent size={22} className="text-wow-gold" />
+                      <IconComponent size={22} className={colorClass} />
                     </button>
                   );
                 })}
@@ -78,8 +92,9 @@ export function IconPicker({ value, onChange, onClose }: IconPickerProps) {
   );
 }
 
-export function RenderGMIcon({ iconName, size = 18 }: { iconName: string, size?: number }) {
+export function RenderGMIcon({ iconName, size = 18, color }: { iconName: string, size?: number, color?: string }) {
   // @ts-ignore
   const IconComponent = Icons[iconName] || Icons.HelpCircle;
-  return <IconComponent size={size} className="text-wow-gold" />;
+  const colorClass = getAbilityColorClass(color);
+  return <IconComponent size={size} className={colorClass} />;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface NoteTextareaProps {
   value: string;
@@ -9,46 +9,55 @@ interface NoteTextareaProps {
   id?: string;
 }
 
-export function NoteTextarea({ value, onChange, placeholder, className, readOnly, id }: NoteTextareaProps) {
+export const NoteTextarea = React.memo(function NoteTextarea({ value, onChange, placeholder, className, readOnly, id }: NoteTextareaProps) {
   const [localValue, setLocalValue] = useState(value);
-  const onChangeRef = React.useRef(onChange);
+  const isFocusedRef = useRef(false);
+  const onChangeRef = useRef(onChange);
 
   // Keep ref up to date with the latest onChange callback
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
-  // Sync local value when the prop value changes (e.g., loaded from file or synchronized from Firestore)
+  // Sync local value when the prop value changes externally, but ONLY if not focused
   useEffect(() => {
-    setLocalValue(value);
+    if (!isFocusedRef.current) {
+      setLocalValue(value);
+    }
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setLocalValue(e.target.value);
   };
 
-  // Debounced update to the global store using the ref to prevent timer cancellation on render
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
+
+  // Ensure final update and sync on blur
+  const handleBlur = () => {
+    isFocusedRef.current = false;
+    if (localValue !== value) {
+      onChangeRef.current(localValue);
+    }
+  };
+
+  // Debounced update to the global store using the ref
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localValue !== value) {
         onChangeRef.current(localValue);
       }
-    }, 400);
+    }, 500);
     return () => clearTimeout(timer);
   }, [localValue, value]);
-
-  // Ensure final update on blur
-  const handleBlur = () => {
-    if (localValue !== value) {
-      onChangeRef.current(localValue);
-    }
-  };
 
   return (
     <textarea
       id={id}
       value={localValue}
       onChange={handleChange}
+      onFocus={handleFocus}
       onBlur={handleBlur}
       readOnly={readOnly}
       placeholder={placeholder}
@@ -56,4 +65,5 @@ export function NoteTextarea({ value, onChange, placeholder, className, readOnly
       spellCheck="false"
     />
   );
-}
+});
+

@@ -18,6 +18,8 @@ export interface DrawResult {
   level: number;
   published: boolean;
   lines: DrawResultAction[][];
+  completedLines?: boolean[];
+  isInvalid?: boolean;
 }
 
 export interface ScratchPlayer {
@@ -34,6 +36,8 @@ export interface GMState {
   scratchLinks: string[];
   scratchPlayers: Record<string, ScratchPlayer>;
   isFreeEdit: boolean;
+  isFreeShop: boolean;
+  blockPlayerRolls: boolean;
 
   updateRoomName: (roomName: string) => void;
   addShopSpell: (spell: Spell) => void;
@@ -48,6 +52,8 @@ export interface GMState {
   removeEncounterAction: (id: string) => void;
 
   drawEncounters: (level: number) => void;
+  setCurrentDraw: (draw: DrawResult | null) => void;
+  toggleDrawLineCompleted: (index: number) => void;
   publishDraw: () => void;
   clearDraw: () => void;
   updateNotes: (notes: string) => void;
@@ -56,6 +62,8 @@ export interface GMState {
   updateScratchPlayer: (link: string, pseudo: string) => void;
   saveScratchPlayerState: (link: string, characterState: any) => void;
   setIsFreeEdit: (val: boolean) => void;
+  setIsFreeShop: (val: boolean) => void;
+  setBlockPlayerRolls: (val: boolean) => void;
 }
 
 const defaultEncounter: EncounterAction = {
@@ -76,6 +84,8 @@ export const useGMStore = create<GMState>()(
       scratchLinks: [],
       scratchPlayers: {},
       isFreeEdit: true,
+      isFreeShop: true,
+      blockPlayerRolls: false,
 
       updateRoomName: (roomName) => set({ roomName }),
       initScratchLinks: () => set((state) => {
@@ -97,6 +107,8 @@ export const useGMStore = create<GMState>()(
         }
       })),
       setIsFreeEdit: (val) => set({ isFreeEdit: val }),
+      setIsFreeShop: (val) => set({ isFreeShop: val }),
+      setBlockPlayerRolls: (val) => set({ blockPlayerRolls: val }),
 
       addShopSpell: (spell) => set((state) => ({ shopSpells: [...state.shopSpells, spell] })),
       removeShopSpell: (id) => set((state) => ({ shopSpells: state.shopSpells.filter(s => s.id !== id) })),
@@ -178,7 +190,26 @@ export const useGMStore = create<GMState>()(
           currentDraw: {
             level,
             published: false,
-            lines
+            lines,
+            completedLines: Array(numLines).fill(false)
+          }
+        };
+      }),
+
+      setCurrentDraw: (draw) => set({ currentDraw: draw }),
+
+      toggleDrawLineCompleted: (index) => set((state) => {
+        if (!state.currentDraw) return state;
+        const currentArr = state.currentDraw.completedLines || [];
+        const completedLines = Array(state.currentDraw.lines.length).fill(false);
+        for (let i = 0; i < completedLines.length; i++) {
+          completedLines[i] = !!currentArr[i];
+        }
+        completedLines[index] = !completedLines[index];
+        return {
+          currentDraw: {
+            ...state.currentDraw,
+            completedLines
           }
         };
       }),

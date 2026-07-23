@@ -28,13 +28,15 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
       setRolling(false);
 
       const mp = useMultiplayerStore.getState();
-      const name = mp.role === 'gm' ? 'MJ' : (mp.pseudo || 'Player');
+      const isGM = mp.role === 'gm';
+      const name = isGM ? 'GM' : (mp.pseudo || 'Player');
       const rollText = `${name} just rolled ${roll} on D12`;
 
       const rollObj = {
         text: rollText,
         type: 'info' as const,
         playerName: name,
+        isGM: isGM,
         roll: roll
       };
 
@@ -76,7 +78,7 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
         </div>
       </button>
 
-      <div className="mt-1 font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md text-center h-10 flex items-start justify-center px-1 w-full uppercase tracking-wider line-clamp-2">
+      <div className="mt-1 font-cinzel font-bold text-wow-gold text-xs tracking-wider uppercase drop-shadow-md text-center h-5 flex items-center justify-center px-1 w-full">
         {disabled ? "ROLL DISABLED" : result !== null && result !== "..." ? "CLEAR D12" : "ROLL D12"}
       </div>
     </div>

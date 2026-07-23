@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Stat, usePlayerStore } from '@/store/usePlayerStore';
 
@@ -12,6 +12,7 @@ interface StatBarProps {
     isSelected: boolean;
     isOtherSelected: boolean;
     onSelectTarget: () => void;
+    onLaunchRoll?: () => void;
   };
 }
 
@@ -27,20 +28,36 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBar
     <div className="flex flex-col mb-1.5">
       <div className="flex justify-between items-center mb-0.5 px-1">
         {targetModeProps?.isSelectingTarget ? (
-          <button
-            onClick={targetModeProps.onSelectTarget}
-            className={cn(
-              "font-macondo rounded px-1.5 py-0.5 border text-left transition-all duration-200 cursor-pointer select-none",
-              nameSizes[textSizeLevel] || 'text-xs',
-              targetModeProps.isSelected
-                ? "bg-green-600 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.9)] font-bold"
-                : "bg-red-950/80 text-red-300 border-red-800 hover:bg-red-900 hover:text-white"
-            )}
-          >
-            {stat.name}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={targetModeProps.onSelectTarget}
+              className={cn(
+                "font-macondo rounded px-1.5 py-0.5 border text-left transition-colors duration-200 cursor-pointer select-none",
+                nameSizes[textSizeLevel] || 'text-xs',
+                targetModeProps.isSelected
+                  ? "bg-green-950/80 text-green-300 border-green-800 hover:bg-green-900 hover:text-white"
+                  : "bg-red-950/80 text-red-300 border-red-800 hover:bg-red-900 hover:text-white"
+              )}
+            >
+              {stat.name}
+            </button>
+            <div className="w-6 h-6 shrink-0 flex items-center justify-center">
+              {targetModeProps.isSelected && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    targetModeProps.onLaunchRoll?.();
+                  }}
+                  className="w-full h-full rounded bg-green-800 hover:bg-green-700 text-white border border-green-600 transition-colors flex items-center justify-center cursor-pointer"
+                  title="Roll D12 now!"
+                >
+                  <Check size={14} className="stroke-[3]" />
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
-          <span className={cn("font-macondo text-gray-200 rounded px-1.5 py-0.5 border border-transparent", nameSizes[textSizeLevel] || 'text-xs')}>
+          <span className={cn("font-macondo text-white rounded px-1.5 py-0.5 border border-transparent", nameSizes[textSizeLevel] || 'text-xs')}>
             {stat.name}
           </span>
         )}
@@ -49,7 +66,7 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBar
         {isFreeEdit && (
           <button 
             onClick={() => onChange(-1)}
-            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
+            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-white hover:text-white rounded-sm shrink-0 transition-colors"
           >
             <Minus size={12} />
           </button>
@@ -76,7 +93,7 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBar
         {isFreeEdit && (
           <button 
             onClick={() => onChange(1)}
-            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-gray-400 hover:text-white rounded-sm shrink-0 transition-colors"
+            className="w-5 h-5 flex items-center justify-center bg-iron border border-[#5a4b3c] text-white hover:text-white rounded-sm shrink-0 transition-colors"
           >
             <Plus size={12} />
           </button>

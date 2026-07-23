@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { Upload, Trash2, Check, XCircle } from 'lucide-react';
-import { usePlayerStore, PlayerState } from '@/store/usePlayerStore';
-import { useMultiplayerStore } from '@/store/useMultiplayerStore';
-import { useGMStore } from '@/store/useGMStore';
+import { Upload, Trash2 } from 'lucide-react';
+import { usePlayerStore } from '@/store/usePlayerStore';
 import { cn } from '@/lib/utils';
 
 interface PlayerConfigModalProps {
@@ -10,20 +8,10 @@ interface PlayerConfigModalProps {
 }
 
 export function PlayerConfigModal({ onClose }: PlayerConfigModalProps) {
-  const [activeTab, setActiveTab] = useState<'aesthetic' | 'stats1' | 'stats2'>('aesthetic');
   const store = usePlayerStore();
-  const mpStore = useMultiplayerStore();
-  const gmStore = useGMStore();
   
-  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : false;
-  
-  // Local draft state
-  const [draft, setDraft] = useState<Partial<PlayerState>>({
-    name: store.name,
-    photo: store.photo,
-    resources: JSON.parse(JSON.stringify(store.resources)),
-    stats: JSON.parse(JSON.stringify(store.stats)),
-  });
+  // Local draft state for photo only
+  const [draftPhoto, setDraftPhoto] = useState<string | null>(store.photo);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,10 +40,12 @@ export function PlayerConfigModal({ onClose }: PlayerConfigModalProps) {
 
           canvas.width = width;
           canvas.height = height;
+
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
+          
           const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          setDraft(prev => ({ ...prev, photo: dataUrl }));
+          setDraftPhoto(dataUrl);
         };
         img.src = e.target?.result as string;
       };
@@ -64,184 +54,68 @@ export function PlayerConfigModal({ onClose }: PlayerConfigModalProps) {
   };
 
   const handleSave = () => {
-    store.loadState(draft);
+    store.loadState({ photo: draftPhoto });
     onClose();
   };
 
-  const renderTabs = () => {
-    if (isFreeEdit) return null; // No tabs in free edit mode - photo only
-
-    const tabs = [
-      { id: 'aesthetic', label: 'Aesthetic' },
-    ];
-    if (!mpStore.isConnected) {
-      tabs.push(
-        { id: 'stats1', label: 'Stats 1-6' },
-        { id: 'stats2', label: 'Stats 7-12' }
-      );
-    }
-
-    if (tabs.length <= 1) return null;
-
-    return (
-      <div className="flex border-b border-[#5a4b3c] mb-6">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={cn(
-              "px-4 py-2 font-cinzel text-sm transition-colors",
-              activeTab === tab.id 
-                ? "text-wow-gold border-b-2 border-wow-gold" 
-                : "text-gray-400 hover:text-gray-200"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-    );
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-start justify-center pt-10 overflow-y-auto backdrop-blur-sm pb-10">
-      <div className="w-full max-w-2xl wow-panel shadow-2xl relative animate-in slide-in-from-top-4 flex flex-col p-6">
+    <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center backdrop-blur-md px-4">
+      <div className="w-full max-w-sm wow-panel shadow-2xl relative animate-in zoom-in-95 duration-150 flex flex-col p-6 border-2 border-wow-gold/60 bg-[#1c120c] rounded">
         
-        <h2 className="font-cinzel text-2xl text-wow-gold mb-2 text-center drop-shadow-md">
-          {isFreeEdit ? "Modifier la Photo" : "Character Configuration"}
+        {/* Centered Title */}
+        <h2 className="font-cinzel text-lg text-wow-gold mb-6 text-center tracking-widest uppercase drop-shadow-md">
+          Portrait
         </h2>
         
-        {renderTabs()}
-
-        <div className="h-[300px] overflow-y-auto mb-6 pr-2 custom-scrollbar flex flex-col justify-center">
-          {isFreeEdit ? (
-            /* Free Edit Mode: Photo ONLY */
-            <div className="space-y-6 flex flex-col items-center">
-              <label className="block font-macondo text-wow-gold text-center text-lg">Photo de portrait</label>
-              <div className="flex items-center gap-6">
-                <div className="w-32 h-32 bg-wow-dark border-2 border-[#5a4b3c] rounded overflow-hidden flex items-center justify-center relative shrink-0 shadow-lg">
-                  {draft.photo ? (
-                    <img src={draft.photo} alt="Portrait" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-gray-600 font-cinzel text-xs">No Image</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-3">
-                  <label className="wow-button px-4 py-2 text-sm cursor-pointer flex items-center justify-center gap-2 w-44">
-                    <Upload size={16} /> Upload Photo
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                  </label>
-                  {draft.photo && (
-                    <button 
-                      onClick={() => setDraft(prev => ({ ...prev, photo: null }))}
-                      className="wow-button px-4 py-2 text-sm flex items-center justify-center gap-2 w-44 text-red-400 border-red-800"
-                    >
-                      <Trash2 size={16} /> Remove
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Scratch Player Mode: Aesthetic & Stats */
-            <>
-              {activeTab === 'aesthetic' && (
-                <div className="space-y-6">
-                  <div>
-                    <label className="block font-macondo text-wow-gold mb-2">Character Name</label>
-                    <input 
-                      type="text" 
-                      value={draft.name}
-                      onChange={(e) => setDraft(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full bg-wow-dark border border-[#5a4b3c] text-gray-200 px-4 py-2 rounded focus:outline-none focus:border-wow-gold font-cinzel"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block font-macondo text-wow-gold mb-2">Portrait</label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-24 h-24 bg-wow-dark border-2 border-[#5a4b3c] rounded overflow-hidden flex items-center justify-center relative shrink-0">
-                        {draft.photo ? (
-                          <img src={draft.photo} alt="Portrait" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-gray-600 font-cinzel text-xs">No Image</span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="wow-button px-4 py-2 text-sm cursor-pointer flex items-center justify-center gap-2 w-40">
-                          <Upload size={16} /> Upload Photo
-                          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                        </label>
-                        {draft.photo && (
-                          <button 
-                            onClick={() => setDraft(prev => ({ ...prev, photo: null }))}
-                            className="wow-button px-4 py-2 text-sm flex items-center justify-center gap-2 w-40 text-red-400"
-                          >
-                            <Trash2 size={16} /> Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(activeTab === 'stats1' || activeTab === 'stats2') && (
-                <div className="space-y-4">
-                  <p className="text-gray-400 text-sm mb-4 font-sans">Configure character stats. Max value is fixed at 12.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {draft.stats?.slice(activeTab === 'stats1' ? 0 : 6, activeTab === 'stats1' ? 6 : 12).map((stat, idx) => {
-                      const globalIndex = activeTab === 'stats1' ? idx : idx + 6;
-                      return (
-                        <div key={globalIndex} className="flex items-center gap-3 bg-wow-dark/50 p-2 border border-[#5a4b3c]/50 rounded">
-                          <input 
-                            type="checkbox"
-                            checked={stat.isVisible}
-                            onChange={(e) => {
-                              const newStats = [...(draft.stats || [])];
-                              newStats[globalIndex].isVisible = e.target.checked;
-                              setDraft(prev => ({ ...prev, stats: newStats }));
-                            }}
-                            className="w-4 h-4 accent-wow-gold cursor-pointer shrink-0"
-                          />
-                          <span className="text-wow-gold font-mono font-bold text-xs select-none shrink-0 border border-wow-gold/20 rounded px-1.5 py-0.5 bg-black/40 min-w-[28px] text-center">
-                            #{globalIndex + 1}
-                          </span>
-                          <input 
-                            type="text" 
-                            value={stat.name}
-                            onChange={(e) => {
-                              const newStats = [...(draft.stats || [])];
-                              newStats[globalIndex].name = e.target.value;
-                              setDraft(prev => ({ ...prev, stats: newStats }));
-                            }}
-                            className="flex-1 bg-transparent border-b border-[#5a4b3c] text-gray-200 px-1 py-1 focus:outline-none focus:border-wow-gold font-macondo text-sm min-w-0"
-                            placeholder={`Stat ${globalIndex + 1}`}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+        {/* Centered Preview Photo */}
+        <div className="flex flex-col items-center justify-center mb-6">
+          <div className="w-40 h-40 bg-black/60 border-2 border-[#5a4b3c] rounded overflow-hidden flex items-center justify-center relative shadow-[0_0_15px_rgba(0,0,0,0.8)]">
+            {draftPhoto ? (
+              <img src={draftPhoto} alt="Portrait" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-600 font-cinzel text-xs uppercase tracking-wider">No Photo</span>
+            )}
+            <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(0,0,0,0.6)] pointer-events-none"></div>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent mb-4"></div>
-        <div className="flex justify-end gap-4 shrink-0">
+        {/* Upload & Delete in 1 line, centered */}
+        <div className="flex items-center justify-center gap-3 mb-8 w-full">
+          <label className="wow-button px-3.5 py-2 cursor-pointer flex items-center justify-center gap-1.5 font-cinzel tracking-wider text-[10px] uppercase shrink-0">
+            <Upload size={12} className="text-wow-gold" /> Upload Photo
+            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          </label>
+          
+          <button 
+            onClick={() => setDraftPhoto(null)}
+            disabled={!draftPhoto}
+            className={cn(
+              "wow-button px-3.5 py-2 flex items-center justify-center gap-1.5 font-cinzel tracking-wider text-[10px] uppercase border-red-900/60 shrink-0",
+              draftPhoto 
+                ? "text-red-400 hover:text-red-300 hover:border-red-600 cursor-pointer" 
+                : "text-gray-600 border-gray-800 opacity-40 cursor-not-allowed"
+            )}
+          >
+            <Trash2 size={12} /> Delete Photo
+          </button>
+        </div>
+
+        {/* Subtle Separator */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c]/50 to-transparent mb-6"></div>
+        
+        {/* Centered Cancel & OK Buttons (no icons) */}
+        <div className="flex justify-center gap-4 shrink-0">
           <button 
             onClick={onClose}
-            className="wow-button px-4 py-2 font-cinzel text-sm flex items-center gap-2"
+            className="wow-button px-6 py-2 font-cinzel text-[11px] tracking-widest min-w-[90px] text-center"
           >
-            <XCircle size={16} />Cancel
+            CANCEL
           </button>
           <button 
             onClick={handleSave}
-            className="wow-button px-6 py-2 flex items-center gap-2 rounded text-sm text-green-400 border-green-700"
+            className="wow-button px-8 py-2 rounded text-[11px] font-bold tracking-widest min-w-[90px] text-center text-green-400 border-green-700/80 hover:bg-green-950/40"
           >
-            <Check size={16} /> Valider
+            OK
           </button>
         </div>
 

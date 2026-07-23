@@ -167,8 +167,8 @@ export function Home({ onSelectRole }: HomeProps) {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const generateLink = () => 'P-' + Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
       
-      const links = baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 10}, generateLink);
-      while (links.length < 10) links.push(generateLink());
+      const links = baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 6}, generateLink);
+      while (links.length < 6) links.push(generateLink());
 
       const initialPlayers: any = {};
       Object.keys(basePlayersData).forEach(link => {
@@ -276,21 +276,26 @@ export function Home({ onSelectRole }: HomeProps) {
       if (!actualRoomName) {
         const q = query(collection(db, 'rooms'), where('links', 'array-contains', joinCode));
         const snapshot = await getDocs(q);
-        if (snapshot.empty) throw new Error("Room not found for this code.");
+        if (snapshot.empty) throw new Error("password or room code error");
         actualRoomName = snapshot.docs[0].id;
         roomData = snapshot.docs[0].data();
       } else {
         const docSnap = await getDoc(doc(db, 'rooms', actualRoomName));
-        if (!docSnap.exists()) throw new Error("Room not found.");
+        if (!docSnap.exists()) throw new Error("password or room code error");
         roomData = docSnap.data();
       }
 
+      const envPassword = import.meta.env.VITE_GAME_PASSWORD;
+      if (envPassword && playPassword.trim() !== envPassword) {
+        throw new Error("password or room code error");
+      }
+
       if (roomData.passwordHash !== playPassword.trim()) {
-        throw new Error("Invalid password.");
+        throw new Error("password or room code error");
       }
 
       if (!roomData.links.includes(joinCode)) {
-        throw new Error("Invalid join code for this room.");
+        throw new Error("password or room code error");
       }
 
       const existingPlayer = roomData.players?.[joinCode];
@@ -349,7 +354,7 @@ export function Home({ onSelectRole }: HomeProps) {
   };
 
   return (
-    <div className="min-h-screen bg-iron text-gray-200 flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] relative overflow-hidden">
+    <div className="min-h-screen bg-iron text-white flex flex-col items-center justify-center p-4  relative overflow-hidden">
       
       {/* Background Decor */}
       <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
@@ -375,6 +380,7 @@ export function Home({ onSelectRole }: HomeProps) {
               <button 
                 onClick={() => {
                   useMultiplayerStore.getState().disconnect();
+                  useMultiplayerStore.setState({ role: 'gm' });
                   onSelectRole('gm');
                 }}
                 className="wow-button py-3 text-lg flex items-center justify-center gap-2"
@@ -435,7 +441,7 @@ export function Home({ onSelectRole }: HomeProps) {
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
                     <span className="font-cinzel text-xs text-wow-gold uppercase tracking-wider font-bold">Fichier Campaign JSON (Obligatoire)</span>
-                    <span className="text-[11px] text-gray-300 font-mono mt-0.5 truncate max-w-[200px]">{jsonLoadedName || 'Aucun fichier chargé'}</span>
+                    <span className="text-[11px] text-white font-mono mt-0.5 truncate max-w-[200px]">{jsonLoadedName || 'Aucun fichier chargé'}</span>
                   </div>
                   <label className="wow-button px-3 py-1.5 text-xs cursor-pointer flex items-center gap-1 shrink-0">
                     <Upload size={13} /> Charger JSON
@@ -444,7 +450,7 @@ export function Home({ onSelectRole }: HomeProps) {
                 </div>
                 {loadedCampaignData?.roomName && (
                   <div className="text-xs font-mono text-wow-gold bg-wow-gold/10 border border-wow-gold/30 px-2.5 py-1.5 rounded flex items-center justify-between">
-                    <span className="text-gray-400 font-cinzel">Room Name :</span>
+                    <span className="text-white font-cinzel">Room Name :</span>
                     <span className="font-bold text-white text-sm">{loadedCampaignData.roomName}</span>
                   </div>
                 )}

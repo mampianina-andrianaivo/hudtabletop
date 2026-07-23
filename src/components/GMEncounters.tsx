@@ -278,7 +278,7 @@ export function GMEncounters() {
                     <div className="flex gap-2 w-full justify-center">
                       <button 
                         disabled
-                        className="wow-button w-10 h-10 flex items-center justify-center p-0 opacity-40 cursor-not-allowed"
+                        className="wow-button w-10 h-10 flex items-center justify-center p-0 opacity-40 cursor-pointer"
                         title="Copy Draw Result"
                       >
                         <Copy size={16} />
@@ -291,7 +291,7 @@ export function GMEncounters() {
                       </button>
                       <button 
                         disabled
-                        className="wow-button font-cinzel text-sm w-32 h-10 opacity-40 cursor-not-allowed"
+                        className="wow-button font-cinzel text-sm w-32 h-10 opacity-40 cursor-pointer"
                       >
                         Publish
                       </button>

@@ -23,6 +23,7 @@ export function RenderSpellIcon({ icon, size = 18, color }: { icon: string, size
 interface SpellBookProps {
   spells?: Spell[];
   readOnly?: boolean;
+  playerName?: string;
   targetModeProps?: {
     isSelectingTarget: boolean;
     selectedTargetId: string | null;
@@ -35,7 +36,7 @@ interface SpellBookProps {
   };
 }
 
-export function SpellBook({ spells, readOnly, targetModeProps }: SpellBookProps) {
+export function SpellBook({ spells, readOnly, playerName, targetModeProps }: SpellBookProps) {
   const store = usePlayerStore();
   const mpStore = useMultiplayerStore();
   const gmStore = useGMStore();
@@ -61,7 +62,9 @@ export function SpellBook({ spells, readOnly, targetModeProps }: SpellBookProps)
       
       {/* HEADER */}
       <div className="flex justify-between items-center mb-3 pb-1.5 border-b border-[#5a4b3c]/20 shrink-0 h-9">
-        <h3 className="font-cinzel text-wow-gold text-sm uppercase tracking-widest">Grimoire</h3>
+        <h3 className="font-cinzel text-wow-gold text-sm uppercase tracking-widest truncate max-w-[200px] sm:max-w-[300px]">
+          {playerName ? `Grimoire of ${playerName}` : 'Grimoire'}
+        </h3>
         {!readOnly && (
           <div className="flex gap-1.5 items-center">
             <button 
@@ -390,8 +393,8 @@ export function SpellBook({ spells, readOnly, targetModeProps }: SpellBookProps)
                   }}
                   className={cn(
                     "px-4 py-2 text-xs rounded flex-1 font-cinzel font-bold transition-all whitespace-nowrap",
-                    isWaitingSpell ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-not-allowed" :
-                    canBuy ? "wow-button-green" : "wow-button text-white border-gray-700 cursor-not-allowed opacity-50"
+                    isWaitingSpell ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer" :
+                    canBuy ? "wow-button-green" : "wow-button text-white border-gray-700 cursor-pointer opacity-50"
                   )}
                 >
                   {isWaitingSpell ? "WAITING GM..." : (isFreeShop ? "BUY (FREE)" : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP"))}

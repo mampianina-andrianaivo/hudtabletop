@@ -93,7 +93,7 @@ export function PlayerConfigModal({ onClose }: PlayerConfigModalProps) {
               "wow-button px-3.5 py-2 flex items-center justify-center gap-1.5 font-cinzel tracking-wider text-[10px] uppercase border-red-900/60 shrink-0",
               draftPhoto 
                 ? "text-red-400 hover:text-red-300 hover:border-red-600 cursor-pointer" 
-                : "text-gray-600 border-gray-800 opacity-40 cursor-not-allowed"
+                : "text-gray-600 border-gray-800 opacity-40 cursor-pointer"
             )}
           >
             <Trash2 size={12} /> Delete Photo

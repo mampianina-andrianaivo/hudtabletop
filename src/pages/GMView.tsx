@@ -370,9 +370,11 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         
         {/* Section 1: Home / Connection Status Badge (lg:col-span-5) */}
         <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
-            <Home size={15} /> <span className="hidden sm:inline">Home</span>
-          </button>
+          {!mpStore.isConnected && (
+            <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
+              <Home size={15} /> <span className="hidden sm:inline">Home</span>
+            </button>
+          )}
           
           <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
             {mpStore.isConnected ? (
@@ -406,22 +408,23 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         
         {/* Section 3: Load / Export buttons & Room controls (lg:col-span-3) */}
         <div className="lg:col-span-3 wow-panel flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          <label className="wow-button px-3 py-1.5 cursor-pointer flex items-center gap-1.5 text-xs">
-            <Upload size={14} /> <span>LOAD</span>
+          <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+            <Upload size={14} /> <span>I</span>
             <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
           </label>
-          <button onClick={handleExportGMJSON} className="wow-button px-3 py-1.5 flex items-center gap-1.5 text-xs">
-            <Download size={14} /> <span>EXPORT</span>
+          <button onClick={handleExportGMJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
+            <Download size={14} /> <span>E</span>
           </button>
 
           {mpStore.isConnected && (
             <>
-              <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1"></div>
+              <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
               <button 
                 onClick={() => setShowDisconnectConfirm(true)}
-                className="wow-button px-3 py-1.5 text-xs text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30"
+                className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
+                title="DISCONNECT"
               >
-                DISCONNECT
+                <WifiOff size={14} />
               </button>
             </>
           )}
@@ -458,7 +461,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     <span>GRIMOIRE DE {viewedPlayer.pseudo}</span>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border border-[#5a4b3c]/30 rounded">
-                    <SpellBook spells={activeSpells} readOnly={true} />
+                    <SpellBook spells={activeSpells} readOnly={true} playerName={viewedPlayer.pseudo} />
                   </div>
                 </div>
               </div>

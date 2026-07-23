@@ -412,9 +412,11 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         
         {/* Section 1: Home / Status Button (lg:col-span-5) */}
         <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
-            <Home size={15} /> <span className="hidden sm:inline">Home</span>
-          </button>
+          {!mpStore.isConnected && (
+            <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
+              <Home size={15} /> <span className="hidden sm:inline">Home</span>
+            </button>
+          )}
           
           <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
             {mpStore.isConnected ? (
@@ -450,18 +452,18 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         
         {/* Section 3: Load / Export / Disconnect buttons (lg:col-span-3) */}
         <div className="lg:col-span-3 wow-panel flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
-          <label className="wow-button px-3 py-1.5 cursor-pointer flex items-center gap-1.5 text-xs shrink-0">
-            <Upload size={14} /> <span>LOAD</span>
+          <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+            <Upload size={14} /> <span>I</span>
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
-          <button onClick={handleExportJSON} className="wow-button px-3 py-1.5 flex items-center gap-1.5 text-xs shrink-0">
-            <Download size={14} /> <span>EXPORT</span>
+          <button onClick={handleExportJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
+            <Download size={14} /> <span>E</span>
           </button>
           
           {mpStore.isConnected && (
             <>
               <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
-              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-3 py-1 rounded truncate shrink-0" title={`P-CODE: ${mpStore.joinCode}`}>
+              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`P-CODE: ${mpStore.joinCode}`}>
                 P-CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
               </div>
               <button 
@@ -471,9 +473,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     onGoHome();
                   }
                 }}
-                className="wow-button px-3 py-1.5 text-xs text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0"
+                className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
+                title="DISCONNECT"
               >
-                DISCONNECT
+                <WifiOff size={14} />
               </button>
             </>
           )}
@@ -500,6 +503,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             <SpellBook 
               spells={activeSpells} 
               readOnly={isViewMode} 
+              playerName={isViewMode ? activeName : undefined}
               targetModeProps={{
                 isSelectingTarget,
                 selectedTargetId: selectedTarget?.type === 'spell' ? (selectedTarget.id || null) : null,
@@ -585,7 +589,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               }}
               className={cn(
                 "px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px]",
-                isWaitingStat ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-not-allowed font-bold" :
+                isWaitingStat ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
                 isFreeEdit 
                   ? "wow-button-green font-bold" 
                   : "wow-button text-wow-gold disabled:opacity-30"
@@ -654,7 +658,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                 }}
                 className={cn(
                   "w-20 h-20 sm:w-24 sm:h-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
-                  !(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "cursor-pointer hover:brightness-110 active:scale-95" : "cursor-not-allowed opacity-90",
+                  !(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "cursor-pointer hover:brightness-110 active:scale-95" : "cursor-pointer opacity-90",
                   isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
                 )}
                 title={!(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "Configurer le personnage" : undefined}
@@ -678,7 +682,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   selectedTarget !== null ? "bg-green-950/90 border-2 border-green-500 text-green-300" : "",
                   isSelectingTarget && selectedTarget === null ? "bg-green-900/40 border-2 border-green-500/80 " : "",
                   isRollsBlocked ? "border-red-600/80 bg-red-950/30 text-red-400" : "",
-                  (isViewMode || rolling || isRollsBlocked) && "opacity-60 cursor-not-allowed"
+                  (isViewMode || rolling || isRollsBlocked) && "opacity-60 cursor-pointer"
                 )}
                 title={isRollsBlocked ? "Rolls blocked by GM" : selectedTarget !== null ? "Click to roll D12 against target" : "Click to select target"}
               >
@@ -730,7 +734,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     }}
                     className={cn(
                       "text-red-400 hover:text-red-200 cursor-pointer font-cinzel font-bold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider transition-all",
-                      (rolling || isRollsBlocked) && "opacity-30 cursor-not-allowed pointer-events-none"
+                      (rolling || isRollsBlocked) && "opacity-30 pointer-events-none cursor-pointer"
                     )}
                   >
                     CANCEL
@@ -744,7 +748,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     }}
                     className={cn(
                       "text-red-400 hover:text-red-200 cursor-pointer font-cinzel font-bold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider transition-all",
-                      (rolling || isRollsBlocked) && "opacity-30 cursor-not-allowed pointer-events-none"
+                      (rolling || isRollsBlocked) && "opacity-30 pointer-events-none cursor-pointer"
                     )}
                   >
                     CANCEL

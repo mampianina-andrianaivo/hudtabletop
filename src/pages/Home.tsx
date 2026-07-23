@@ -342,6 +342,7 @@ export function Home({ onSelectRole }: HomeProps) {
         isConnected: true,
         rollLogs: [],
         roomPlayers: {},
+        gmSessionId: roomData.gmSessionId || null,
       });
 
       setShowJoinModal(false);

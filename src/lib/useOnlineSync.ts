@@ -142,6 +142,14 @@ export function useOnlineSync() {
 
       const data = docSnap.data();
 
+      // Check if GM recreated the session
+      if (role === 'player' && gmSessionId && data?.gmSessionId && data.gmSessionId !== gmSessionId) {
+        alert('The Game Master has restarted the session. You have been disconnected.');
+        useMultiplayerStore.getState().disconnect();
+        if (onDisconnectRef.current) onDisconnectRef.current();
+        return;
+      }
+
       // Only keep the last 50 rolls
       if (data.rollLogs && data.rollLogs.length > 50) {
         const trimmedLogs = data.rollLogs.slice(-50);

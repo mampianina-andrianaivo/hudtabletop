@@ -63,7 +63,7 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
         disabled={disabled || rolling}
         className={cn(
           "w-20 h-20 sm:w-24 sm:h-24 rounded flex items-center justify-center relative overflow-hidden transition-all select-none wow-button shadow-md",
-          (disabled || rolling) && "opacity-60 cursor-not-allowed pointer-events-none"
+          (disabled || rolling) && "opacity-60 cursor-pointer"
         )}
       >
         {/* Content */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, ScrollText, Swords, Upload, Sparkles, User, Key, Link } from 'lucide-react';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
@@ -42,9 +42,9 @@ export function Home({ onSelectRole }: HomeProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const joinCode = params.get('join');
+    const joinCode = params.get('join') || params.get('code');
     if (joinCode) {
       setPlayLink(joinCode.toUpperCase());
       setShowJoinModal(true);
@@ -158,9 +158,20 @@ export function Home({ onSelectRole }: HomeProps) {
       // 2. Request new room creation on server
       const { db } = await import('@/lib/firebase');
       if (!db) throw new Error("Firebase database not initialized.");
-      const { doc, setDoc } = await import('firebase/firestore');
+      const { doc, setDoc, getDoc } = await import('firebase/firestore');
 
       const cleanName = roomNameToUse.toLowerCase();
+      const roomRef = doc(db, 'rooms', cleanName);
+      const docSnap = await getDoc(roomRef);
+      
+      const existingData = docSnap.exists() ? docSnap.data() : null;
+      
+      if (existingData && existingData.passwordHash && existingData.passwordHash !== gmPassword.trim()) {
+        setErrorMessage('Incorrect connection password for this room.');
+        setIsLoading(false);
+        return;
+      }
+
       const gmSessionId = 'GM-' + Math.random().toString(36).substring(2, 15);
       
       const { useGMStore } = await import('@/store/useGMStore');
@@ -172,19 +183,25 @@ export function Home({ onSelectRole }: HomeProps) {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const generateLink = () => 'P-' + Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
       
-      const links = baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 6}, generateLink);
+      // PRESERVE existing links from Firestore if they exist
+      const links = (existingData?.links?.length > 0) 
+        ? existingData.links 
+        : (baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 6}, generateLink));
+      
       while (links.length < 6) links.push(generateLink());
 
-      const initialPlayers: any = {};
+      const initialPlayers = existingData?.players || {};
       Object.keys(basePlayersData).forEach(link => {
-        const sp = basePlayersData[link];
-        if (sp && sp.pseudo) {
-          initialPlayers[link] = {
-            pseudo: sp.pseudo,
-            joinCode: link,
-            lastActive: Date.now(),
-            characterState: sp.characterState || null
-          };
+        if (!initialPlayers[link]) {
+          const sp = basePlayersData[link];
+          if (sp && sp.pseudo) {
+            initialPlayers[link] = {
+              pseudo: sp.pseudo,
+              joinCode: link,
+              lastActive: Date.now(),
+              characterState: sp.characterState || null
+            };
+          }
         }
       });
 
@@ -275,7 +292,18 @@ export function Home({ onSelectRole }: HomeProps) {
 
       const characterName = usePlayerStore.getState().name || 'Unknown Hero';
 
-      let joinCode = playLink.trim().toUpperCase();
+      let inputStr = playLink.trim();
+      
+      // Smart extraction if a full URL was pasted
+      if (inputStr.includes('?code=')) {
+        const urlParams = new URLSearchParams(inputStr.split('?')[1]);
+        inputStr = urlParams.get('code') || inputStr;
+      } else if (inputStr.includes('?join=')) {
+        const urlParams = new URLSearchParams(inputStr.split('?')[1]);
+        inputStr = urlParams.get('join') || inputStr;
+      }
+
+      let joinCode = inputStr.toUpperCase();
       if (joinCode.startsWith('S-')) {
         joinCode = 'P-' + joinCode.slice(2);
       } else if (joinCode.length === 6 && /^[A-Z0-9]+$/.test(joinCode)) {

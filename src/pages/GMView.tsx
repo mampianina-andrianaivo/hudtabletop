@@ -562,30 +562,42 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               </div>
 
               {/* Controls row (Zoom & Gear - Ask For Stat disabled) */}
-              <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
-                <button 
-                  onClick={() => pStore.decreaseTextSize()}
-                  className="wow-button p-1 text-wow-gold hover:text-white"
-                  title="Decrease text size"
-                >
-                  <ZoomOut size={14} />
-                </button>
-
+              <div className="flex items-center justify-center gap-1.5 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
+                {/* ALL MINUS CONTROLS (LEFT of ZoomOut) */}
                 <div className="flex gap-0.5 items-center shrink-0">
                   <button 
                     onClick={() => pStore.decreasePhotoHeight?.()}
                     className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Diminuer la hauteur de la photo"
                   >
-                    <User size={10} />-
+                    <User size={10} />H-
                   </button>
                   <button 
-                    onClick={() => pStore.increasePhotoHeight?.()}
+                    onClick={() => pStore.decreasePhotoWidth?.()}
                     className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Diminuer la largeur de la photo"
                   >
-                    <User size={10} />+
+                    <User size={10} />W-
+                  </button>
+                  <button 
+                    onClick={() => pStore.decreaseBarHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Diminuer la hauteur des barres de stat"
+                  >
+                    <FileText size={10} />-
                   </button>
                 </div>
 
+                {/* LOUPE MINUS */}
+                <button 
+                  onClick={() => pStore.decreaseTextSize()}
+                  className="wow-button p-1 text-wow-gold hover:text-white"
+                  title="Réduire la taille du texte"
+                >
+                  <ZoomOut size={14} />
+                </button>
+
+                {/* CENTER: ASK FOR STAT (Disabled for GM) */}
                 <button 
                   disabled
                   className="px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px] wow-button text-wow-gold opacity-30 cursor-not-allowed"
@@ -594,27 +606,39 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                   <Sparkles size={12} /> ASK FOR STAT
                 </button>
 
-                <div className="flex gap-0.5 items-center shrink-0">
-                  <button 
-                    onClick={() => pStore.decreaseBarHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                  >
-                    <FileText size={10} />-
-                  </button>
-                  <button 
-                    onClick={() => pStore.increaseBarHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                  >
-                    <FileText size={10} />+
-                  </button>
-                </div>
-
+                {/* LOUPE PLUS */}
                 <button 
                   onClick={() => pStore.increaseTextSize()}
                   className="wow-button p-1 text-wow-gold hover:text-white"
+                  title="Augmenter la taille du texte"
                 >
                   <ZoomIn size={14} />
                 </button>
+
+                {/* ALL PLUS CONTROLS (RIGHT of ZoomIn) */}
+                <div className="flex gap-0.5 items-center shrink-0">
+                  <button 
+                    onClick={() => pStore.increaseBarHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Augmenter la hauteur des barres de stat"
+                  >
+                    <FileText size={10} />+
+                  </button>
+                  <button 
+                    onClick={() => pStore.increasePhotoWidth?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Augmenter la largeur de la photo"
+                  >
+                    <User size={10} />W+
+                  </button>
+                  <button 
+                    onClick={() => pStore.increasePhotoHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    title="Augmenter la hauteur de la photo"
+                  >
+                    <User size={10} />H+
+                  </button>
+                </div>
               </div>
 
               {/* Top Section: Encounter Toggle / Photo / Dice */}
@@ -637,8 +661,11 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 <div className="flex flex-col items-center justify-start">
                   <button
                     disabled
-                    className="w-20 sm:w-24 rounded !border-2 !border-red-600 overflow-hidden bg-wow-dark shadow-[0_0_20px_rgba(220,38,38,0.2)] relative shrink-0 transition-all select-none outline-none opacity-90 cursor-not-allowed"
-                    style={{ height: `${pStore.photoHeight ?? 96}px` }}
+                    className="rounded !border-2 !border-red-600 overflow-hidden bg-wow-dark shadow-[0_0_20px_rgba(220,38,38,0.2)] relative shrink-0 transition-all select-none outline-none opacity-90 cursor-not-allowed"
+                    style={{ 
+                      height: `${pStore.photoHeight ?? 96}px`,
+                      width: `${pStore.photoWidth ?? 96}px`
+                    }}
                   >
                     {activeCharState.photo ? (
                       <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />

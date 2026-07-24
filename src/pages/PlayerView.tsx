@@ -509,7 +509,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         {/* COLUMN 1: SPELLS grimoire (col-span-5) */}
         <div className={cn(
           "lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative h-full",
-          isViewMode && "border-red-600"
+          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
         )}>
           <div className={cn("absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
           <div className={cn("absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
@@ -567,37 +567,46 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         {/* COLUMN 2: CHARACTER stats, resource trackers, and toggleable Encounter board (col-span-4) */}
         <div className={cn(
           "lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden h-full",
-          isViewMode && "border-red-600"
+          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
         )}>
           
-          {/* Controls row (ASK FOR STAT + Zoom & Gear) - centered above 3 squares */}
-          <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
-            <button 
-              onClick={() => store.decreaseTextSize()}
-              className="wow-button p-1 text-wow-gold hover:text-white"
-              title="Decrease text size"
-            >
-              <ZoomOut size={14} />
-            </button>
-
-            {/* Photo height controls */}
+          {/* Controls row (ASK FOR STAT + Symmetrical Zoom & Controls) - centered above 3 squares */}
+          <div className="flex items-center justify-center gap-1.5 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
+            {/* ALL MINUS CONTROLS (LEFT of ZoomOut) */}
             <div className="flex gap-0.5 items-center shrink-0">
               <button 
                 onClick={() => store.decreasePhotoHeight?.()}
                 className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                title="Decrease Hero photo height"
+                title="Diminuer la hauteur de la photo"
               >
-                <User size={10} />-
+                <User size={10} />H-
               </button>
               <button 
-                onClick={() => store.increasePhotoHeight?.()}
+                onClick={() => store.decreasePhotoWidth?.()}
                 className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                title="Increase Hero photo height"
+                title="Diminuer la largeur de la photo"
               >
-                <User size={10} />+
+                <User size={10} />W-
+              </button>
+              <button 
+                onClick={() => store.decreaseBarHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Diminuer la hauteur des barres de stat"
+              >
+                <FileText size={10} />-
               </button>
             </div>
 
+            {/* LOUPE MINUS */}
+            <button 
+              onClick={() => store.decreaseTextSize()}
+              className="wow-button p-1 text-wow-gold hover:text-white"
+              title="Réduire la taille du texte"
+            >
+              <ZoomOut size={14} />
+            </button>
+
+            {/* CENTER: ASK FOR STAT */}
             {(() => {
               const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
               const has3Exp = (store.resources.find(r => r.name === 'EXP')?.current ?? 0) >= 3;
@@ -647,31 +656,39 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             );
             })()}
 
-            {/* Bar height controls */}
-            <div className="flex gap-0.5 items-center shrink-0">
-              <button 
-                onClick={() => store.decreaseBarHeight?.()}
-                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                title="Decrease Stat Bar height"
-              >
-                <FileText size={10} />-
-              </button>
-              <button 
-                onClick={() => store.increaseBarHeight?.()}
-                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                title="Increase Stat Bar height"
-              >
-                <FileText size={10} />+
-              </button>
-            </div>
-
+            {/* LOUPE PLUS */}
             <button 
               onClick={() => store.increaseTextSize()}
               className="wow-button p-1 text-wow-gold hover:text-white"
-              title="Increase text size"
+              title="Augmenter la taille du texte"
             >
               <ZoomIn size={14} />
             </button>
+
+            {/* ALL PLUS CONTROLS (RIGHT of ZoomIn) */}
+            <div className="flex gap-0.5 items-center shrink-0">
+              <button 
+                onClick={() => store.increaseBarHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Augmenter la hauteur des barres de stat"
+              >
+                <FileText size={10} />+
+              </button>
+              <button 
+                onClick={() => store.increasePhotoWidth?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Augmenter la largeur de la photo"
+              >
+                <User size={10} />W+
+              </button>
+              <button 
+                onClick={() => store.increasePhotoHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Augmenter la hauteur de la photo"
+              >
+                <User size={10} />H+
+              </button>
+            </div>
           </div>
 
           {/* Top Section: Encounter Toggle / Photo / Dice (ALWAYS VISIBLE!) */}
@@ -721,11 +738,14 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   setShowConfig(true);
                 }}
                 className={cn(
-                  "w-20 sm:w-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
+                  "rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
                   !(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "cursor-pointer hover:brightness-110 active:scale-95" : "cursor-pointer opacity-90",
                   isViewMode ? "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]" : isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
                 )}
-                style={{ height: `${store.photoHeight ?? 96}px` }}
+                style={{ 
+                  height: `${store.photoHeight ?? 96}px`,
+                  width: `${store.photoWidth ?? 96}px`
+                }}
                 title={!(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "Configurer le personnage" : undefined}
               >
                 {activePhoto ? (

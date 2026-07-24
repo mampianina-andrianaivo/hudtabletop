@@ -46,6 +46,7 @@ export interface PlayerState {
   notes: string;
   textSizeLevel: number;
   photoHeight?: number;
+  photoWidth?: number;
   barHeight?: number;
   
   updatePhoto: (photo: string | null) => void;
@@ -62,6 +63,8 @@ export interface PlayerState {
   decreaseTextSize: () => void;
   increasePhotoHeight: () => void;
   decreasePhotoHeight: () => void;
+  increasePhotoWidth: () => void;
+  decreasePhotoWidth: () => void;
   increaseBarHeight: () => void;
   decreaseBarHeight: () => void;
   loadState: (state: Partial<PlayerState>) => void;
@@ -93,6 +96,7 @@ export const usePlayerStore = create<PlayerState>()(
       notes: '',
       textSizeLevel: 0,
       photoHeight: 96,
+      photoWidth: 96,
       barHeight: 10,
 
       updatePhoto: (photo) => set({ photo }),
@@ -146,6 +150,8 @@ export const usePlayerStore = create<PlayerState>()(
       decreaseTextSize: () => set((state) => ({ textSizeLevel: Math.max(state.textSizeLevel - 1, 0) })),
       increasePhotoHeight: () => set((state) => ({ photoHeight: (state.photoHeight ?? 96) + 16 })),
       decreasePhotoHeight: () => set((state) => ({ photoHeight: Math.max(96, (state.photoHeight ?? 96) - 16) })),
+      increasePhotoWidth: () => set((state) => ({ photoWidth: Math.min(220, (state.photoWidth ?? 96) + 16) })),
+      decreasePhotoWidth: () => set((state) => ({ photoWidth: Math.max(64, (state.photoWidth ?? 96) - 16) })),
       increaseBarHeight: () => set((state) => ({ barHeight: Math.min(40, (state.barHeight ?? 10) + 4) })),
       decreaseBarHeight: () => set((state) => ({ barHeight: Math.max(10, (state.barHeight ?? 10) - 4) })),
       loadState: (newState) => set((state) => ({ ...state, ...newState })),

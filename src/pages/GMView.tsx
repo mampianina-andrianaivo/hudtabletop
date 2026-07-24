@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power } from 'lucide-react';
 import { GMSpellCrafter } from '@/components/GMSpellCrafter';
 import { GMEncounters } from '@/components/GMEncounters';
 import { useGMStore } from '@/store/useGMStore';
@@ -424,7 +424,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
                 title="DISCONNECT"
               >
-                <WifiOff size={14} />
+                <Power size={14} />
               </button>
             </>
           )}

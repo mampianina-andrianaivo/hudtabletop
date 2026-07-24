@@ -33,6 +33,7 @@ export interface Spell {
   maxUses: string; // number or 'unlimited'
   isDisabled?: boolean;
   isBlocked?: boolean;
+  isActivated?: boolean;
 }
 
 export interface PlayerState {
@@ -44,6 +45,8 @@ export interface PlayerState {
   spells: Spell[];
   notes: string;
   textSizeLevel: number;
+  photoHeight?: number;
+  barHeight?: number;
   
   updatePhoto: (photo: string | null) => void;
   updateName: (name: string) => void;
@@ -57,6 +60,10 @@ export interface PlayerState {
   updateNotes: (notes: string) => void;
   increaseTextSize: () => void;
   decreaseTextSize: () => void;
+  increasePhotoHeight: () => void;
+  decreasePhotoHeight: () => void;
+  increaseBarHeight: () => void;
+  decreaseBarHeight: () => void;
   loadState: (state: Partial<PlayerState>) => void;
 }
 
@@ -85,6 +92,8 @@ export const usePlayerStore = create<PlayerState>()(
       spells: [],
       notes: '',
       textSizeLevel: 0,
+      photoHeight: 96,
+      barHeight: 10,
 
       updatePhoto: (photo) => set({ photo }),
       updateName: (name) => set({ name }),
@@ -135,6 +144,10 @@ export const usePlayerStore = create<PlayerState>()(
       updateNotes: (notes) => set({ notes }),
       increaseTextSize: () => set((state) => ({ textSizeLevel: Math.min(state.textSizeLevel + 1, 4) })),
       decreaseTextSize: () => set((state) => ({ textSizeLevel: Math.max(state.textSizeLevel - 1, 0) })),
+      increasePhotoHeight: () => set((state) => ({ photoHeight: (state.photoHeight ?? 96) + 16 })),
+      decreasePhotoHeight: () => set((state) => ({ photoHeight: Math.max(96, (state.photoHeight ?? 96) - 16) })),
+      increaseBarHeight: () => set((state) => ({ barHeight: Math.min(40, (state.barHeight ?? 10) + 4) })),
+      decreaseBarHeight: () => set((state) => ({ barHeight: Math.max(10, (state.barHeight ?? 10) - 4) })),
       loadState: (newState) => set((state) => ({ ...state, ...newState })),
     }),
     {

@@ -214,10 +214,78 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
   const [draft, setDraft] = useState<Spell>({ ...spell });
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pickerField, setPickerField] = useState<'dice' | 'mp' | 'maxUses' | null>(null);
 
   return (
     <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 rounded p-4">
       <div className="bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl w-full max-w-md flex flex-col gap-4 relative">
+        {pickerField && (
+          <div className="absolute inset-0 bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl flex flex-col gap-4 z-50">
+            <h4 className="font-cinzel text-wow-gold text-lg font-bold border-b border-[#5a4b3c] pb-2 uppercase tracking-wider text-center">
+              Select {pickerField === 'dice' ? 'Dice' : pickerField === 'mp' ? 'MP Cost' : 'Max Uses'}
+            </h4>
+            <div className="flex-1 flex flex-col justify-center items-center gap-4">
+              <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
+                {pickerField === 'dice' && (
+                  ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        setDraft(p => ({ ...p, dice: opt }));
+                        setPickerField(null);
+                      }}
+                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.dice === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
+                    >
+                      {opt}
+                    </button>
+                  ))
+                )}
+
+                {pickerField === 'mp' && (
+                  ['●', '1', '2', '3', '4', '5', '6'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        const val = opt === '●' ? '' : opt;
+                        setDraft(p => ({ ...p, r1: val, r2: val }));
+                        setPickerField(null);
+                      }}
+                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${(opt === '●' && !(draft.r2 || draft.r1)) || (draft.r2 === opt || draft.r1 === opt) ? 'bg-blue-500/20 border-blue-400 text-blue-400' : ''}`}
+                    >
+                      {opt}
+                    </button>
+                  ))
+                )}
+
+                {pickerField === 'maxUses' && (
+                  ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        setDraft(p => ({ ...p, maxUses: opt }));
+                        setPickerField(null);
+                      }}
+                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.maxUses === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
+                    >
+                      {opt}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPickerField(null)}
+              className="wow-button w-full py-2.5 text-xs uppercase font-cinzel tracking-wider text-gray-400 border-[#5a4b3c]"
+            >
+              Back
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-b border-[#5a4b3c] pb-2">
           <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-[#5a4b3c]/50">
             <button 
@@ -276,15 +344,33 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           <div className="grid grid-cols-3 gap-2 col-span-2 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center text-xs">
             <div>
               <label className="block text-[10px] font-cinzel text-gray-400 mb-1">DICE</label>
-              <input type="text" value={draft.dice} onChange={e => setDraft(p => ({ ...p, dice: e.target.value }))} className="wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded" />
+              <button
+                type="button"
+                onClick={() => setPickerField('dice')}
+                className="wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
+              >
+                {draft.dice || '●'}
+              </button>
             </div>
             <div>
               <label className="block text-[10px] font-cinzel text-blue-400 mb-1">MP COST</label>
-              <input type="text" value={draft.r2 ?? draft.r1 ?? ''} onChange={e => setDraft(p => ({ ...p, r2: e.target.value, r1: e.target.value }))} className="wow-input w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded" placeholder="0" />
+              <button
+                type="button"
+                onClick={() => setPickerField('mp')}
+                className="wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
+              >
+                {draft.r2 || draft.r1 || '●'}
+              </button>
             </div>
             <div>
               <label className="block text-[10px] font-cinzel text-gray-400 mb-1">MAX USES</label>
-              <input type="text" value={draft.maxUses} onChange={e => setDraft(p => ({ ...p, maxUses: e.target.value }))} className="wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded" />
+              <button
+                type="button"
+                onClick={() => setPickerField('maxUses')}
+                className="wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
+              >
+                {draft.maxUses || '●'}
+              </button>
             </div>
           </div>
 

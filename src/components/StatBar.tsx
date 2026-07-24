@@ -23,6 +23,7 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBar
   const max = 12;
   const percentage = Math.min(100, Math.max(0, (stat.current / max) * 100));
   const textSizeLevel = usePlayerStore(state => state.textSizeLevel);
+  const barHeight = usePlayerStore(state => state.barHeight) ?? 10;
 
   return (
     <div className="flex flex-col mb-1.5">
@@ -72,7 +73,10 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBar
           </button>
         )}
         
-        <div className="flex-1 h-2.5 bg-black/60 border border-[#3b2c19] rounded-sm relative overflow-hidden flex">
+        <div 
+          className="flex-1 bg-black/60 border border-[#3b2c19] rounded-sm relative overflow-hidden flex"
+          style={{ height: `${barHeight}px` }}
+        >
           {/* Segments for stats since max is 12 */}
           {Array.from({ length: max }).map((_, i) => (
             <div 

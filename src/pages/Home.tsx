@@ -57,7 +57,10 @@ export function Home({ onSelectRole }: HomeProps) {
 
   // Auto-resolve room name from join code when it changes
   React.useEffect(() => {
-    const code = playLink.trim().toUpperCase();
+    let code = playLink.trim().toUpperCase();
+    if (code.startsWith('S-')) {
+      code = 'P-' + code.slice(2);
+    }
     if (code.startsWith('P-') && code.length === 8) {
       import('@/lib/firebase').then(async ({ db }) => {
         if (!db) return;
@@ -117,25 +120,25 @@ export function Home({ onSelectRole }: HomeProps) {
     e.preventDefault();
 
     if (!loadedCampaignData) {
-      setErrorMessage('Un fichier JSON de campagne est OBLIGATOIRE pour créer une room.');
+      setErrorMessage('A campaign JSON file is REQUIRED to create a room.');
       return;
     }
 
     const roomNameToUse = (loadedCampaignData.roomName || gmRoomName || '').trim();
     if (!roomNameToUse) {
-      setErrorMessage('Le fichier JSON de campagne doit contenir un nom de room ("roomName").');
+      setErrorMessage('The campaign JSON file must contain a room name ("roomName").');
       return;
     }
 
     if (!gmPassword.trim()) {
-      setErrorMessage('Le mot de passe de connexion est requis.');
+      setErrorMessage('Connection password is required.');
       return;
     }
 
     // Optional environment password restriction
     const envPassword = import.meta.env.VITE_GAME_PASSWORD;
     if (envPassword && gmPassword !== envPassword) {
-      setErrorMessage('Mot de passe de connexion incorrect.');
+      setErrorMessage('Incorrect connection password.');
       return;
     }
 
@@ -269,7 +272,10 @@ export function Home({ onSelectRole }: HomeProps) {
       if (!db) throw new Error("Firebase database not initialized.");
       const { collection, query, where, getDocs, doc, getDoc, updateDoc } = await import('firebase/firestore');
 
-      const joinCode = playLink.trim().toUpperCase();
+      let joinCode = playLink.trim().toUpperCase();
+      if (joinCode.startsWith('S-')) {
+        joinCode = 'P-' + joinCode.slice(2);
+      }
       let roomData = null;
       let actualRoomName = playRoomName.trim().toLowerCase();
 
@@ -521,7 +527,7 @@ export function Home({ onSelectRole }: HomeProps) {
 
             <form onSubmit={handleJoinRoom} className="flex flex-col gap-4 font-sans text-sm">
               <div>
-                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Player Join Code Link</label>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">S-CODE (Join Link or Code)</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Link size={16} /></span>
                   <input 
@@ -530,7 +536,7 @@ export function Home({ onSelectRole }: HomeProps) {
                     value={playLink}
                     onChange={(e) => setPlayLink(e.target.value)}
                     className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
-                    placeholder="P-XXXXXX"
+                    placeholder="S-XXXXXX"
                   />
                 </div>
                 <div className="min-h-[26px] mt-1.5 flex flex-col justify-center">

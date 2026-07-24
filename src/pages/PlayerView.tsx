@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
@@ -234,6 +234,19 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         store.updateSpellUses(selectedTarget.id, -1);
       }
 
+      // Perfect roll passive abilities activation (D = ●)
+      const isPerfect = selectedTarget.value > 0 && roll === selectedTarget.value;
+      if (isPerfect) {
+        const currentSpells = usePlayerStore.getState().spells;
+        const updatedSpells = currentSpells.map(s => {
+          if ((s.dice || '').trim() === '●') {
+            return { ...s, isActivated: true };
+          }
+          return s;
+        });
+        usePlayerStore.setState({ spells: updatedSpells });
+      }
+
       // Log text format
       const targetLabel = selectedTarget.name;
       const critText = isCrit ? ' (critical)' : '';
@@ -444,7 +457,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         </div>
 
         {/* Section 2: Character Name Header (lg:col-span-4) */}
-        <div className="lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
+        <div className={cn(
+          "lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]",
+          isViewMode && "border-red-600"
+        )}>
           <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate w-full uppercase">
             {activeName || "CHARACTER"}
           </div>
@@ -463,8 +479,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
           {mpStore.isConnected && (
             <>
               <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
-              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`P-CODE: ${mpStore.joinCode}`}>
-                P-CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
+              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`S-CODE: ${mpStore.joinCode?.startsWith('P-') ? 'S-' + mpStore.joinCode.slice(2) : mpStore.joinCode}`}>
+                S-CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode?.startsWith('P-') ? 'S-' + mpStore.joinCode.slice(2) : mpStore.joinCode}</span>
               </div>
               <button 
                 onClick={() => {
@@ -476,7 +492,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                 className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
                 title="DISCONNECT"
               >
-                <WifiOff size={14} />
+                <Power size={14} />
               </button>
             </>
           )}
@@ -487,11 +503,14 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden h-full">
         
         {/* COLUMN 1: SPELLS grimoire (col-span-5) */}
-        <div className="lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative h-full">
-          <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
+        <div className={cn(
+          "lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative h-full",
+          isViewMode && "border-red-600"
+        )}>
+          <div className={cn("absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+          <div className={cn("absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+          <div className={cn("absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+          <div className={cn("absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
           
           {/* Tiers 1: Roll Logs Section with large fonts */}
           <div className="h-1/3 min-h-0 pb-2 flex flex-col overflow-visible">
@@ -542,11 +561,13 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         </div>
 
         {/* COLUMN 2: CHARACTER stats, resource trackers, and toggleable Encounter board (col-span-4) */}
-        <div className="lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden h-full">
+        <div className={cn(
+          "lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden h-full",
+          isViewMode && "border-red-600"
+        )}>
           
           {/* Controls row (ASK FOR STAT + Zoom & Gear) - centered above 3 squares */}
-          {/* Controls row (ASK FOR STAT + Zoom & Gear) - centered above 3 squares */}
-          <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0">
+          <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
             <button 
               onClick={() => store.decreaseTextSize()}
               className="wow-button p-1 text-wow-gold hover:text-white"
@@ -555,14 +576,33 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               <ZoomOut size={14} />
             </button>
 
+            {/* Photo height controls */}
+            <div className="flex gap-0.5 items-center shrink-0">
+              <button 
+                onClick={() => store.decreasePhotoHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Decrease Hero photo height"
+              >
+                <User size={10} />-
+              </button>
+              <button 
+                onClick={() => store.increasePhotoHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Increase Hero photo height"
+              >
+                <User size={10} />+
+              </button>
+            </div>
+
             {(() => {
-              const isWaitingStat = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && r.type === 'ask_stat');
+              const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
               const has3Exp = (store.resources.find(r => r.name === 'EXP')?.current ?? 0) >= 3;
-              const canAsk = (isFreeEdit || has3Exp) && !isWaitingStat;
+              const canAsk = (isFreeEdit || has3Exp) && !isWaiting;
               return (
             <button 
               disabled={!canAsk}
               onClick={async () => {
+                 if (isWaiting) return;
                  if (!mpStore.isConnected) {
                    if (!isFreeEdit) {
                      const expIdx = store.resources.findIndex(r => r.name === 'EXP');
@@ -589,17 +629,36 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               }}
               className={cn(
                 "px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px]",
-                isWaitingStat ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
+                isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
                 isFreeEdit 
                   ? "wow-button-green font-bold" 
                   : "wow-button text-wow-gold disabled:opacity-30"
               )}
               title={isFreeEdit ? "Request a stat increase from GM (Free)" : "Request a stat increase from GM (Cost: 3 EXP)"}
+              style={isWaiting ? { cursor: 'pointer' } : {}}
             >
-              <Sparkles size={12} /> {isWaitingStat ? "WAITING GM" : "ASK FOR STAT"}
+              <Sparkles size={12} /> {isWaiting ? "WAITING..." : "ASK FOR STAT"}
             </button>
             );
             })()}
+
+            {/* Bar height controls */}
+            <div className="flex gap-0.5 items-center shrink-0">
+              <button 
+                onClick={() => store.decreaseBarHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Decrease Stat Bar height"
+              >
+                <FileText size={10} />-
+              </button>
+              <button 
+                onClick={() => store.increaseBarHeight?.()}
+                className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                title="Increase Stat Bar height"
+              >
+                <FileText size={10} />+
+              </button>
+            </div>
 
             <button 
               onClick={() => store.increaseTextSize()}
@@ -657,10 +716,11 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   setShowConfig(true);
                 }}
                 className={cn(
-                  "w-20 h-20 sm:w-24 sm:h-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
+                  "w-20 sm:w-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
                   !(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "cursor-pointer hover:brightness-110 active:scale-95" : "cursor-pointer opacity-90",
-                  isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
+                  isViewMode ? "border-red-600" : isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
                 )}
+                style={{ height: `${store.photoHeight ?? 96}px` }}
                 title={!(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "Configurer le personnage" : undefined}
               >
                 {activePhoto ? (

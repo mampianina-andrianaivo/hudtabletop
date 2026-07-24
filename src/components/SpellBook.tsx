@@ -58,7 +58,10 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
   const isFreeShop = mpStore.isConnected ? mpStore.isFreeShop : true;
 
   return (
-    <div className="flex flex-col h-full bg-black/40 border-2 border-[#5a4b3c] rounded p-2 relative shadow-md">
+    <div className={cn(
+      "flex flex-col h-full bg-black/40 border-2 rounded p-2 relative shadow-md",
+      readOnly ? "border-red-600/50" : "border-[#5a4b3c]"
+    )}>
       
       {/* HEADER */}
       <div className="flex justify-between items-center mb-3 pb-1.5 border-b border-[#5a4b3c]/20 shrink-0 h-9">
@@ -67,13 +70,26 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
         </h3>
         {!readOnly && (
           <div className="flex gap-1.5 items-center">
-            <button 
-              onClick={() => setShowShop(true)}
-              className="wow-button text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7"
-            >
-              <ShoppingBag size={12} />
-              <span>ABILITY SHOP</span>
-            </button>
+            {(() => {
+              const isWaiting = mpStore.gmRequests?.some(r => 
+                r.joinCode === mpStore.joinCode && 
+                (r.type === 'ask_spell' || r.type === 'ask_stat')
+              );
+              return (
+                <button 
+                  onClick={() => !isWaiting && setShowShop(true)}
+                  disabled={isWaiting}
+                  className={cn(
+                    "wow-button text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px]",
+                    isWaiting ? "opacity-50 !cursor-pointer" : ""
+                  )}
+                  style={isWaiting ? { cursor: 'pointer' } : {}}
+                >
+                  <ShoppingBag size={12} />
+                  <span>{isWaiting ? "WAITING..." : "ABILITY SHOP"}</span>
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -125,7 +141,14 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
               const useHpMode = lacksMp;
 
               return (
-                <tr key={spell.id} className={`h-12 transition-colors font-sans group ${spell.isBlocked ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                <tr 
+                  key={spell.id} 
+                  className={cn(
+                    "h-12 transition-all font-sans group border-b border-[#5a4b3c]/20",
+                    spell.isBlocked ? 'opacity-30 grayscale pointer-events-none' : '',
+                    spell.isActivated ? 'bg-teal-950/45 hover:bg-teal-900/30 border-l-2 border-l-teal-500' : ''
+                  )}
+                >
                   <td className="py-2 w-6">
                     {!readOnly && (
                       <div className="flex flex-col items-center justify-center h-8">
@@ -153,6 +176,30 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                           </span>
                         )}
                       </button>
+
+                      {spell.isActivated && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentSpells = usePlayerStore.getState().spells;
+                            const updatedSpells = currentSpells.map(s => {
+                              if (s.id === spell.id) {
+                                return { ...s, isActivated: false };
+                              }
+                              return s;
+                            });
+                            usePlayerStore.setState({ spells: updatedSpells });
+                            if (mpStore.isConnected) {
+                              // If online, triggers polling sync automatically
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-sans font-bold bg-red-950/80 text-red-400 border border-red-800/80 hover:bg-red-900 hover:text-white shrink-0 cursor-pointer select-none transition-colors"
+                          title="Dismiss Activation"
+                        >
+                          X
+                        </button>
+                      )}
 
                       {canTarget && (
                         <div className="flex items-center gap-1 shrink-0">
@@ -390,6 +437,7 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                       }
                     }
                     setShopSpellDetailsId(null);
+                    setShowShop(false);
                   }}
                   className={cn(
                     "px-4 py-2 text-xs rounded flex-1 font-cinzel font-bold transition-all whitespace-nowrap",

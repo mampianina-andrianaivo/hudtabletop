@@ -23,6 +23,7 @@ export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps
   const max = parseMax(resource.max) || 1; // avoid division by zero
   const percentage = Math.min(100, Math.max(0, (resource.current / max) * 100));
   const textSizeLevel = usePlayerStore(state => state.textSizeLevel);
+  const barHeight = usePlayerStore(state => state.barHeight) ?? 10;
 
   return (
     <div className="flex flex-col mb-1.5">
@@ -42,7 +43,10 @@ export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps
           </button>
         )}
         
-        <div className="flex-1 h-2.5 bg-wow-dark border border-[#5a4b3c] rounded-sm relative overflow-hidden">
+        <div 
+          className="flex-1 bg-wow-dark border border-[#5a4b3c] rounded-sm relative overflow-hidden"
+          style={{ height: `${barHeight}px` }}
+        >
           {/* Inner shadow / background texture */}
           <div className="absolute inset-0  opacity-50"></div>
           

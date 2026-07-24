@@ -195,16 +195,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   // Latest public roll log
   const latestRoll = mpStore.rollLogs[mpStore.rollLogs.length - 1];
 
-  const handleExportGMJSON = () => {
-    const roomNameToCheck = !mpStore.isConnected ? store.roomName : mpStore.roomName;
-    if (!roomNameToCheck || !roomNameToCheck.trim()) {
-      alert("Room name cannot be empty for export.");
-      return;
-    }
-
-    let finalScratchPlayers: Record<string, any> = {};
-    let finalLinks: string[] = [];
-
+  const performSilentSave = () => {
     if (!mpStore.isConnected) {
       const pStore = usePlayerStore.getState();
       const currentCharacterState = {
@@ -216,11 +207,11 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         notes: pStore.notes || '',
       };
       
-      finalLinks = store.scratchLinks;
+      const updatedPlayers: Record<string, any> = { ...store.scratchPlayers };
       store.scratchLinks.forEach((link, idx) => {
-        const existing = store.scratchPlayers[link] || { pseudo: '', characterState: undefined };
+        const existing = updatedPlayers[link] || { pseudo: '', characterState: undefined };
         const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
-        finalScratchPlayers[link] = {
+        updatedPlayers[link] = {
           ...existing,
           pseudo,
           characterState: existing.characterState || {
@@ -228,6 +219,26 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
             name: pseudo,
           }
         };
+      });
+      useGMStore.setState({ scratchPlayers: updatedPlayers });
+    }
+  };
+
+  const handleExportGMJSON = () => {
+    performSilentSave();
+    
+    let roomNameToCheck = !mpStore.isConnected ? store.roomName : mpStore.roomName;
+    if (!roomNameToCheck || !roomNameToCheck.trim()) {
+      roomNameToCheck = "Untitled Campaign";
+    }
+
+    let finalScratchPlayers: Record<string, any> = {};
+    let finalLinks: string[] = [];
+
+    if (!mpStore.isConnected) {
+      finalLinks = store.scratchLinks;
+      finalLinks.forEach(link => {
+        finalScratchPlayers[link] = store.scratchPlayers[link] || { pseudo: '' };
       });
     } else {
       finalLinks = mpStore.links.length > 0 ? mpStore.links : store.scratchLinks;
@@ -274,6 +285,9 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        if (json.roomName) {
+           store.updateRoomName(json.roomName);
+        }
         if (json.shopSpells) store.loadShopSpells(json.shopSpells);
         if (json.encounters) {
           useGMStore.setState({ encounters: json.encounters });
@@ -298,6 +312,11 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         }
         if (json.notes) store.updateNotes(json.notes);
         if (json.publicNotes) mpStore.setLocalPublicNotes(json.publicNotes);
+        
+        setTimeout(() => {
+          performSilentSave();
+        }, 100);
+
         alert("GM campaign JSON loaded successfully!");
       } catch (err) {
         console.error("Failed to parse JSON", err);
@@ -412,7 +431,12 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
             <Upload size={14} /> <span>I</span>
             <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
           </label>
-          <button onClick={handleExportGMJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
+          <button 
+            onClick={handleExportGMJSON} 
+            disabled={!mpStore.isConnected && !store.roomName.trim()}
+            className={`wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-transparent hover:!text-wow-gold' : ''}`} 
+            title="EXPORT"
+          >
             <Download size={14} /> <span>E</span>
           </button>
 
@@ -713,74 +737,17 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                {!mpStore.isConnected ? (
-                  <>
-                    <button 
-                      onClick={() => {
-                        alert("Campaign saved! Room name and players have been saved.");
-                      }}
-                      className="wow-button-green px-3 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white"
-                    >
-                      SAVE
-                    </button>
-                    <div className="flex flex-col gap-1">
-                      <span className="wow-button px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold text-wow-gold border-wow-gold opacity-80 cursor-default select-none">
-                        FREE EDIT
-                      </span>
-                      <span className="wow-button px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold text-wow-gold border-wow-gold opacity-80 cursor-default select-none">
-                        FREE TO SHOP
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-1">
+                {!mpStore.isConnected && (
                   <button 
-                    onClick={async () => {
-                      const nextValue = !(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit);
-                      store.setIsFreeEdit(nextValue);
-                      if (mpStore.isConnected) {
-                        mpStore.setCredentials({ isFreeEdit: nextValue, isFreeShop: mpStore.isFreeShop });
-                        if (db && mpStore.roomName) {
-                          const { doc, updateDoc } = await import('firebase/firestore');
-                          await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
-                            isFreeEdit: nextValue
-                          });
-                        }
-                      }
+                    onClick={() => {
+                      performSilentSave();
+                      alert("Campaign saved! Room name and players have been saved.");
                     }}
-                    className={cn(
-                      "px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold transition-all w-[100px]",
-                      (mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit) 
-                        ? "wow-button-green" 
-                        : "wow-button text-wow-gold"
-                    )}
+                    disabled={!mpStore.isConnected && !store.roomName.trim()}
+                    className={`wow-button-green px-3 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-[#153a15]' : ''}`}
                   >
-                    {(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit) ? 'FINISH EDIT' : 'FREE EDIT'}
+                    SAVE
                   </button>
-                  <button 
-                    onClick={async () => {
-                      const nextValue = !(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop);
-                      store.setIsFreeShop(nextValue);
-                      if (mpStore.isConnected) {
-                        mpStore.setCredentials({ isFreeEdit: mpStore.isFreeEdit, isFreeShop: nextValue });
-                        if (db && mpStore.roomName) {
-                          const { doc, updateDoc } = await import('firebase/firestore');
-                          await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
-                            isFreeShop: nextValue
-                          });
-                        }
-                      }
-                    }}
-                    className={cn(
-                      "px-2.5 py-0.5 text-[9px] uppercase tracking-wider font-cinzel font-bold transition-all w-[100px]",
-                      (mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop) 
-                        ? "wow-button-green" 
-                        : "wow-button text-wow-gold"
-                    )}
-                  >
-                    {(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop) ? 'FINISH SHOP' : 'FREE TO SHOP'}
-                  </button>
-                </div>
                 )}
               </div>
             </div>
@@ -931,30 +898,22 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 <div className="flex-1 flex flex-col gap-2 mt-2 px-1 text-sm font-sans">
                   {/* Room Name Input added at the top in Scratch Mode */}
                   <div className="flex flex-col bg-black/45 border border-[#5a4b3c]/45 rounded p-2 gap-1 shadow-inner mb-1 shrink-0">
-                    <span className="text-[10px] font-cinzel text-wow-gold uppercase tracking-wider font-bold">Nom de la Room (Campagne)</span>
+                    <span className="text-[10px] font-cinzel text-wow-gold uppercase tracking-wider font-bold">Campaign Room Name</span>
                     <input
                       type="text"
                       className="bg-black/60 border border-[#5a4b3c]/50 text-[11px] px-2 py-1 rounded text-white focus:outline-none focus:border-wow-gold"
-                      placeholder="Room Name / Nom de la Room"
+                      placeholder="Campaign Room Name"
                       value={store.roomName || ''}
                       onChange={(e) => store.updateRoomName(e.target.value)}
                     />
                   </div>
 
-                  <span className="text-[10px] font-cinzel text-white uppercase tracking-wider mb-1 shrink-0">Scratch Player Slots (Fixed Links)</span>
+                  <span className="text-[10px] font-cinzel text-white uppercase tracking-wider mb-1 shrink-0">Scratch Player Slots</span>
                   <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-1">
                     {store.scratchLinks.map((link, idx) => (
                       <div key={link} className="flex flex-col bg-black/30 border border-[#5a4b3c]/30 rounded p-2 gap-1.5 shadow-inner shrink-0">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-cinzel text-wow-gold uppercase">Slot #{idx + 1}</span>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-wow-gold font-bold font-mono">{link}</span>
-                            {copiedIndex === idx ? (
-                              <span className="text-green-400 text-[10px]"><Check size={10} /></span>
-                            ) : (
-                              <button onClick={() => handleCopyLink(link, idx)} className="text-wow-gold hover:text-white" title="Copy join link"><Copy size={10} /></button>
-                            )}
-                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <input
@@ -1096,41 +1055,61 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
             <h3 className="font-cinzel text-green-400 text-xl border-b border-green-900/40 pb-2 flex items-center gap-2">
               <Users size={18} />
-              <span>Player Unique Invitations</span>
+              <span>{mpStore.isConnected ? "Player Unique Invitations" : "Scratch Players"}</span>
             </h3>
 
             <p className="font-sans text-xs text-white">
-              Share these 10 generated codes/links with your players. Each code corresponds to a unique slot in the campaign room. Click to copy the full join link.
+              {mpStore.isConnected 
+                ? "Share these 10 generated codes/links with your players. Each code corresponds to a unique slot in the campaign room. Click to copy the full join link."
+                : "Enter the names of the players playing offline (scratch mode)."}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 mt-2">
-              {mpStore.links.map((linkCode, idx) => {
-                const connectedPlayer = mpStore.roomPlayers[linkCode];
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleCopyLink(linkCode, idx)}
-                    className="bg-black/40 border border-[#5a4b3c]/30 hover:border-green-500 hover:bg-black/60 p-2 rounded text-left font-sans text-xs transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player Slot #{idx + 1}</span>
-                        {connectedPlayer && (
-                          <span className="text-green-400 font-sans text-[11px] font-bold ">
-                            ● {connectedPlayer.pseudo || 'Connected'}
-                          </span>
-                        )}
+              {mpStore.isConnected ? (
+                mpStore.links.map((linkCode, idx) => {
+                  const connectedPlayer = mpStore.roomPlayers[linkCode];
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleCopyLink(linkCode, idx)}
+                      className="bg-black/40 border border-[#5a4b3c]/30 hover:border-green-500 hover:bg-black/60 p-2 rounded text-left font-sans text-xs transition-colors flex items-center justify-between"
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player Slot #{idx + 1}</span>
+                          {connectedPlayer && (
+                            <span className="text-green-400 font-sans text-[11px] font-bold ">
+                              ● {connectedPlayer.pseudo || 'Connected'}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-white text-[11px]">{linkCode}</span>
                       </div>
-                      <span className="font-mono text-white text-[11px]">{linkCode}</span>
+                      {copiedIndex === idx ? (
+                        <span className="text-green-400 text-[10px] font-semibold flex items-center gap-0.5"><Check size={12} /> Copied!</span>
+                      ) : (
+                        <span className="text-white hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                store.scratchLinks.map((linkCode, idx) => {
+                  const scratchPlayer = store.scratchPlayers[linkCode];
+                  return (
+                    <div key={linkCode} className="flex flex-col gap-1 bg-black/40 border border-[#5a4b3c]/30 p-2 rounded">
+                      <span className="font-cinzel text-[10px] text-wow-gold uppercase">Player #{idx + 1}</span>
+                      <input
+                        type="text"
+                        value={scratchPlayer?.pseudo || ''}
+                        onChange={(e) => store.updateScratchPlayer(linkCode, e.target.value)}
+                        placeholder="Character name..."
+                        className="wow-input w-full px-2 py-1 bg-black/60 border border-[#5a4b3c] rounded text-white font-sans text-sm focus:border-green-400 focus:outline-none transition-colors"
+                      />
                     </div>
-                    {copiedIndex === idx ? (
-                      <span className="text-green-400 text-[10px] font-semibold flex items-center gap-0.5"><Check size={12} /> Copied!</span>
-                    ) : (
-                      <span className="text-white hover:text-white flex items-center gap-0.5"><Copy size={11} /> Copy</span>
-                    )}
-                  </button>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             <div className="flex justify-end mt-2">

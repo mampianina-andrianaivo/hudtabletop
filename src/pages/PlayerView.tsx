@@ -479,8 +479,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
           {mpStore.isConnected && (
             <>
               <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
-              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`S-CODE: ${mpStore.joinCode?.startsWith('P-') ? 'S-' + mpStore.joinCode.slice(2) : mpStore.joinCode}`}>
-                S-CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode?.startsWith('P-') ? 'S-' + mpStore.joinCode.slice(2) : mpStore.joinCode}</span>
+              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`CODE: ${mpStore.joinCode}`}>
+                CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
               </div>
               <button 
                 onClick={() => {

@@ -4,9 +4,14 @@ import { useGMStore } from '@/store/useGMStore';
 import { Spell } from '@/store/usePlayerStore';
 import { IconPicker, RenderGMIcon, getAbilityTagClass } from './GMIcons';
 import { RenderSpellIcon } from './SpellBook';
+import { useMultiplayerStore } from '@/store/useMultiplayerStore';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 export function GMSpellCrafter() {
   const store = useGMStore();
+  const mpStore = useMultiplayerStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSpell, setEditingSpell] = useState<Spell | null>(null);
   const [pendingShopSpells, setPendingShopSpells] = useState<Spell[] | null>(null);
@@ -67,15 +72,39 @@ export function GMSpellCrafter() {
       <div className="flex justify-between items-center mb-3 pb-1.5 border-b border-[#5a4b3c]/20 shrink-0 h-9">
         <h3 className="font-cinzel text-wow-gold text-sm uppercase tracking-widest">Ability Crafter</h3>
         <div className="flex gap-1.5 items-center">
-          <label className="wow-button px-2.5 h-7 text-[10px] sm:text-xs cursor-pointer flex items-center gap-1 justify-center">
-            <Upload size={12} /> <span>Load</span>
+          <button 
+            onClick={async () => {
+              const nextValue = !(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop);
+              store.setIsFreeShop(nextValue);
+              if (mpStore.isConnected) {
+                mpStore.setCredentials({ isFreeEdit: mpStore.isFreeEdit, isFreeShop: nextValue });
+                if (db && mpStore.roomName) {
+                  try {
+                    const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
+                    await updateDoc(roomRef, { isFreeShop: nextValue });
+                  } catch(err) {}
+                }
+              }
+            }}
+            className={cn(
+              "px-2 h-7 text-[10px] uppercase tracking-wider font-cinzel font-bold transition-all whitespace-nowrap",
+              (mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop)
+                ? "wow-button-green"
+                : "wow-button text-wow-gold"
+            )}
+            title="FREE TO SHOP"
+          >
+            {(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop) ? 'FINISH SHOP' : 'FREE SHOP'}
+          </button>
+          <label className="wow-button px-2 h-7 cursor-pointer flex items-center gap-1 justify-center shrink-0" title="Load Shop JSON">
+            <Upload size={14} /> <span className="font-sans font-bold">I</span>
             <input type="file" accept=".json" className="hidden" onChange={handleImportShop} />
           </label>
-          <button onClick={openAddModal} className="wow-button px-2.5 h-7 text-[10px] sm:text-xs flex items-center gap-1 justify-center">
-             <Plus size={12} /> <span>Add</span>
+          <button onClick={openAddModal} className="wow-button px-2 h-7 flex items-center justify-center shrink-0" title="Add Ability">
+             <Plus size={16} />
           </button>
-          <button onClick={handleExportShop} className="wow-button px-2.5 h-7 text-[10px] sm:text-xs flex items-center gap-1 justify-center">
-            <DownloadCloud size={12} /> <span>Export</span>
+          <button onClick={handleExportShop} className="wow-button px-2 h-7 flex items-center gap-1 justify-center shrink-0" title="Export Shop JSON">
+            <DownloadCloud size={14} /> <span className="font-sans font-bold">E</span>
           </button>
         </div>
       </div>

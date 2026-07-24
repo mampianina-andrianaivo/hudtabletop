@@ -85,6 +85,7 @@ function parseEncounterScheme(text: string): DrawResult {
 
 export function GMEncounters() {
   const store = useGMStore();
+  const mpStore = useMultiplayerStore();
   const [showSettings, setShowSettings] = useState(false);
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pastedText, setPastedText] = useState('');
@@ -208,16 +209,41 @@ export function GMEncounters() {
       </div>
 
       {/* Block Player Rolls Button */}
-      <div className="px-4 pb-1.5 flex justify-center shrink-0">
+      <div className="px-4 pb-1.5 flex justify-center gap-2 shrink-0">
         <button
           onClick={handleToggleBlockRolls}
-          className={`py-1.5 px-4 flex items-center justify-center gap-2 font-cinzel text-xs font-bold transition-all duration-150 uppercase tracking-widest ${
+          className={`py-1.5 flex-1 flex items-center justify-center gap-2 font-cinzel text-xs font-bold transition-all duration-150 uppercase tracking-widest ${
             store.blockPlayerRolls ? 'wow-button-red' : 'wow-button-green'
           }`}
-          style={{ width: '220px' }}
+          style={{ maxWidth: '160px' }}
         >
           <Lock size={12} className="shrink-0" />
           <span>{store.blockPlayerRolls ? "ROLLS BLOCKED" : "BLOCK ROLLS"}</span>
+        </button>
+        <button
+          onClick={async () => {
+            const nextValue = !(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit);
+            store.setIsFreeEdit(nextValue);
+            if (mpStore.isConnected) {
+              mpStore.setCredentials({ isFreeEdit: nextValue, isFreeShop: mpStore.isFreeShop });
+              if (db && mpStore.roomName) {
+                try {
+                  const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
+                  await updateDoc(roomRef, { isFreeEdit: nextValue });
+                } catch (err) {
+                  console.error("Error updating free edit:", err);
+                }
+              }
+            }
+          }}
+          className={`py-1.5 flex-1 flex items-center justify-center gap-2 font-cinzel text-xs font-bold transition-all duration-150 uppercase tracking-widest ${
+            (mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit)
+              ? 'wow-button-green'
+              : 'wow-button text-wow-gold'
+          }`}
+          style={{ maxWidth: '160px' }}
+        >
+          <span>{(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit) ? 'FINISH EDIT' : 'FREE EDIT'}</span>
         </button>
       </div>
 

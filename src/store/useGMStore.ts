@@ -91,7 +91,7 @@ export const useGMStore = create<GMState>()(
       initScratchLinks: () => set((state) => {
         if (state.scratchLinks.length > 0) return state;
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        const generateLink = () => 'S-' + Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+        const generateLink = () => Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
         return { scratchLinks: Array.from({ length: 6 }, generateLink) };
       }),
       updateScratchPlayer: (link, pseudo) => set((state) => ({

@@ -56,14 +56,11 @@ export function Home({ onSelectRole }: HomeProps) {
   }, []);
 
   // Auto-resolve room name from join code when it changes
-  React.useEffect(() => {
-    let code = playLink.trim().toUpperCase();
-    if (code.startsWith('S-')) {
-      code = 'P-' + code.slice(2);
-    } else if (code.length === 6 && /^[A-Z0-9]+$/.test(code)) {
-      code = 'P-' + code;
-    }
-    if (code.startsWith('P-') && code.length === 8) {
+  useEffect(() => {
+    let code = playLink.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length > 6) code = code.slice(-6);
+
+    if (code.length === 6) {
       import('@/lib/firebase').then(async ({ db }) => {
         if (!db) return;
         const { collection, query, where, getDocs } = await import('firebase/firestore');
@@ -177,29 +174,25 @@ export function Home({ onSelectRole }: HomeProps) {
       const { useGMStore } = await import('@/store/useGMStore');
       const gmState = useGMStore.getState();
       
-      const baseLinks = loadedCampaignData?.scratchLinks || gmState.scratchLinks || [];
-      const basePlayersData = loadedCampaignData?.scratchPlayers || gmState.scratchPlayers || {};
-      
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      const generateLink = () => 'P-' + Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+      const generateLink = () => Array.from({length: 6}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
       
-      // PRESERVE existing links from Firestore if they exist
-      const links = (existingData?.links?.length > 0) 
-        ? existingData.links 
-        : (baseLinks.length > 0 ? [...baseLinks] : Array.from({length: 6}, generateLink));
-      
-      while (links.length < 6) links.push(generateLink());
+      const links = Array.from({length: 6}, generateLink);
 
-      const initialPlayers = existingData?.players || {};
-      Object.keys(basePlayersData).forEach(link => {
-        if (!initialPlayers[link]) {
-          const sp = basePlayersData[link];
-          if (sp && sp.pseudo) {
-            initialPlayers[link] = {
-              pseudo: sp.pseudo,
-              joinCode: link,
-              lastActive: Date.now(),
-              characterState: sp.characterState || null
+      const rawInitialPlayers = existingData?.players || {};
+      const basePlayersData = loadedCampaignData?.scratchPlayers || gmState.scratchPlayers || {};
+      const mergedOldPlayers = Object.keys(rawInitialPlayers).length > 0 ? rawInitialPlayers : basePlayersData;
+
+      const initialPlayers: Record<string, any> = {};
+      Object.keys(mergedOldPlayers).forEach((oldKey, idx) => {
+        const newLink = links[idx];
+        if (newLink) {
+          const oldData = mergedOldPlayers[oldKey];
+          if (oldData && oldData.pseudo) {
+            initialPlayers[newLink] = {
+              ...oldData,
+              joinCode: newLink,
+              lastActive: Date.now()
             };
           }
         }
@@ -303,17 +296,15 @@ export function Home({ onSelectRole }: HomeProps) {
         inputStr = urlParams.get('join') || inputStr;
       }
 
-      let joinCode = inputStr.toUpperCase();
-      if (joinCode.startsWith('S-')) {
-        joinCode = 'P-' + joinCode.slice(2);
-      } else if (joinCode.length === 6 && /^[A-Z0-9]+$/.test(joinCode)) {
-        joinCode = 'P-' + joinCode;
+      let joinCode = inputStr.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (joinCode.length > 6) {
+        joinCode = joinCode.slice(-6);
       }
       let roomData = null;
       let actualRoomName = playRoomName.trim().toLowerCase();
 
       if (!actualRoomName) {
-        if (!joinCode) throw new Error("Invitation code (P-XXXXXX) is required.");
+        if (!joinCode) throw new Error("Invitation code is required.");
         const q = query(collection(db, 'rooms'), where('links', 'array-contains', joinCode));
         const snapshot = await getDocs(q);
         if (snapshot.empty) throw new Error("Room not found for this invitation code.");
@@ -338,7 +329,7 @@ export function Home({ onSelectRole }: HomeProps) {
       }
 
       if (!joinCode) {
-        throw new Error("Invitation code (P-XXXXXX) is required.");
+        throw new Error("Invitation code is required.");
       }
 
       if (!roomData.links.includes(joinCode)) {
@@ -568,7 +559,7 @@ export function Home({ onSelectRole }: HomeProps) {
 
             <form onSubmit={handleJoinRoom} className="flex flex-col gap-4 font-sans text-sm">
               <div>
-                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">S-CODE (Join Link or Code)</label>
+                <label className="block text-xs font-cinzel text-green-400 mb-1 uppercase tracking-wider">Invitation Code</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-500/50"><Link size={16} /></span>
                   <input 
@@ -577,7 +568,7 @@ export function Home({ onSelectRole }: HomeProps) {
                     value={playLink}
                     onChange={(e) => setPlayLink(e.target.value)}
                     className="wow-input w-full pl-10 pr-3 py-2 bg-black/60 border border-green-900/40 rounded text-white font-mono focus:border-green-400 focus:outline-none transition-colors"
-                    placeholder="S-XXXXXX"
+                    placeholder="6-Digit Code"
                   />
                 </div>
                 <div className="min-h-[26px] mt-1.5 flex flex-col justify-center">

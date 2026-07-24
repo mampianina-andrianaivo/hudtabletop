@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dices, Ban } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, rollD12 } from '@/lib/utils';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { sendOnlineRoll } from '@/lib/useOnlineSync';
 
@@ -23,7 +23,7 @@ export function DiceRoller({ disabled }: DiceRollerProps) {
     setRolling(true);
     setResult("...");
     setTimeout(() => {
-      const roll = Math.floor(Math.random() * 12) + 1;
+      const roll = rollD12();
       setResult(roll);
       setRolling(false);
 

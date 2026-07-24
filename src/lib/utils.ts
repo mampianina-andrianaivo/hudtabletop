@@ -21,3 +21,32 @@ export function parseMpCost(val: string | number | undefined | null): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+// Roll D12 with 2.5x boosted probabilities for critical success (dice 1) and perfect roll (dice = targetValue)
+export function rollD12(targetValue?: number): number {
+  const weights: number[] = [];
+  for (let face = 1; face <= 12; face++) {
+    let weight = 1;
+    // Boost critical success (dice 1) by factor 2.5
+    if (face === 1) {
+      weight *= 2.5;
+    }
+    // Boost perfect roll (dice matching targetValue) by factor 2.5
+    if (targetValue !== undefined && targetValue !== null && targetValue >= 1 && targetValue <= 12 && face === targetValue) {
+      weight *= 2.5;
+    }
+    weights.push(weight);
+  }
+
+  const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+  let randomVal = Math.random() * totalWeight;
+
+  for (let i = 0; i < 12; i++) {
+    if (randomVal < weights[i]) {
+      return i + 1;
+    }
+    randomVal -= weights[i];
+  }
+
+  return 12;
+}
+

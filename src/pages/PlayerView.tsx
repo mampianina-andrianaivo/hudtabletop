@@ -10,7 +10,7 @@ import { SpellBook } from '@/components/SpellBook';
 import { RollLogsSection } from '@/components/RollLogsSection';
 import { PlayerConfigModal } from '@/components/PlayerConfigModal';
 import { NoteTextarea } from '@/components/NoteTextarea';
-import { cn, parseMax, parseMpCost } from '@/lib/utils';
+import { cn, parseMax, parseMpCost, rollD12 } from '@/lib/utils';
 import { deserializeEncounter } from '@/lib/encounterUtils';
 
 interface PlayerViewProps {
@@ -243,12 +243,13 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
     // Perform roll on selected target
     setRolling(true);
     setTimeout(() => {
-      const roll = Math.floor(Math.random() * 12) + 1;
+      const roll = rollD12(selectedTarget.value);
       const isSuccess = roll <= selectedTarget.value;
       const isCrit = roll === 1 || roll === 12;
+      const isPerfect = selectedTarget.value > 0 && roll === selectedTarget.value;
 
-      // Critical bonus (+1 EXP)
-      if (isCrit && !isScratch) {
+      // Critical bonus or Perfect roll bonus (+1 EXP)
+      if ((isCrit || isPerfect) && !isScratch) {
         const expIdx = activeResources.findIndex(r => r.name === 'EXP');
         if (expIdx !== -1) {
           const currentExp = activeResources[expIdx].current;
@@ -286,7 +287,6 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
       }
 
       // Perfect roll passive abilities activation (D = ●)
-      const isPerfect = selectedTarget.value > 0 && roll === selectedTarget.value;
       if (isPerfect) {
         const currentSpells = usePlayerStore.getState().spells;
         const updatedSpells = currentSpells.map(s => {

@@ -60,7 +60,7 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
   return (
     <div className={cn(
       "flex flex-col h-full bg-black/40 border-2 rounded p-2 relative shadow-md",
-      readOnly ? "border-red-600/50" : "border-[#5a4b3c]"
+      readOnly ? "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]" : "border-[#5a4b3c]"
     )}>
       
       {/* HEADER */}
@@ -80,7 +80,8 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                   onClick={() => !isWaiting && setShowShop(true)}
                   disabled={isWaiting}
                   className={cn(
-                    "wow-button text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px]",
+                    isFreeShop ? "wow-button-green font-bold" : "wow-button",
+                    "text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px]",
                     isWaiting ? "opacity-50 !cursor-pointer" : ""
                   )}
                   style={isWaiting ? { cursor: 'pointer' } : {}}

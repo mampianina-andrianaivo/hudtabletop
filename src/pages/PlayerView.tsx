@@ -25,7 +25,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const isScratch = !mpStore.isConnected;
   const activeEncounter = isScratch 
     ? (gmStore.currentDraw?.published ? gmStore.currentDraw : null) 
-    : (mpStore.publishedEncounter?.published ? mpStore.publishedEncounter : null);
+    : (mpStore.publishedEncounter?.published || (mpStore.publishedEncounter && mpStore.publishedEncounter.lines?.length > 0) ? mpStore.publishedEncounter : null);
   
   // Ensure role is set for PlayerView
   useEffect(() => {
@@ -597,12 +597,13 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             {(() => {
               const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
               const has3Exp = (store.resources.find(r => r.name === 'EXP')?.current ?? 0) >= 3;
-              const canAsk = (isFreeEdit || has3Exp) && !isWaiting;
+              // Free Edit allows direct editing, so Ask For Stat is not needed
+              const canAsk = !isFreeEdit && has3Exp && !isWaiting;
               return (
             <button 
-              disabled={!canAsk}
+              disabled={isFreeEdit || !canAsk}
               onClick={async () => {
-                 if (isWaiting) return;
+                 if (isWaiting || isFreeEdit || !canAsk) return;
                  if (!mpStore.isConnected) {
                    if (!isFreeEdit) {
                      const expIdx = store.resources.findIndex(r => r.name === 'EXP');
@@ -631,10 +632,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                 "px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px]",
                 isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
                 isFreeEdit 
-                  ? "wow-button-green font-bold" 
-                  : "wow-button text-wow-gold disabled:opacity-30"
+                  ? "wow-button opacity-40 cursor-not-allowed" 
+                  : canAsk ? "wow-button text-wow-gold font-bold" : "wow-button text-wow-gold opacity-30 cursor-not-allowed"
               )}
-              title={isFreeEdit ? "Request a stat increase from GM (Free)" : "Request a stat increase from GM (Cost: 3 EXP)"}
+              title={isFreeEdit ? "Free Edit is active (modify stats directly)" : "Request a stat increase from GM (Cost: 3 EXP)"}
               style={isWaiting ? { cursor: 'pointer' } : {}}
             >
               <Sparkles size={12} /> {isWaiting ? "WAITING..." : "ASK FOR STAT"}
@@ -718,7 +719,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                 className={cn(
                   "w-20 sm:w-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none",
                   !(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "cursor-pointer hover:brightness-110 active:scale-95" : "cursor-pointer opacity-90",
-                  isViewMode ? "border-red-600" : isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
+                  isViewMode ? "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]" : isFreeEdit ? "border-[#4ade80]" : "border-[#FFD100]"
                 )}
                 style={{ height: `${store.photoHeight ?? 96}px` }}
                 title={!(isViewMode || (mpStore.isConnected && !mpStore.isFreeEdit)) ? "Configurer le personnage" : undefined}

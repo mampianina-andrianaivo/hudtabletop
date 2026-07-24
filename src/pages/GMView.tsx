@@ -420,9 +420,12 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         </div>
 
         {/* Section 2: Character Name / GM Dashboard Header (lg:col-span-4) */}
-        <div className="lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
+        <div className={cn(
+          "lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]",
+          isViewingPlayer && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+        )}>
           <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate w-full uppercase">
-            {activeCharState?.name || "GM CONTROL DASHBOARD"}
+            {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
           </div>
         </div>
         
@@ -485,7 +488,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     <FileText size={12} className="text-wow-gold" />
                     <span>GRIMOIRE OF {viewedPlayer.pseudo}</span>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border border-[#5a4b3c]/30 rounded">
+                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border-2 border-red-600 rounded shadow-[0_0_20px_rgba(220,38,38,0.2)]">
                     <SpellBook spells={activeSpells} readOnly={true} playerName={viewedPlayer.pseudo} />
                   </div>
                 </div>
@@ -502,30 +505,37 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         {/* COLUMN 2: ENCOUNTERS DRAW ZONE / VIEWED PLAYER HUD (col-span-4) */}
         <div className="lg:col-span-4 wow-panel !p-0 flex flex-col shadow-xl bg-leather relative overflow-hidden">
           
-          {/* GM REQUEST NOTIFICATION INLINE */}
+          {/* GM REQUEST NOTIFICATION OVERLAY (FULL CENTER ZONE) */}
           {currentRequest && (
-            <div className="absolute top-0 left-0 right-0 z-50 bg-black/95 border-b-2 border-wow-gold shadow-[0_4px_20px_rgba(0,0,0,0.8)] p-4 flex flex-col gap-3 text-center animate-in slide-in-from-top-full duration-300">
-              <h3 className="font-cinzel text-wow-gold text-sm tracking-widest">PLAYER REQUEST</h3>
-              <p className="font-sans text-xs text-white">
-                <span className="font-bold text-wow-gold">{currentRequest.from}</span> asks for: <br />
-                <span className="uppercase text-white font-mono mt-1 inline-block">
+            <div className="absolute inset-0 z-50 bg-black/95 border-2 border-wow-gold/80 shadow-[0_0_30px_rgba(0,0,0,0.95)] p-6 flex flex-col items-center justify-center gap-5 text-center animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-12 h-12 rounded-full border-2 border-wow-gold bg-wow-gold/10 flex items-center justify-center text-wow-gold mb-1 shadow-[0_0_15px_rgba(255,209,0,0.3)]">
+                <Sparkles size={24} />
+              </div>
+              <h3 className="font-cinzel text-wow-gold text-lg font-bold tracking-widest uppercase border-b border-wow-gold/30 pb-2 w-full max-w-xs">
+                PLAYER REQUEST
+              </h3>
+              <div className="font-sans text-sm text-white max-w-xs space-y-2">
+                <p>
+                  <span className="font-bold text-wow-gold text-base">{currentRequest.from}</span> asks for:
+                </p>
+                <div className="uppercase text-amber-300 font-mono text-sm bg-black/60 border border-wow-gold/40 px-3 py-2 rounded shadow-inner">
                   {currentRequest.type === 'ask_stat' 
                     ? 'Stat Increase' 
                     : currentRequest.type === 'ask_spell'
                     ? `Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'New Ability'}`
                     : 'Open Shop'}
-                </span>
-              </p>
-              <div className="flex justify-center gap-3 mt-1">
+                </div>
+              </div>
+              <div className="flex justify-center gap-4 mt-2 w-full max-w-xs">
                 <button 
                   onClick={() => handleProcessRequest(false)}
-                  className="wow-button bg-red-950/50 text-red-400 border border-red-900 px-4 py-1.5 text-xs"
+                  className="wow-button bg-red-950/60 text-red-400 border border-red-800 hover:bg-red-900/50 px-6 py-2 text-sm font-bold flex-1"
                 >
                   Decline
                 </button>
                 <button 
                   onClick={() => handleProcessRequest(true)}
-                  className="wow-button-green px-4 py-1.5 text-xs font-bold"
+                  className="wow-button-green px-6 py-2 text-sm font-bold flex-1"
                 >
                   Accept
                 </button>
@@ -627,7 +637,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 <div className="flex flex-col items-center justify-start">
                   <button
                     disabled
-                    className="w-20 sm:w-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none border-red-600 opacity-90 cursor-not-allowed"
+                    className="w-20 sm:w-24 rounded !border-2 !border-red-600 overflow-hidden bg-wow-dark shadow-[0_0_20px_rgba(220,38,38,0.2)] relative shrink-0 transition-all select-none outline-none opacity-90 cursor-not-allowed"
                     style={{ height: `${pStore.photoHeight ?? 96}px` }}
                   >
                     {activeCharState.photo ? (

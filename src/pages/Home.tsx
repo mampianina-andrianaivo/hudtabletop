@@ -60,6 +60,8 @@ export function Home({ onSelectRole }: HomeProps) {
     let code = playLink.trim().toUpperCase();
     if (code.startsWith('S-')) {
       code = 'P-' + code.slice(2);
+    } else if (code.length === 6 && /^[A-Z0-9]+$/.test(code)) {
+      code = 'P-' + code;
     }
     if (code.startsWith('P-') && code.length === 8) {
       import('@/lib/firebase').then(async ({ db }) => {
@@ -188,7 +190,7 @@ export function Home({ onSelectRole }: HomeProps) {
 
       await setDoc(doc(db, 'rooms', cleanName), {
         roomName: roomNameToUse,
-        passwordHash: gmPassword,
+        passwordHash: gmPassword.trim(),
         gmSessionId,
         links,
         players: initialPlayers,
@@ -266,15 +268,19 @@ export function Home({ onSelectRole }: HomeProps) {
     setErrorMessage(null);
 
     try {
-      const characterName = usePlayerStore.getState().name || 'Unknown Hero';
-
-      const { db } = await import('@/lib/firebase');
-      if (!db) throw new Error("Firebase database not initialized.");
+      const { auth, ensureAuthenticated, db } = await import('@/lib/firebase');
+      if (!auth || !db) throw new Error("Firebase not initialized.");
+      await ensureAuthenticated();
+      
       const { collection, query, where, getDocs, doc, getDoc, updateDoc } = await import('firebase/firestore');
+
+      const characterName = usePlayerStore.getState().name || 'Unknown Hero';
 
       let joinCode = playLink.trim().toUpperCase();
       if (joinCode.startsWith('S-')) {
         joinCode = 'P-' + joinCode.slice(2);
+      } else if (joinCode.length === 6 && /^[A-Z0-9]+$/.test(joinCode)) {
+        joinCode = 'P-' + joinCode;
       }
       let roomData = null;
       let actualRoomName = playRoomName.trim().toLowerCase();

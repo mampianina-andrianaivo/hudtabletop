@@ -45,6 +45,7 @@ export interface PlayerState {
   spells: Spell[];
   notes: string;
   textSizeLevel: number;
+  abilityTextSizeLevel: number;
   photoHeight?: number;
   photoWidth?: number;
   barHeight?: number;
@@ -61,6 +62,8 @@ export interface PlayerState {
   updateNotes: (notes: string) => void;
   increaseTextSize: () => void;
   decreaseTextSize: () => void;
+  increaseAbilityTextSize: () => void;
+  decreaseAbilityTextSize: () => void;
   increasePhotoHeight: () => void;
   decreasePhotoHeight: () => void;
   increasePhotoWidth: () => void;
@@ -95,6 +98,7 @@ export const usePlayerStore = create<PlayerState>()(
       spells: [],
       notes: '',
       textSizeLevel: 0,
+      abilityTextSizeLevel: 0,
       photoHeight: 96,
       photoWidth: 96,
       barHeight: 10,
@@ -148,6 +152,8 @@ export const usePlayerStore = create<PlayerState>()(
       updateNotes: (notes) => set({ notes }),
       increaseTextSize: () => set((state) => ({ textSizeLevel: Math.min(state.textSizeLevel + 1, 4) })),
       decreaseTextSize: () => set((state) => ({ textSizeLevel: Math.max(state.textSizeLevel - 1, 0) })),
+      increaseAbilityTextSize: () => set((state) => ({ abilityTextSizeLevel: Math.min((state.abilityTextSizeLevel ?? 0) + 1, 4) })),
+      decreaseAbilityTextSize: () => set((state) => ({ abilityTextSizeLevel: Math.max((state.abilityTextSizeLevel ?? 0) - 1, 0) })),
       increasePhotoHeight: () => set((state) => ({ photoHeight: (state.photoHeight ?? 96) + 16 })),
       decreasePhotoHeight: () => set((state) => ({ photoHeight: Math.max(96, (state.photoHeight ?? 96) - 16) })),
       increasePhotoWidth: () => set((state) => ({ photoWidth: Math.min(220, (state.photoWidth ?? 96) + 16) })),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DownloadCloud, Upload, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { DownloadCloud, Upload, Plus, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
 import { useGMStore } from '@/store/useGMStore';
 import { Spell } from '@/store/usePlayerStore';
 import { IconPicker, RenderGMIcon, getAbilityTagClass } from './GMIcons';
@@ -240,199 +240,238 @@ export function GMSpellCrafter() {
 
 function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () => void, onSave: (spell: Spell) => void }) {
   const store = useGMStore();
+  const crafterTextSizeLevel = useGMStore(state => state.crafterTextSizeLevel);
+  const increaseCrafterTextSize = useGMStore(state => state.increaseCrafterTextSize);
+  const decreaseCrafterTextSize = useGMStore(state => state.decreaseCrafterTextSize);
+  const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
+  const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
+  const labelClass = nameSizes[crafterTextSizeLevel] || 'text-sm';
+  const valueClass = valueSizes[crafterTextSizeLevel] || 'text-xl';
+
   const [draft, setDraft] = useState<Spell>({ ...spell });
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pickerField, setPickerField] = useState<'dice' | 'mp' | 'maxUses' | null>(null);
 
   return (
-    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 rounded p-4">
-      <div className="bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl w-full max-w-md flex flex-col gap-4 relative">
-        {pickerField && (
-          <div className="absolute inset-0 bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl flex flex-col gap-4 z-50">
-            <h4 className="font-cinzel text-wow-gold text-lg font-bold border-b border-[#5a4b3c] pb-2 uppercase tracking-wider text-center">
-              Select {pickerField === 'dice' ? 'Dice' : pickerField === 'mp' ? 'MP Cost' : 'Max Uses'}
-            </h4>
-            <div className="flex-1 flex flex-col justify-center items-center gap-4">
-              <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
-                {pickerField === 'dice' && (
-                  ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => {
-                        setDraft(p => ({ ...p, dice: opt }));
-                        setPickerField(null);
-                      }}
-                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.dice === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
-                    >
-                      {opt}
-                    </button>
-                  ))
-                )}
-
-                {pickerField === 'mp' && (
-                  ['●', '1', '2', '3', '4', '5', '6'].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => {
-                        const val = opt === '●' ? '' : opt;
-                        setDraft(p => ({ ...p, r1: val, r2: val }));
-                        setPickerField(null);
-                      }}
-                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${(opt === '●' && !(draft.r2 || draft.r1)) || (draft.r2 === opt || draft.r1 === opt) ? 'bg-blue-500/20 border-blue-400 text-blue-400' : ''}`}
-                    >
-                      {opt}
-                    </button>
-                  ))
-                )}
-
-                {pickerField === 'maxUses' && (
-                  ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => {
-                        setDraft(p => ({ ...p, maxUses: opt }));
-                        setPickerField(null);
-                      }}
-                      className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.maxUses === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
-                    >
-                      {opt}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPickerField(null)}
-              className="wow-button w-full py-2.5 text-xs uppercase font-cinzel tracking-wider text-gray-400 border-[#5a4b3c]"
-            >
-              Back
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between border-b border-[#5a4b3c] pb-2">
-          <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-[#5a4b3c]/50">
-            <button 
-              type="button"
-              onClick={() => setDraft(p => ({ ...p, color: 'gold' }))}
-              className={`w-4 h-4 rounded-sm bg-[#f3d178] border border-black/40 cursor-pointer transition-all ${(!draft.color || draft.color === 'gold') ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
-              title="Yellow (Default)"
-            />
-            <button 
-              type="button"
-              onClick={() => setDraft(p => ({ ...p, color: 'purple' }))}
-              className={`w-4 h-4 rounded-sm bg-purple-500 border border-black/40 cursor-pointer transition-all ${draft.color === 'purple' ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
-              title="Purple"
-            />
-            <button 
-              type="button"
-              onClick={() => setDraft(p => ({ ...p, color: 'rose' }))}
-              className={`w-4 h-4 rounded-sm bg-rose-500 border border-black/40 cursor-pointer transition-all ${draft.color === 'rose' ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
-              title="Vermilion Rose"
-            />
-          </div>
-          <h4 className="font-cinzel text-wow-gold text-base sm:text-lg font-bold">
-            {store.shopSpells.some(s => s.id === spell.id) ? 'Edit Ability' : 'Create Ability'}
+    <div className="absolute -inset-[2px] bg-black/95 z-50 rounded flex flex-col p-4 animate-in fade-in duration-200 border-2 border-[#5a4b3c] overflow-y-auto custom-scrollbar">
+      {pickerField && (
+        <div className="absolute inset-0 bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl flex flex-col gap-4 z-50">
+          <h4 className="font-cinzel text-wow-gold text-lg font-bold border-b border-[#5a4b3c] pb-2 uppercase tracking-wider text-center">
+            Select {pickerField === 'dice' ? 'Dice' : pickerField === 'mp' ? 'MP Cost' : 'Max Uses'}
           </h4>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 flex gap-4">
-            <div className="relative">
-              <label className="block text-xs font-cinzel text-white mb-1">Icon</label>
-              <button 
-                onClick={() => setShowIconPicker(!showIconPicker)}
-                className="w-12 h-12 wow-button rounded flex items-center justify-center shadow-md focus:outline-none"
-              >
-                {typeof draft.icon === 'string' && draft.icon.length > 2 ? <RenderGMIcon iconName={draft.icon} size={24} color={draft.color} /> : draft.icon}
-              </button>
-              {showIconPicker && (
-                <IconPicker 
-                  value={draft.icon as string} 
-                  color={draft.color}
-                  onChange={(val) => setDraft(p => ({ ...p, icon: val }))}
-                  onClose={() => setShowIconPicker(false)}
-                />
+          <div className="flex-1 flex flex-col justify-center items-center gap-4">
+            <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
+              {pickerField === 'dice' && (
+                ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      setDraft(p => ({ ...p, dice: opt }));
+                      setPickerField(null);
+                    }}
+                    className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.dice === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
+                  >
+                    {opt}
+                  </button>
+                ))
+              )}
+
+              {pickerField === 'mp' && (
+                ['●', '1', '2', '3', '4', '5', '6'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      const val = opt === '●' ? '' : opt;
+                      setDraft(p => ({ ...p, r1: val, r2: val }));
+                      setPickerField(null);
+                    }}
+                    className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${(opt === '●' && !(draft.r2 || draft.r1)) || (draft.r2 === opt || draft.r1 === opt) ? 'bg-blue-500/20 border-blue-400 text-blue-400' : ''}`}
+                  >
+                    {opt}
+                  </button>
+                ))
+              )}
+
+              {pickerField === 'maxUses' && (
+                ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      setDraft(p => ({ ...p, maxUses: opt }));
+                      setPickerField(null);
+                    }}
+                    className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.maxUses === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
+                  >
+                    {opt}
+                  </button>
+                ))
               )}
             </div>
-            <div className="flex-1">
-              <label className="block text-xs font-cinzel text-white mb-1">Name</label>
-              <input type="text" value={draft.name} onChange={e => setDraft(p => ({ ...p, name: e.target.value }))} className="wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-cinzel text-white mb-1">Tag (Golden Label)</label>
-              <input type="text" value={draft.tag || ''} onChange={e => setDraft(p => ({ ...p, tag: e.target.value }))} placeholder="e.g. Rare, Lv 2..." className="wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors" />
-            </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-2 col-span-2 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center text-xs">
-            <div>
-              <label className="block text-[10px] font-cinzel text-gray-400 mb-1">DICE</label>
-              <button
-                type="button"
-                onClick={() => setPickerField('dice')}
-                className="wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
-              >
-                {draft.dice || '●'}
-              </button>
-            </div>
-            <div>
-              <label className="block text-[10px] font-cinzel text-blue-400 mb-1">MP COST</label>
-              <button
-                type="button"
-                onClick={() => setPickerField('mp')}
-                className="wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
-              >
-                {draft.r2 || draft.r1 || '●'}
-              </button>
-            </div>
-            <div>
-              <label className="block text-[10px] font-cinzel text-gray-400 mb-1">MAX USES</label>
-              <button
-                type="button"
-                onClick={() => setPickerField('maxUses')}
-                className="wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-xs transition-colors rounded hover:bg-wow-gold/10"
-              >
-                {draft.maxUses || '●'}
-              </button>
-            </div>
-          </div>
-
-          <div className="col-span-2">
-            <label className="block text-xs font-cinzel text-white mb-1">Description</label>
-            <textarea value={draft.description || ''} onChange={e => setDraft(p => ({ ...p, description: e.target.value }))} className="wow-input w-full p-2 h-20 resize-none bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors custom-scrollbar" />
-          </div>
+          <button
+            type="button"
+            onClick={() => setPickerField(null)}
+            className="wow-button w-full py-2.5 text-xs uppercase font-cinzel tracking-wider text-gray-400 border-[#5a4b3c]"
+          >
+            Back
+          </button>
         </div>
+      )}
 
-        <div className="flex items-center justify-end gap-2 mt-2">
-          {storeHasSpell(spell.id) && (
-            <>
-              <button 
-                onClick={() => {
-                  useGMStore.getState().toggleShopSpellBlock(spell.id);
-                  setDraft(p => ({ ...p, isBlocked: !p.isBlocked }));
-                }}
-                className={`wow-button text-sm flex items-center justify-center gap-1 w-24 h-10 ${draft.isBlocked ? "opacity-50" : ""}`}
-              >
-                {draft.isBlocked ? 'Unblock' : 'Block'}
-              </button>
-              <button 
-                onClick={() => setShowDeleteConfirm(true)}
-                className="wow-button text-sm flex items-center justify-center gap-1 w-24 h-10 text-red-400"
-              >
-                DELETE
-              </button>
-            </>
+      <div className="flex items-center justify-between border-b border-[#5a4b3c] pb-2 mb-3 shrink-0">
+        <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-[#5a4b3c]/50">
+          <button 
+            type="button"
+            onClick={() => setDraft(p => ({ ...p, color: 'gold' }))}
+            className={`w-5 h-5 rounded-sm bg-[#f3d178] border border-black/40 cursor-pointer transition-all ${(!draft.color || draft.color === 'gold') ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
+            title="Yellow (Default)"
+          />
+          <button 
+            type="button"
+            onClick={() => setDraft(p => ({ ...p, color: 'purple' }))}
+            className={`w-5 h-5 rounded-sm bg-purple-500 border border-black/40 cursor-pointer transition-all ${draft.color === 'purple' ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
+            title="Purple"
+          />
+          <button 
+            type="button"
+            onClick={() => setDraft(p => ({ ...p, color: 'rose' }))}
+            className={`w-5 h-5 rounded-sm bg-rose-500 border border-black/40 cursor-pointer transition-all ${draft.color === 'rose' ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
+            title="Vermilion Rose"
+          />
+          <div className="h-4 w-[1px] bg-[#5a4b3c]/50 mx-0.5" />
+          <button 
+            type="button"
+            onClick={() => decreaseCrafterTextSize()}
+            className="text-wow-gold hover:text-white transition-colors cursor-pointer p-0.5 flex items-center justify-center"
+            title="Réduire la taille du texte"
+          >
+            <ZoomOut size={14} />
+          </button>
+          <button 
+            type="button"
+            onClick={() => increaseCrafterTextSize()}
+            className="text-wow-gold hover:text-white transition-colors cursor-pointer p-0.5 flex items-center justify-center"
+            title="Augmenter la taille du texte"
+          >
+            <ZoomIn size={14} />
+          </button>
+        </div>
+        <h4 className="font-cinzel text-wow-gold text-base sm:text-lg font-bold">
+          {store.shopSpells.some(s => s.id === spell.id) ? 'Edit Ability' : 'Create Ability'}
+        </h4>
+      </div>
+      
+      <div className="flex gap-3 mb-3 shrink-0">
+        <div className="relative">
+          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Icon</label>
+          <button 
+            type="button"
+            onClick={() => setShowIconPicker(!showIconPicker)}
+            className="w-12 h-12 wow-button rounded flex items-center justify-center shadow-md focus:outline-none shrink-0"
+          >
+            {typeof draft.icon === 'string' && draft.icon.length > 2 ? <RenderGMIcon iconName={draft.icon} size={24} color={draft.color} /> : draft.icon}
+          </button>
+          {showIconPicker && (
+            <IconPicker 
+              value={draft.icon as string} 
+              color={draft.color}
+              onChange={(val) => setDraft(p => ({ ...p, icon: val }))}
+              onClose={() => setShowIconPicker(false)}
+            />
           )}
-          <div className="flex-1"></div>
-          <button onClick={onClose} className="wow-button w-24 h-10 text-sm flex items-center justify-center">Cancel</button>
-          <button onClick={() => onSave(draft)} className="wow-button w-24 h-10 text-sm flex items-center justify-center">Save</button>
         </div>
+        <div className="flex-1 min-w-0">
+          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Name</label>
+          <input 
+            type="text" 
+            value={draft.name} 
+            onChange={e => setDraft(p => ({ ...p, name: e.target.value }))} 
+            className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-macondo font-bold transition-colors min-h-[38px]", labelClass)} 
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Tag (Golden Label)</label>
+          <input 
+            type="text" 
+            value={draft.tag || ''} 
+            onChange={e => setDraft(p => ({ ...p, tag: e.target.value }))} 
+            placeholder="e.g. Rare, Lv 2..." 
+            className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-sans transition-colors min-h-[38px]", labelClass)} 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
+        <div>
+          <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
+          <button
+            type="button"
+            onClick={() => setPickerField('dice')}
+            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+          >
+            {draft.dice || '●'}
+          </button>
+        </div>
+        <div>
+          <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
+          <button
+            type="button"
+            onClick={() => setPickerField('mp')}
+            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+          >
+            {draft.r2 || draft.r1 || '●'}
+          </button>
+        </div>
+        <div>
+          <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES</label>
+          <button
+            type="button"
+            onClick={() => setPickerField('maxUses')}
+            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+          >
+            {draft.maxUses || '●'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col mb-3 min-h-0">
+        <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Description</label>
+        <textarea 
+          value={draft.description || ''} 
+          onChange={e => setDraft(p => ({ ...p, description: e.target.value }))} 
+          className={cn("wow-input w-full p-2 flex-1 resize-none bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-gray-300 custom-scrollbar rounded", labelClass)} 
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2 shrink-0 pt-1">
+        {storeHasSpell(spell.id) && (
+          <>
+            <button 
+              type="button"
+              onClick={() => {
+                useGMStore.getState().toggleShopSpellBlock(spell.id);
+                setDraft(p => ({ ...p, isBlocked: !p.isBlocked }));
+              }}
+              className={`wow-button text-xs font-cinzel font-bold flex items-center justify-center gap-1 px-3 py-2 ${draft.isBlocked ? "opacity-50" : ""}`}
+            >
+              {draft.isBlocked ? 'Unblock' : 'Block'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="wow-button text-xs font-cinzel font-bold flex items-center justify-center gap-1 px-3 py-2 text-red-400 border-red-800"
+            >
+              DELETE
+            </button>
+          </>
+        )}
+        <div className="flex-1"></div>
+        <button type="button" onClick={onClose} className="wow-button px-4 py-2 text-xs font-cinzel font-bold">Cancel</button>
+        <button type="button" onClick={() => onSave(draft)} className="wow-button-green px-4 py-2 text-xs font-cinzel font-bold">Save</button>
       </div>
 
       {showDeleteConfirm && (

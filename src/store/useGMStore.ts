@@ -38,6 +38,7 @@ export interface GMState {
   isFreeEdit: boolean;
   isFreeShop: boolean;
   blockPlayerRolls: boolean;
+  crafterTextSizeLevel: number;
 
   updateRoomName: (roomName: string) => void;
   addShopSpell: (spell: Spell) => void;
@@ -64,6 +65,8 @@ export interface GMState {
   setIsFreeEdit: (val: boolean) => void;
   setIsFreeShop: (val: boolean) => void;
   setBlockPlayerRolls: (val: boolean) => void;
+  increaseCrafterTextSize: () => void;
+  decreaseCrafterTextSize: () => void;
 }
 
 const defaultEncounter: EncounterAction = {
@@ -86,6 +89,7 @@ export const useGMStore = create<GMState>()(
       isFreeEdit: true,
       isFreeShop: true,
       blockPlayerRolls: false,
+      crafterTextSizeLevel: 0,
 
       updateRoomName: (roomName) => set({ roomName }),
       initScratchLinks: () => set((state) => {
@@ -109,6 +113,8 @@ export const useGMStore = create<GMState>()(
       setIsFreeEdit: (val) => set({ isFreeEdit: val }),
       setIsFreeShop: (val) => set({ isFreeShop: val }),
       setBlockPlayerRolls: (val) => set({ blockPlayerRolls: val }),
+      increaseCrafterTextSize: () => set((state) => ({ crafterTextSizeLevel: Math.min((state.crafterTextSizeLevel ?? 0) + 1, 4) })),
+      decreaseCrafterTextSize: () => set((state) => ({ crafterTextSizeLevel: Math.max((state.crafterTextSizeLevel ?? 0) - 1, 0) })),
 
       addShopSpell: (spell) => set((state) => ({ shopSpells: [...state.shopSpells, spell] })),
       removeShopSpell: (id) => set((state) => ({ shopSpells: state.shopSpells.filter(s => s.id !== id) })),

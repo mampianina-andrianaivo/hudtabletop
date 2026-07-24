@@ -17,16 +17,17 @@ export const app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
 export const db = app ? getFirestore(app, import.meta.env.VITE_FIRESTORE_DATABASE_ID) : null;
 export const auth = app ? getAuth(app) : null;
 
-// Helper to ensure auth is ready
+// Helper to ensure auth is ready (best effort)
 export const ensureAuthenticated = async () => {
-  if (!auth) throw new Error("Firebase not configured");
+  if (!auth) return null;
   if (auth.currentUser) return auth.currentUser;
   
   try {
     const cred = await signInAnonymously(auth);
     return cred.user;
   } catch (err) {
-    console.error("Failed to authenticate anonymously:", err);
-    throw err;
+    console.warn("Failed to authenticate anonymously (is it enabled in Firebase Console?):", err);
+    // Don't throw, let the app try to proceed as Firestore rules might allow it
+    return null;
   }
 };

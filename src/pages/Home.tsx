@@ -268,9 +268,8 @@ export function Home({ onSelectRole }: HomeProps) {
     setErrorMessage(null);
 
     try {
-      const { auth, ensureAuthenticated, db } = await import('@/lib/firebase');
-      if (!auth || !db) throw new Error("Firebase not initialized.");
-      await ensureAuthenticated();
+      const { db } = await import('@/lib/firebase');
+      if (!db) throw new Error("Firebase not initialized.");
       
       const { collection, query, where, getDocs, doc, getDoc, updateDoc } = await import('firebase/firestore');
 
@@ -298,11 +297,12 @@ export function Home({ onSelectRole }: HomeProps) {
       }
 
       const envPassword = import.meta.env.VITE_GAME_PASSWORD;
-      if (envPassword && playPassword.trim() !== envPassword) {
-        throw new Error("password or room code error");
-      }
+      const providedPassword = playPassword.trim();
+      
+      const isMasterPassword = envPassword && providedPassword === envPassword;
+      const isRoomPassword = roomData.passwordHash && providedPassword === roomData.passwordHash;
 
-      if (roomData.passwordHash !== playPassword.trim()) {
+      if (!isMasterPassword && !isRoomPassword) {
         throw new Error("password or room code error");
       }
 
@@ -347,9 +347,9 @@ export function Home({ onSelectRole }: HomeProps) {
       useMultiplayerStore.getState().disconnect(); // Reset previous session
       useMultiplayerStore.getState().setCredentials({
         roomName: data.roomName,
-        password: playPassword.trim(),
+        password: providedPassword,
         role: 'player',
-        joinCode: playLink.trim().toUpperCase(),
+        joinCode: joinCode,
         pseudo: actualCharacterName,
         isConnected: true,
         rollLogs: [],

@@ -23,9 +23,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const gmStore = useGMStore();
 
   const isScratch = !mpStore.isConnected;
-  const activeEncounter = isScratch 
-    ? (gmStore.currentDraw?.published ? gmStore.currentDraw : null) 
-    : (mpStore.publishedEncounter?.published || (mpStore.publishedEncounter && mpStore.publishedEncounter.lines?.length > 0) ? mpStore.publishedEncounter : null);
+  const rawEncounter = isScratch ? gmStore.currentDraw : mpStore.publishedEncounter;
+  const activeEncounter = (rawEncounter && Array.isArray(rawEncounter.lines) && rawEncounter.lines.length > 0) ? rawEncounter : null;
   
   // Ensure role is set for PlayerView
   useEffect(() => {

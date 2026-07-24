@@ -108,25 +108,26 @@ export function GMEncounters() {
 
   const handlePublish = async () => {
     store.publishDraw();
+    const currentDraw = useGMStore.getState().currentDraw;
     
     // Log the published encounter in the public log
-    if (store.currentDraw) {
-      const linesText = store.currentDraw.lines.map((line, lIdx) => 
+    if (currentDraw) {
+      const linesText = currentDraw.lines.map((line, lIdx) => 
         `#${lIdx + 1}: ${line.map(act => act.name + (act.sub ? ` (+${act.sub})` : '')).join(' > ')}`
       ).join(' / ');
       
-      const logMsg = `⚔️ GM published an encounter (Lvl ${store.currentDraw.level}): ${linesText}`;
+      const logMsg = `⚔️ GM published an encounter (Lvl ${currentDraw.level}): ${linesText}`;
       await sendOnlineRoll(logMsg);
     }
 
     // Write immediately to Firestore
     const mpState = useMultiplayerStore.getState();
-    if (mpState.isConnected && mpState.roomName && db) {
+    if (mpState.isConnected && mpState.roomName && db && currentDraw) {
       try {
         const roomRef = doc(db, 'rooms', mpState.roomName.trim().toLowerCase());
         await updateDoc(roomRef, {
           publishedEncounter: {
-            ...store.currentDraw,
+            ...currentDraw,
             published: true,
             timestamp: Date.now()
           }

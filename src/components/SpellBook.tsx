@@ -446,7 +446,7 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                     canBuy ? "wow-button-green" : "wow-button text-white border-gray-700 cursor-pointer opacity-50"
                   )}
                 >
-                  {isWaitingSpell ? "WAITING GM..." : (isFreeShop ? "BUY (FREE)" : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP"))}
+                  {isWaitingSpell ? "WAITING GM..." : (isFreeShop ? "BUY (FREE)" : (mpStore.isConnected ? (has3Exp ? "ASK TO BUY (3 EXP)" : "NEED 3 EXP") : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP")))}
                 </button>
               );
             })()}

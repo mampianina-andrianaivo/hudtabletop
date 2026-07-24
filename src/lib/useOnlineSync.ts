@@ -4,6 +4,7 @@ import { useGMStore } from '@/store/useGMStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+import { deserializeEncounter } from '@/lib/encounterUtils';
 
 export async function sendOnlineRoll(logInput: string | {
   text: string;
@@ -166,7 +167,7 @@ export function useOnlineSync() {
       };
 
       if (role === 'player') {
-        updates.publishedEncounter = data.publishedEncounter;
+        updates.publishedEncounter = deserializeEncounter(data.publishedEncounter);
         updates.publicNotes = data.publicNotes || '';
         if (data.shopSpells) updates.shopSpells = data.shopSpells;
 

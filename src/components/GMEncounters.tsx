@@ -6,6 +6,7 @@ import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { sendOnlineRoll } from '@/lib/useOnlineSync';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { serializeEncounter } from '@/lib/encounterUtils';
 
 function parseEncounterScheme(text: string): DrawResult {
   const trimmed = text.trim();
@@ -126,14 +127,29 @@ export function GMEncounters() {
       try {
         const roomRef = doc(db, 'rooms', mpState.roomName.trim().toLowerCase());
         await updateDoc(roomRef, {
-          publishedEncounter: {
+          publishedEncounter: serializeEncounter({
             ...currentDraw,
             published: true,
             timestamp: Date.now()
-          }
+          })
         });
       } catch (err) {
         console.error("Error publishing encounter immediately:", err);
+      }
+    }
+  };
+
+  const handleClear = async () => {
+    store.clearDraw();
+    const mpState = useMultiplayerStore.getState();
+    if (mpState.isConnected && mpState.roomName && db) {
+      try {
+        const roomRef = doc(db, 'rooms', mpState.roomName.trim().toLowerCase());
+        await updateDoc(roomRef, {
+          publishedEncounter: null
+        });
+      } catch (err) {
+        console.error("Error clearing encounter in Firestore:", err);
       }
     }
   };
@@ -153,7 +169,7 @@ export function GMEncounters() {
       try {
         const roomRef = doc(db, 'rooms', mpState.roomName.trim().toLowerCase());
         await updateDoc(roomRef, {
-          publishedEncounter: updatedDraw
+          publishedEncounter: serializeEncounter(updatedDraw)
         });
       } catch (err) {
         console.error("Error updating encounter line completion:", err);
@@ -311,7 +327,7 @@ export function GMEncounters() {
                         <Copy size={16} />
                       </button>
                       <button 
-                        onClick={() => store.clearDraw()}
+                        onClick={handleClear}
                         className="wow-button font-cinzel text-sm w-24 h-10"
                       >
                         Clear
@@ -371,7 +387,7 @@ export function GMEncounters() {
                         <Copy size={16} />
                       </button>
                       <button 
-                        onClick={() => store.clearDraw()}
+                        onClick={handleClear}
                         className="wow-button font-cinzel text-sm w-24 h-10"
                       >
                         Clear

@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
+import { deserializeEncounter } from '@/lib/encounterUtils';
 
 export async function manualSync() {
   const { roomName, role, joinCode } = useMultiplayerStore.getState();
@@ -31,7 +32,7 @@ export async function manualSync() {
 
   // 2. Role-specific updates
   if (role === 'player') {
-    updates.publishedEncounter = data.publishedEncounter || null;
+    updates.publishedEncounter = deserializeEncounter(data.publishedEncounter);
     updates.publicNotes = data.publicNotes || '';
     if (data.shopSpells) {
       updates.shopSpells = data.shopSpells;

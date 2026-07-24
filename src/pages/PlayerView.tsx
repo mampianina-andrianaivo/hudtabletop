@@ -11,6 +11,7 @@ import { RollLogsSection } from '@/components/RollLogsSection';
 import { PlayerConfigModal } from '@/components/PlayerConfigModal';
 import { NoteTextarea } from '@/components/NoteTextarea';
 import { cn, parseMax, parseMpCost } from '@/lib/utils';
+import { deserializeEncounter } from '@/lib/encounterUtils';
 
 interface PlayerViewProps {
   onGoHome: () => void;
@@ -24,7 +25,11 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
   const isScratch = !mpStore.isConnected;
   const rawEncounter = isScratch ? gmStore.currentDraw : mpStore.publishedEncounter;
-  const activeEncounter = (rawEncounter && Array.isArray(rawEncounter.lines) && rawEncounter.lines.length > 0) ? rawEncounter : null;
+  const activeEncounter = React.useMemo(() => {
+    if (!rawEncounter) return null;
+    const deserialized = deserializeEncounter(rawEncounter);
+    return (deserialized && Array.isArray(deserialized.lines) && deserialized.lines.length > 0) ? deserialized : null;
+  }, [rawEncounter]);
   
   // Ensure role is set for PlayerView
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power } from 'lucide-react';
+import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power, ZoomIn, ZoomOut } from 'lucide-react';
 import { GMSpellCrafter } from '@/components/GMSpellCrafter';
 import { GMEncounters } from '@/components/GMEncounters';
 import { useGMStore } from '@/store/useGMStore';
@@ -24,6 +24,7 @@ interface GMViewProps {
 export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const store = useGMStore();
   const mpStore = useMultiplayerStore();
+  const pStore = usePlayerStore();
 
   // Scratch init
   useEffect(() => {
@@ -534,12 +535,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
           
           {isViewingPlayer && viewedPlayer ? (
             // READ-ONLY PLAYER HUD MODE FOR THE GM - MATCHING THE PLAYER'S ORIGINAL HUD LAYOUT
-            <div className="flex-1 flex flex-col bg-black/50 border border-wow-gold/30 rounded p-3 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
-
+            <div className="flex-1 flex flex-col bg-black/50 border-2 border-red-600 rounded p-3 relative overflow-hidden h-full shadow-[0_0_20px_rgba(220,38,38,0.2)]">
               {/* Close viewing header banner */}
               <div className="flex items-center justify-between border-b border-[#5a4b3c]/60 pb-1 mb-2 mt-1 bg-wow-gold/10 px-2.5 py-1 rounded border border-wow-gold/20 shrink-0">
                 <span className="font-cinzel text-xs text-wow-gold flex items-center gap-1.5">
@@ -555,159 +551,187 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 </button>
               </div>
 
-              {activeCharState ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* TOP STATS/PHOTO/DICE ROW (3 Columns grid - Matches PlayerView layout) */}
-                  <div className="grid grid-cols-3 gap-2 border-b border-[#5a4b3c]/60 pb-2 mb-2 items-start shrink-0">
-                    
-                    {/* 1. STATS / ENCOUNTERS Toggle - Left */}
-                    <div className="flex flex-col items-center justify-start">
-                      <button
-                        onClick={() => setInspectEncounterViewActive(!inspectEncounterViewActive)}
-                        className={cn(
-                          "w-16 h-16 sm:w-20 sm:h-20 rounded flex flex-col items-center justify-center relative overflow-hidden transition-all select-none active:scale-95 shadow-md wow-button",
-                          inspectEncounterViewActive ? "brightness-125 border-4 border-white" : ""
-                        )}
-                        title="Toggle inspect view."
-                      >
-                        {inspectEncounterViewActive ? (
-                          <Swords size={22} className="text-wow-gold mt-1 " />
-                        ) : (
-                          <User size={20} className="text-wow-gold mt-1" />
-                        )}
-                      </button>
-                      <span className="mt-1 font-cinzel font-bold text-wow-gold text-[10px] sm:text-xs drop-shadow-md text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider">
-                        {inspectEncounterViewActive ? "ENCOUNTERS" : "STATS"}
-                      </span>
-                    </div>
+              {/* Controls row (Zoom & Gear - Ask For Stat disabled) */}
+              <div className="flex items-center justify-center gap-2 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
+                <button 
+                  onClick={() => pStore.decreaseTextSize()}
+                  className="wow-button p-1 text-wow-gold hover:text-white"
+                  title="Decrease text size"
+                >
+                  <ZoomOut size={14} />
+                </button>
 
-                    {/* 2. Photo of inspected player - Middle (No name underneath) */}
-                    <div className="flex flex-col items-center justify-start">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded border-2 border-[#FFD100] overflow-hidden bg-wow-dark shadow-[0_0_10px_rgba(0,0,0,0.8)] relative shrink-0">
-                        {activeCharState.photo ? (
-                          <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center font-cinzel text-[8px] text-white/50 text-center uppercase">No Hero</div>
-                        )}
-                        <div className="absolute inset-0 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] pointer-events-none"></div>
-                      </div>
-                    </div>
+                <div className="flex gap-0.5 items-center shrink-0">
+                  <button 
+                    onClick={() => pStore.decreasePhotoHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                  >
+                    <User size={10} />-
+                  </button>
+                  <button 
+                    onClick={() => pStore.increasePhotoHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                  >
+                    <User size={10} />+
+                  </button>
+                </div>
 
-                    {/* 3. ROLL VIEW info block */}
-                    <div className="flex flex-col items-center justify-start">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded flex flex-col items-center justify-center relative overflow-hidden bg-black/40 border border-[#5a4b3c] p-1 text-center opacity-80">
-                        <Dices size={22} className="text-wow-gold/60" />
-                      </div>
-                      <span className="mt-1 font-cinzel font-bold text-wow-gold/60 text-[9px] text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider">
-                        ROLL VIEW
-                      </span>
-                    </div>
+                <button 
+                  disabled
+                  className="px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px] wow-button text-wow-gold opacity-30 cursor-not-allowed"
+                  title="Disabled for GM"
+                >
+                  <Sparkles size={12} /> ASK FOR STAT
+                </button>
 
-                  </div>
+                <div className="flex gap-0.5 items-center shrink-0">
+                  <button 
+                    onClick={() => pStore.decreaseBarHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                  >
+                    <FileText size={10} />-
+                  </button>
+                  <button 
+                    onClick={() => pStore.increaseBarHeight?.()}
+                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                  >
+                    <FileText size={10} />+
+                  </button>
+                </div>
 
-                  {/* BOTTOM LOWER HALF: EITHER ENCOUNTER DETAIL OR STATS ZONE */}
-                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                    {inspectEncounterViewActive ? (
-                      <div className="h-full flex flex-col gap-2 relative p-1">
-                        <h3 className="font-cinzel text-wow-gold text-xs text-center border-b border-[#5a4b3c]/40 pb-1 flex items-center justify-center gap-1.5 uppercase tracking-widest">
-                          <Swords size={12} className="text-red-500" />
-                          <span>GM Active Encounter</span>
-                        </h3>
+                <button 
+                  onClick={() => pStore.increaseTextSize()}
+                  className="wow-button p-1 text-wow-gold hover:text-white"
+                >
+                  <ZoomIn size={14} />
+                </button>
+              </div>
 
-                        {mpStore.publishedEncounter ? (
-                          <div className="flex-1 flex flex-col gap-3 font-sans text-xs pt-1">
-                            <div className="flex items-center justify-center text-[10px] text-wow-gold/70 border-b border-[#5a4b3c]/30 pb-1 shrink-0">
-                              <span>LEVEL: {mpStore.publishedEncounter.level}</span>
-                            </div>
-                            <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar">
-                              {mpStore.publishedEncounter.lines?.map((line: any, idx: number) => {
-                                const isCompleted = !!mpStore.publishedEncounter?.completedLines?.[idx];
-                                return (
-                                  <button
-                                    key={idx}
-                                    onClick={() => handleToggleLineInGMView(idx)}
-                                    className={`w-full border rounded p-1 flex flex-row gap-1 shadow-md items-stretch justify-center transition-all duration-200 select-none text-left ${
-                                      isCompleted
-                                        ? 'bg-green-950/55 border-green-600/80 hover:bg-green-900/50 hover:border-green-500'
-                                        : 'bg-black/60 border border-[#5a4b3c]/30 hover:bg-black/80 hover:border-[#7d6752]'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-center min-w-8 px-1 shrink-0 font-cinzel text-wow-gold text-xs font-bold bg-[#1a110a] rounded border border-[#3b2c19]">
-                                      #{idx + 1}
-                                    </div>
-                                    {line.map((action: any, aIdx: number) => (
-                                      <div key={aIdx} className="bg-[#1a110a] px-1 py-1 rounded border border-[#3b2c19] flex flex-col items-center justify-start flex-1 text-center min-w-0 h-full gap-0.5">
-                                        <span className="font-macondo text-white text-[11px] leading-tight w-full truncate" title={action.name}>{action.name}</span>
-                                        {action.sub && (
-                                          <span className="text-[9px] font-sans bg-purple-900/40 text-purple-200 px-0.5 py-0.2 rounded mt-0.5 border border-purple-800 w-full truncate" title={action.sub}>
-                                            + {action.sub}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex-1 flex flex-col items-center justify-center text-center text-white/40 p-4 font-cinzel">
-                            <Sword size={24} className="text-wow-gold/30 mb-2" />
-                            <p className="text-[10px]">No active encounter published yet.</p>
-                          </div>
-                        )}
-                      </div>
+              {/* Top Section: Encounter Toggle / Photo / Dice */}
+              <div className="grid grid-cols-3 gap-2 mb-1.5 shrink-0">
+                {/* 1. STATS / ENCOUNTERS Toggle - Left (Disabled for GM) */}
+                <div className="flex flex-col items-center justify-start">
+                  <button
+                    disabled
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded flex flex-col items-center justify-center relative overflow-hidden transition-all select-none shadow-md wow-button opacity-50 cursor-not-allowed"
+                    title="Encounters disabled when inspecting"
+                  >
+                    <User size={20} className="text-wow-gold mt-1" />
+                  </button>
+                  <span className="mt-1 font-cinzel font-bold text-wow-gold text-[10px] sm:text-xs drop-shadow-md text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider">
+                    STATS
+                  </span>
+                </div>
+
+                {/* 2. Photo of inspected player - Middle */}
+                <div className="flex flex-col items-center justify-start">
+                  <button
+                    disabled
+                    className="w-20 sm:w-24 rounded border-2 overflow-hidden bg-wow-dark shadow-[0_0_15px_rgba(0,0,0,0.8)] relative shrink-0 transition-all select-none outline-none border-red-600 opacity-90 cursor-not-allowed"
+                    style={{ height: `${pStore.photoHeight ?? 96}px` }}
+                  >
+                    {activeCharState.photo ? (
+                      <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="flex flex-col gap-3">
-                        {/* Resources Zone */}
-                        <div className={cn(
-                          "grid gap-x-2 gap-y-1.5", 
-                          (activeCharState.resources || []).filter((r: any) => r.isVisible).length > 2 ? 'grid-cols-2' : 'grid-cols-1'
-                        )}>
-                          {activeCharState.resources?.map((res: any, idx: number) => {
-                            if (!res.isVisible) return null;
-                            return (
-                              <ResourceBar 
-                                key={idx} 
-                                resource={res} 
-                                isFreeEdit={false}
-                                onChange={() => {}} 
-                              />
-                            );
-                          })}
-                        </div>
-
-                        {activeStats.filter((s: any) => s.isVisible).length > 0 && (
-                          <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent shrink-0 my-1"></div>
-                        )}
-
-                        {/* Stats Zone */}
-                        <div className={cn(
-                          "grid gap-x-2 gap-y-1.5", 
-                          activeStats.filter((s: any) => s.isVisible).length > 4 ? 'grid-cols-2' : 'grid-cols-1'
-                        )}>
-                          {activeStats.map((stat: any, idx: number) => {
-                            if (!stat.isVisible) return null;
-                            return (
-                              <StatBar 
-                                key={idx} 
-                                stat={stat} 
-                                isFreeEdit={false}
-                                onChange={() => {}} 
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center font-cinzel text-[10px] text-white/50 text-center uppercase">No Hero</div>
                     )}
-                  </div>
+                    <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] pointer-events-none"></div>
+                  </button>
                 </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center text-white/50 p-6 font-cinzel">
-                  <User size={30} className="text-wow-gold/40 mb-2 " />
-                  <p className="text-xs">Player connected. Waiting for character sync...</p>
+
+                {/* 3. Target Dice Roller (Disabled for GM) */}
+                <div className="flex flex-col items-center justify-start">
+                  <button
+                    disabled
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded flex flex-col items-center justify-center relative overflow-hidden transition-all select-none shadow-md wow-button p-1 text-center opacity-50 cursor-not-allowed"
+                    title="Rolling disabled when inspecting"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="font-macondo text-[9px] text-wow-gold/70 mt-1 uppercase">Target</span>
+                      <Dices size={16} className="text-wow-gold/40 mb-1" />
+                      <span className="font-macondo text-[11px] text-wow-gold/50 truncate w-full px-1">None</span>
+                    </div>
+                  </button>
+                  <span className="mt-1 font-cinzel font-bold text-wow-gold text-[10px] sm:text-xs drop-shadow-md text-center h-8 flex items-start justify-center px-1 w-full uppercase tracking-wider">
+                    ROLL
+                  </span>
                 </div>
-              )}
+              </div>
+
+              {/* STANDARD CHARACTER VIEW CONTENT BELOW THE 3 SQUARES */}
+              <div className="flex flex-col h-full rounded transition-colors overflow-y-auto custom-scrollbar pr-1">
+                {/* Resources Zone: HP and EXP side-by-side on top, MP full width below */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3 shrink-0">
+                  {(() => {
+                    // Compute activeResources the exact same way as PlayerView
+                    const rawResources = activeCharState.resources || [];
+                    const fixedStats = FIXED_STATS_NAMES.map((name, i) => ({
+                      name, current: (activeCharState.stats?.[i] || { current: 0 }).current
+                    }));
+                    const sortedStats = [...fixedStats].sort((a, b) => a.current - b.current);
+                    const computedMpMax = sortedStats[0].current + sortedStats[1].current;
+                    const res = [
+                      { ...rawResources[0], name: 'HP', color: 'red', isVisible: true, max: '3' },
+                      { ...rawResources[1], name: 'MP', color: 'blue', isVisible: true, max: String(computedMpMax) },
+                      { ...rawResources[2], name: 'EXP', color: 'purple', isVisible: true, max: '3' }
+                    ];
+
+                    return (
+                      <>
+                        {res[0]?.isVisible && (
+                          <ResourceBar 
+                            resource={res[0]} 
+                            isFreeEdit={false}
+                            onChange={() => {}} 
+                          />
+                        )}
+                        {res[2]?.isVisible && (
+                          <ResourceBar 
+                            resource={res[2]} 
+                            isFreeEdit={false}
+                            onChange={() => {}} 
+                          />
+                        )}
+                        {res[1]?.isVisible && (
+                          <div className="col-span-2">
+                            <ResourceBar 
+                              resource={res[1]} 
+                              isFreeEdit={false}
+                              onChange={() => {}} 
+                            />
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {activeStats.length > 0 && (
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent mb-3 shrink-0"></div>
+                )}
+
+                {/* Stats Zone */}
+                <div className={cn(
+                  "grid gap-x-3 gap-y-1", 
+                  activeStats.length > 4 ? 'grid-cols-2' : 'grid-cols-1'
+                )}>
+                  {activeStats.map((stat: any, idx: number) => (
+                    <StatBar 
+                      key={idx} 
+                      stat={stat} 
+                      isFreeEdit={false}
+                      onChange={() => {}} 
+                      targetModeProps={{
+                        isSelectingTarget: false,
+                        isSelected: false,
+                        isOtherSelected: false,
+                        onSelectTarget: () => {},
+                        onLaunchRoll: () => {}
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
             // NORMAL GM DRAWER VIEW

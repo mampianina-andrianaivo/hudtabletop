@@ -459,7 +459,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         {/* Section 2: Character Name Header (lg:col-span-4) */}
         <div className={cn(
           "lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]",
-          isViewMode && "border-red-600"
+          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
         )}>
           <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate w-full uppercase">
             {activeName || "CHARACTER"}

@@ -515,7 +515,7 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
           </div>
 
           <div className="flex gap-2 shrink-0 pt-1">
-             {!readOnly && isFreeEdit && (
+             {!readOnly && (
                <button onClick={() => { setSpellToDelete(detailedSpell.id); setSpellDetailsId(null); }} className="wow-button bg-red-900/50 text-red-500 px-4 py-2 flex items-center justify-center"><Trash2 size={16}/></button>
              )}
              <button onClick={() => setSpellDetailsId(null)} className="wow-button px-6 py-2 text-xs rounded flex-1">CLOSE</button>

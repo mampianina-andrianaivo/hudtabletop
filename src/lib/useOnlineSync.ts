@@ -206,6 +206,13 @@ export function useOnlineSync() {
             } else if (cmd.type === 'deduct_exp') {
               const res = newResources[expIndex];
               newResources[expIndex] = { ...res, current: Math.max(0, res.current - cmd.value) };
+            } else if (cmd.type === 'add_stat' && cmd.statName) {
+              const currentStats = pStore.stats || [];
+              const statIndex = currentStats.findIndex(s => s.name.toUpperCase() === cmd.statName.toUpperCase());
+              if (statIndex !== -1) {
+                const s = currentStats[statIndex];
+                pStore.updateStat(statIndex, { current: Math.min(12, s.current + (cmd.value || 1)) });
+              }
             } else if (cmd.type === 'add_spell' && cmd.spell) {
               const currentSpells = pStore.spells;
               if (!currentSpells.some(s => s.name.toLowerCase() === cmd.spell.name.toLowerCase())) {

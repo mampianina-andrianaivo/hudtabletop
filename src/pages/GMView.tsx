@@ -118,12 +118,19 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
           pendingCmds.push({ type: 'add_spell', spell: currentRequest.spell, ts: Date.now() });
         }
 
+        // Add stat if ask_stat request with targetStat
+        if (currentRequest.type === 'ask_stat' && currentRequest.targetStat) {
+          pendingCmds.push({ type: 'add_stat', statName: currentRequest.targetStat, value: 1, ts: Date.now() });
+        }
+
         if (pendingCmds.length > 0) {
           updates[`players.${joinCode}.pendingCommands`] = arrayUnion(...pendingCmds);
         }
         
         // Log the acceptance
-        let text = `GM accepted ${currentRequest.from}'s request for a Stat Increase!`;
+        let text = currentRequest.targetStat 
+          ? `GM accepted ${currentRequest.from}'s request for +1 ${currentRequest.targetStat}!`
+          : `GM accepted ${currentRequest.from}'s request for a Stat Increase!`;
         if (currentRequest.type === 'ask_spell') {
           text = `GM accepted ${currentRequest.from}'s request for Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'Ability'}!`;
         } else if (currentRequest.type === 'ask_shop') {
@@ -139,7 +146,9 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         };
         updates['rollLogs'] = [...rollLogs.slice(-49), newRoll];
       } else {
-        let text = `GM declined ${currentRequest.from}'s request for a Stat Increase.`;
+        let text = currentRequest.targetStat
+          ? `GM declined ${currentRequest.from}'s request for +1 ${currentRequest.targetStat}.`
+          : `GM declined ${currentRequest.from}'s request for a Stat Increase.`;
         if (currentRequest.type === 'ask_spell') {
           text = `GM declined ${currentRequest.from}'s request for Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'Ability'}.`;
         } else if (currentRequest.type === 'ask_shop') {
@@ -520,7 +529,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 </p>
                 <div className="uppercase text-amber-300 font-mono text-sm bg-black/60 border border-wow-gold/40 px-3 py-2 rounded shadow-inner">
                   {currentRequest.type === 'ask_stat' 
-                    ? 'Stat Increase' 
+                    ? `Stat Increase: +1 ${currentRequest.targetStat || 'Stat'}` 
                     : currentRequest.type === 'ask_spell'
                     ? `Ability: ${currentRequest.spellName || currentRequest.spell?.name || 'New Ability'}`
                     : 'Open Shop'}

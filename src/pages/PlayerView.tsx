@@ -96,6 +96,53 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const [copiedEncounter, setCopiedEncounter] = useState(false);
   const autoClearTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isSelectingStatForBoost, setIsSelectingStatForBoost] = useState(false);
+  const [selectedStatForBoost, setSelectedStatForBoost] = useState<string | null>(null);
+
+  const handleConfirmStatBoost = async (statName: string) => {
+    if (!statName) return;
+    const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
+    const expIdx = store.resources.findIndex(r => r.name === 'EXP');
+    const has3Exp = expIdx !== -1 && store.resources[expIdx].current >= 3;
+    if (isWaiting || (!isFreeEdit && !has3Exp)) return;
+
+    if (!mpStore.isConnected) {
+      if (!isFreeEdit) {
+        store.updateResource(expIdx, { current: Math.max(0, store.resources[expIdx].current - 3) });
+      }
+      const statIndex = store.stats.findIndex(s => s.name.toUpperCase() === statName.toUpperCase());
+      if (statIndex !== -1) {
+        const cur = store.stats[statIndex].current;
+        store.updateStat(statIndex, { current: Math.min(12, cur + 1) });
+      }
+    } else {
+      const { db } = await import('@/lib/firebase');
+      const { updateDoc, arrayUnion, doc } = await import('firebase/firestore');
+      if (db && mpStore.roomName) {
+        const myName = store.name || mpStore.pseudo || 'Player';
+        sendOnlineRoll({
+          text: `${myName} requested +1 ${statName} boost from the GM`,
+          type: 'info',
+          playerName: myName
+        });
+
+        await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
+          gmRequests: arrayUnion({ 
+            type: 'ask_stat', 
+            targetStat: statName, 
+            from: myName, 
+            joinCode: mpStore.joinCode, 
+            isFreeEdit, 
+            ts: Date.now() 
+          })
+        });
+      }
+    }
+
+    setIsSelectingStatForBoost(false);
+    setSelectedStatForBoost(null);
+  };
+
   const clearRollState = () => {
     if (autoClearTimerRef.current) {
       clearTimeout(autoClearTimerRef.current);
@@ -610,50 +657,36 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             {(() => {
               const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
               const has3Exp = (store.resources.find(r => r.name === 'EXP')?.current ?? 0) >= 3;
-              // Free Edit allows direct editing, so Ask For Stat is not needed
               const canAsk = !isFreeEdit && has3Exp && !isWaiting;
               return (
-            <button 
-              disabled={isFreeEdit || !canAsk}
-              onClick={async () => {
-                 if (isWaiting || isFreeEdit || !canAsk) return;
-                 if (!mpStore.isConnected) {
-                   if (!isFreeEdit) {
-                     const expIdx = store.resources.findIndex(r => r.name === 'EXP');
-                     if (expIdx !== -1) {
-                       store.updateResource(expIdx, { current: Math.max(0, store.resources[expIdx].current - 3) });
+                <button 
+                  disabled={isFreeEdit || (!canAsk && !isSelectingStatForBoost)}
+                  onClick={() => {
+                     if (isWaiting || isFreeEdit) return;
+                     if (isSelectingStatForBoost) {
+                       setIsSelectingStatForBoost(false);
+                       setSelectedStatForBoost(null);
+                     } else if (canAsk) {
+                       setIsSelectingStatForBoost(true);
+                       setSelectedStatForBoost(null);
+                       setIsSelectingTarget(false);
                      }
-                   }
-                 } else {
-                   const { db } = await import('@/lib/firebase');
-                   const { updateDoc, arrayUnion, doc } = await import('firebase/firestore');
-                   if (db && mpStore.roomName) {
-                      const myName = store.name || mpStore.pseudo || 'Player';
-                      sendOnlineRoll({
-                        text: `${myName} requested a new Stat from the GM`,
-                        type: 'info',
-                        playerName: myName
-                      });
-
-                      await updateDoc(doc(db, 'rooms', mpStore.roomName.trim().toLowerCase()), {
-                         gmRequests: arrayUnion({ type: 'ask_stat', from: myName, joinCode: mpStore.joinCode, isFreeEdit, ts: Date.now() })
-                      });
-                   }
-                 }
-              }}
-              className={cn(
-                "px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px]",
-                isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
-                isFreeEdit 
-                  ? "wow-button opacity-40 cursor-not-allowed" 
-                  : canAsk ? "wow-button text-wow-gold font-bold" : "wow-button text-wow-gold opacity-30 cursor-not-allowed"
-              )}
-              title={isFreeEdit ? "Free Edit is active (modify stats directly)" : "Request a stat increase from GM (Cost: 3 EXP)"}
-              style={isWaiting ? { cursor: 'pointer' } : {}}
-            >
-              <Sparkles size={12} /> {isWaiting ? "WAITING..." : "ASK FOR STAT"}
-            </button>
-            );
+                  }}
+                  className={cn(
+                    "px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px]",
+                    isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
+                    isSelectingStatForBoost ? "bg-red-950/80 text-red-300 border border-red-800 hover:bg-red-900 font-bold cursor-pointer" :
+                    isFreeEdit ? "wow-button opacity-40 cursor-not-allowed" :
+                    canAsk ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] font-bold cursor-pointer" :
+                    "wow-button text-wow-gold opacity-30 cursor-not-allowed"
+                  )}
+                  title={isFreeEdit ? "Free Edit is active (modify stats directly)" : isSelectingStatForBoost ? "Cancel stat boost" : "Request a stat increase from GM (Cost: 3 EXP)"}
+                  style={isWaiting ? { cursor: 'pointer' } : {}}
+                >
+                  <Sparkles size={12} className={canAsk && !isSelectingStatForBoost ? "text-purple-300 animate-pulse" : ""} /> 
+                  {isSelectingStatForBoost ? "CANCEL" : isWaiting ? "WAITING..." : "ASK FOR STAT"}
+                </button>
+              );
             })()}
 
             {/* LOUPE PLUS */}
@@ -1008,6 +1041,20 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                         onChange={isViewMode ? () => {} : (delta) => {
                           store.updateStat(idx, { current: Math.max(0, Math.min(12, stat.current + delta)) });
                         }} 
+                        statBoostModeProps={{
+                          isSelectingForBoost: isSelectingStatForBoost && !isViewMode,
+                          isSelectedForBoost: selectedStatForBoost === stat.name,
+                          onSelectForBoost: () => {
+                            if (selectedStatForBoost === stat.name) {
+                              setSelectedStatForBoost(null);
+                            } else {
+                              setSelectedStatForBoost(stat.name);
+                            }
+                          },
+                          onConfirmBoost: () => {
+                            handleConfirmStatBoost(stat.name);
+                          }
+                        }}
                         targetModeProps={{
                           isSelectingTarget,
                           isSelected: selectedTarget?.type === 'stat' && selectedTarget?.name === stat.name,

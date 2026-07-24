@@ -75,14 +75,18 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                 r.joinCode === mpStore.joinCode && 
                 (r.type === 'ask_spell' || r.type === 'ask_stat')
               );
+              const expIdx = store.resources.findIndex(r => r.name === 'EXP');
+              const has3Exp = expIdx !== -1 && store.resources[expIdx].current >= 3;
               return (
                 <button 
                   onClick={() => !isWaiting && setShowShop(true)}
                   disabled={isWaiting}
                   className={cn(
-                    isFreeShop ? "wow-button-green font-bold" : "wow-button",
-                    "text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px]",
-                    isWaiting ? "opacity-50 !cursor-pointer" : ""
+                    "text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px] font-cinzel transition-all",
+                    isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 opacity-50 !cursor-pointer font-bold" :
+                    isFreeShop ? "wow-button-green font-bold" :
+                    has3Exp ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] font-bold cursor-pointer" :
+                    "wow-button"
                   )}
                   style={isWaiting ? { cursor: 'pointer' } : {}}
                 >
@@ -443,7 +447,9 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                   className={cn(
                     "px-4 py-2 text-xs rounded flex-1 font-cinzel font-bold transition-all whitespace-nowrap",
                     isWaitingSpell ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer" :
-                    canBuy ? "wow-button-green" : "wow-button text-white border-gray-700 cursor-pointer opacity-50"
+                    isFreeShop ? "wow-button-green" :
+                    has3Exp ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.6)] font-bold cursor-pointer" :
+                    "wow-button text-white border-gray-700 cursor-pointer opacity-50"
                   )}
                 >
                   {isWaitingSpell ? "WAITING GM..." : (isFreeShop ? "BUY (FREE)" : (mpStore.isConnected ? (has3Exp ? "ASK TO BUY (3 EXP)" : "NEED 3 EXP") : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP")))}

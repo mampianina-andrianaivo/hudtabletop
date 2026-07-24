@@ -14,21 +14,65 @@ interface StatBarProps {
     onSelectTarget: () => void;
     onLaunchRoll?: () => void;
   };
+  statBoostModeProps?: {
+    isSelectingForBoost: boolean;
+    isSelectedForBoost: boolean;
+    onSelectForBoost: () => void;
+    onConfirmBoost: () => void;
+  };
 }
 
 const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
 const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
 
-export function StatBar({ stat, onChange, isFreeEdit, targetModeProps }: StatBarProps) {
+export function StatBar({ stat, onChange, isFreeEdit, targetModeProps, statBoostModeProps }: StatBarProps) {
   const max = 12;
   const percentage = Math.min(100, Math.max(0, (stat.current / max) * 100));
   const textSizeLevel = usePlayerStore(state => state.textSizeLevel);
   const barHeight = usePlayerStore(state => state.barHeight) ?? 10;
 
+  const isAtMax = stat.current >= max;
+
   return (
     <div className="flex flex-col mb-1.5">
       <div className="flex justify-between items-center mb-0.5 px-1">
-        {targetModeProps?.isSelectingTarget ? (
+        {statBoostModeProps?.isSelectingForBoost ? (
+          <div className="flex items-center gap-1.5">
+            {!isAtMax ? (
+              <button
+                onClick={statBoostModeProps.onSelectForBoost}
+                className={cn(
+                  "font-macondo rounded px-1.5 py-0.5 border text-left transition-colors duration-200 cursor-pointer select-none",
+                  nameSizes[textSizeLevel] || 'text-xs',
+                  statBoostModeProps.isSelectedForBoost
+                    ? "bg-purple-700 text-white border-purple-300 font-bold shadow-[0_0_12px_rgba(168,85,247,0.8)]"
+                    : "bg-purple-950/90 text-purple-200 border-purple-500 hover:bg-purple-900 hover:text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]"
+                )}
+              >
+                {stat.name}
+              </button>
+            ) : (
+              <span className={cn("font-macondo text-gray-500 rounded px-1.5 py-0.5 border border-transparent select-none opacity-60", nameSizes[textSizeLevel] || 'text-xs')}>
+                {stat.name} (MAX)
+              </span>
+            )}
+
+            <div className="w-6 h-6 shrink-0 flex items-center justify-center">
+              {!isAtMax && statBoostModeProps.isSelectedForBoost && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    statBoostModeProps.onConfirmBoost();
+                  }}
+                  className="w-full h-full rounded bg-green-800 hover:bg-green-700 text-white border border-green-600 transition-colors flex items-center justify-center cursor-pointer shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+                  title="Confirmer l'augmentation de la stat (+1)"
+                >
+                  <Check size={14} className="stroke-[3]" />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : targetModeProps?.isSelectingTarget ? (
           <div className="flex items-center gap-1.5">
             <button
               onClick={targetModeProps.onSelectTarget}

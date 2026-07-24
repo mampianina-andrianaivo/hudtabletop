@@ -57,6 +57,14 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
   const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : true;
   const isFreeShop = mpStore.isConnected ? mpStore.isFreeShop : true;
 
+  React.useEffect(() => {
+    if (readOnly || isFreeEdit) {
+      if (showShop) {
+        setShowShop(false);
+      }
+    }
+  }, [readOnly, isFreeEdit, showShop]);
+
   return (
     <div className={cn(
       "flex flex-col h-full bg-black/40 border-2 rounded p-2 relative shadow-md",
@@ -77,17 +85,20 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
               );
               const expIdx = store.resources.findIndex(r => r.name === 'EXP');
               const has3Exp = expIdx !== -1 && store.resources[expIdx].current >= 3;
+              const isDisabled = isWaiting || isFreeEdit;
               return (
                 <button 
-                  onClick={() => !isWaiting && setShowShop(true)}
-                  disabled={isWaiting}
+                  onClick={() => !isDisabled && setShowShop(true)}
+                  disabled={isDisabled}
                   className={cn(
                     "text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px] font-cinzel transition-all",
                     isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 opacity-50 !cursor-pointer font-bold" :
-                    isFreeShop ? "wow-button-green font-bold" :
+                    isFreeEdit ? "wow-button text-wow-gold opacity-40 cursor-not-allowed font-bold" :
+                    isFreeShop ? "wow-button-green font-bold cursor-pointer" :
                     has3Exp ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] font-bold cursor-pointer" :
-                    "wow-button"
+                    "wow-button cursor-pointer"
                   )}
+                  title={isFreeEdit ? "Free Edit is active (add spells directly)" : isWaiting ? "Waiting for GM..." : "Open Ability Shop"}
                   style={isWaiting ? { cursor: 'pointer' } : {}}
                 >
                   <ShoppingBag size={12} />

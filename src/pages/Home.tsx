@@ -285,29 +285,36 @@ export function Home({ onSelectRole }: HomeProps) {
       let actualRoomName = playRoomName.trim().toLowerCase();
 
       if (!actualRoomName) {
+        if (!joinCode) throw new Error("Invitation code (P-XXXXXX) is required.");
         const q = query(collection(db, 'rooms'), where('links', 'array-contains', joinCode));
         const snapshot = await getDocs(q);
-        if (snapshot.empty) throw new Error("password or room code error");
+        if (snapshot.empty) throw new Error("Room not found for this invitation code.");
         actualRoomName = snapshot.docs[0].id;
         roomData = snapshot.docs[0].data();
       } else {
         const docSnap = await getDoc(doc(db, 'rooms', actualRoomName));
-        if (!docSnap.exists()) throw new Error("password or room code error");
+        if (!docSnap.exists()) throw new Error("Room '" + actualRoomName + "' not found.");
         roomData = docSnap.data();
       }
 
       const envPassword = import.meta.env.VITE_GAME_PASSWORD;
       const providedPassword = playPassword.trim();
+      const effectivePassword = providedPassword || 'master';
       
-      const isMasterPassword = envPassword && providedPassword === envPassword;
-      const isRoomPassword = roomData.passwordHash && providedPassword === roomData.passwordHash;
+      const roomPass = roomData.passwordHash || 'master';
+      const isMasterPassword = envPassword && (providedPassword === envPassword || effectivePassword === envPassword);
+      const isRoomPassword = (providedPassword === roomPass || effectivePassword === roomPass);
 
       if (!isMasterPassword && !isRoomPassword) {
-        throw new Error("password or room code error");
+        throw new Error("Invalid password.");
+      }
+
+      if (!joinCode) {
+        throw new Error("Invitation code (P-XXXXXX) is required.");
       }
 
       if (!roomData.links.includes(joinCode)) {
-        throw new Error("password or room code error");
+        throw new Error("This invitation code is not valid for room '" + (roomData.roomName || actualRoomName) + "'.");
       }
 
       const existingPlayer = roomData.players?.[joinCode];

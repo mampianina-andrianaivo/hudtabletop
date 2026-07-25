@@ -239,14 +239,17 @@ export function GMEncounters() {
         </button>
         <button
           onClick={async () => {
-            const nextValue = !(mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit);
-            store.setIsFreeEdit(nextValue);
+            const currentEdit = mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit;
+            const currentShop = mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop;
+            const nextEdit = !currentEdit;
+            const nextShop = nextEdit ? false : currentShop;
+            store.setIsFreeEdit(nextEdit);
             if (mpStore.isConnected) {
-              mpStore.setCredentials({ isFreeEdit: nextValue, isFreeShop: mpStore.isFreeShop });
+              mpStore.setCredentials({ isFreeEdit: nextEdit, isFreeShop: nextShop });
               if (db && mpStore.roomName) {
                 try {
                   const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
-                  await updateDoc(roomRef, { isFreeEdit: nextValue });
+                  await updateDoc(roomRef, { isFreeEdit: nextEdit, isFreeShop: nextShop });
                 } catch (err) {
                   console.error("Error updating free edit:", err);
                 }

@@ -4,7 +4,8 @@ import { usePlayerStore, Spell } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
 import { RenderGMIcon, getAbilityTagClass } from './GMIcons';
-import { cn, parseMpCost } from '@/lib/utils';
+import { RenderSpellDice } from './RenderSpellDice';
+import { cn, parseMpCost, renderMpDisplay } from '@/lib/utils';
 
 export function RenderSpellIcon({ icon, size = 18, color }: { icon: string, size?: number, color?: string }) {
   if (!icon) return null;
@@ -22,6 +23,7 @@ export function RenderSpellIcon({ icon, size = 18, color }: { icon: string, size
 
 interface SpellBookProps {
   spells?: Spell[];
+  playerStats?: { name: string; current: number }[];
   readOnly?: boolean;
   playerName?: string;
   targetModeProps?: {
@@ -36,7 +38,7 @@ interface SpellBookProps {
   };
 }
 
-export function SpellBook({ spells, readOnly, playerName, targetModeProps }: SpellBookProps) {
+export function SpellBook({ spells, playerStats, readOnly, playerName, targetModeProps }: SpellBookProps) {
   const store = usePlayerStore();
   const mpStore = useMultiplayerStore();
   const gmStore = useGMStore();
@@ -54,8 +56,13 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
     : gmStore.shopSpells;
   const detailedShopSpell = shopSpells.find(s => s.id === shopSpellDetailsId);
 
-  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : true;
-  const isFreeShop = mpStore.isConnected ? mpStore.isFreeShop : true;
+  const isViewMode = mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me';
+  const viewedPlayer = isViewMode ? mpStore.roomPlayers[mpStore.activePlayerView || ''] : null;
+  const activeCharState = isViewMode ? viewedPlayer?.characterState : null;
+  const activePlayerStats = playerStats || (isViewMode ? activeCharState?.stats : store.stats);
+
+  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : gmStore.isFreeEdit;
+  const isFreeShop = mpStore.isConnected ? mpStore.isFreeShop : gmStore.isFreeShop;
 
   const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
   const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
@@ -119,14 +126,14 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
       {/* ABILITIES LIST */}
       <div className="flex-1 overflow-y-scroll custom-scrollbar pr-2">
         <table className="w-full text-sm text-left table-fixed">
-          <thead className="text-[10px] text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
+          <thead className="text-xs text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
             <tr>
               <th className="pb-1 w-6"></th>
               <th className="pb-1 w-9 text-center"></th>
               <th className="pb-1 pl-2 pr-1 w-full">Ability</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8">D</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8 text-blue-400">MP</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24">Uses</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-32 font-bold text-xs sm:text-sm">D</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-12 text-blue-400 font-bold text-xs sm:text-sm">MP</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24 font-bold text-xs sm:text-sm">Uses</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#5a4b3c]/30">
@@ -139,7 +146,7 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
               const isSelected = targetModeProps?.selectedTargetId === spell.id;
 
               // Targeting eligibility checks
-              const hasNumericDice = /\d+/.test((spell.dice || '').trim());
+              const hasNumericDice = spell.diceStat !== '●' && (spell.dice || '').trim() !== '●';
               const cleanMax = (spell.maxUses || '').trim();
               const maxMatch = cleanMax.match(/\d+/);
               const isNumericMax = maxMatch !== null && parseInt(maxMatch[0], 10) > 0;
@@ -257,9 +264,9 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                       )}
                     </div>
                   </td>
-                  <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{spell.dice}</td>
-                  <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{spell.r2 || spell.r1 || ''}</td>
-                  <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">
+                  <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold"><RenderSpellDice spell={spell} playerStats={activePlayerStats} /></td>
+                  <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-bold">{renderMpDisplay(spell)}</td>
+                  <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold">
                     {/^\d+$/.test((spell.maxUses || '').trim()) ? `${spell.uses} / ${spell.maxUses}` : spell.maxUses}
                   </td>
                 </tr>
@@ -289,14 +296,14 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
           </div>
           <div className="flex-1 overflow-y-scroll custom-scrollbar pr-2">
             <table className="w-full text-sm text-left table-fixed">
-              <thead className="text-[10px] text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
+              <thead className="text-xs text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
                 <tr>
                   <th className="pb-1 w-6"></th>
                   <th className="pb-1 w-9 text-center"></th>
                   <th className="pb-1 pl-2 pr-1 w-full">Ability</th>
-                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8">D</th>
-                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8 text-blue-400">MP</th>
-                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24">Max</th>
+                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-32 font-bold text-xs sm:text-sm">D</th>
+                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-12 text-blue-400 font-bold text-xs sm:text-sm">MP</th>
+                  <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24 font-bold text-xs sm:text-sm">Max</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#5a4b3c]/30">
@@ -331,9 +338,9 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
                           )}
                         </button>
                       </td>
-                      <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{shopSpell.dice}</td>
-                      <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{shopSpell.r2 || shopSpell.r1 || ''}</td>
-                      <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{shopSpell.maxUses}</td>
+                      <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold"><RenderSpellDice spell={shopSpell} playerStats={activePlayerStats} /></td>
+                      <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-bold">{renderMpDisplay(shopSpell)}</td>
+                      <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold">{shopSpell.maxUses}</td>
                     </tr>
                   );
                 })}
@@ -404,13 +411,13 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
               <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
-                {detailedShopSpell.dice || '-'}
+                <RenderSpellDice spell={detailedShopSpell} playerStats={activePlayerStats} />
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
               <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
-                {detailedShopSpell.r2 || detailedShopSpell.r1 || '0'}
+                {renderMpDisplay(detailedShopSpell)}
               </div>
             </div>
             <div>
@@ -554,13 +561,13 @@ export function SpellBook({ spells, readOnly, playerName, targetModeProps }: Spe
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
               <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
-                {detailedSpell.dice || '-'}
+                <RenderSpellDice spell={detailedSpell} playerStats={activePlayerStats} />
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
               <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
-                {detailedSpell.r2 || detailedSpell.r1 || '0'}
+                {renderMpDisplay(detailedSpell)}
               </div>
             </div>
             <div>

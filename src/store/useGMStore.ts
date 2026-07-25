@@ -110,8 +110,14 @@ export const useGMStore = create<GMState>()(
           [link]: { ...state.scratchPlayers[link], characterState }
         }
       })),
-      setIsFreeEdit: (val) => set({ isFreeEdit: val }),
-      setIsFreeShop: (val) => set({ isFreeShop: val }),
+      setIsFreeEdit: (val) => set((state) => ({
+        isFreeEdit: val,
+        isFreeShop: val ? false : state.isFreeShop
+      })),
+      setIsFreeShop: (val) => set((state) => ({
+        isFreeShop: val,
+        isFreeEdit: val ? false : state.isFreeEdit
+      })),
       setBlockPlayerRolls: (val) => set({ blockPlayerRolls: val }),
       increaseCrafterTextSize: () => set((state) => ({ crafterTextSizeLevel: Math.min((state.crafterTextSizeLevel ?? 0) + 1, 4) })),
       decreaseCrafterTextSize: () => set((state) => ({ crafterTextSizeLevel: Math.max((state.crafterTextSizeLevel ?? 0) - 1, 0) })),

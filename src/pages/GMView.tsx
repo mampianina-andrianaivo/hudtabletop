@@ -190,17 +190,20 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   };
 
   // If viewing a player character sheet
-  const isViewingPlayer = mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me';
-  const viewedPlayer = isViewingPlayer ? mpStore.roomPlayers[mpStore.activePlayerView || ''] : null;
+  const isViewingPlayer = Boolean(mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me');
+  const activeKey = mpStore.activePlayerView || '';
+  const viewedPlayer = isViewingPlayer 
+    ? (mpStore.roomPlayers[activeKey] || Object.values(mpStore.roomPlayers || {}).find(p => p?.joinCode === activeKey) || null)
+    : null;
   const activeCharState = isViewingPlayer ? viewedPlayer?.characterState : null;
   
-  const FIXED_STATS_NAMES = ['INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'SOCIAL', 'LUCK'];
+  const FIXED_STATS_NAMES = ['INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'PATIENCE', 'LUCK'];
   const activeStats = FIXED_STATS_NAMES.map((name, i) => {
-    const existing = activeCharState?.stats?.[i] || { current: 0 };
-    return { name, current: existing.current, isVisible: true };
+    const existing = (Array.isArray(activeCharState?.stats) && activeCharState.stats[i]) || { current: 0 };
+    return { name, current: Number(existing?.current ?? 0), isVisible: true };
   });
 
-  const activeSpells = activeCharState?.spells || [];
+  const activeSpells = Array.isArray(activeCharState?.spells) ? activeCharState.spells : [];
 
   // Latest public roll log
   const latestRoll = mpStore.rollLogs[mpStore.rollLogs.length - 1];
@@ -498,7 +501,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     <span>GRIMOIRE OF {viewedPlayer.pseudo}</span>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border-2 border-red-600 rounded shadow-[0_0_20px_rgba(220,38,38,0.2)]">
-                    <SpellBook spells={activeSpells} readOnly={true} playerName={viewedPlayer.pseudo} />
+                    <SpellBook spells={activeSpells} playerStats={viewedPlayer?.characterState?.stats} readOnly={true} playerName={viewedPlayer.pseudo} />
                   </div>
                 </div>
               </div>
@@ -676,7 +679,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                       width: `${pStore.photoWidth ?? 96}px`
                     }}
                   >
-                    {activeCharState.photo ? (
+                    {activeCharState?.photo ? (
                       <img src={activeCharState.photo} alt="Character" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center font-cinzel text-[10px] text-white/50 text-center uppercase">No Hero</div>
@@ -709,17 +712,17 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 {/* Resources Zone: HP and EXP side-by-side on top, MP full width below */}
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3 shrink-0">
                   {(() => {
-                    // Compute activeResources the exact same way as PlayerView
-                    const rawResources = activeCharState.resources || [];
+                    // Compute activeResources safely
+                    const rawResources = Array.isArray(activeCharState?.resources) ? activeCharState.resources : [];
                     const fixedStats = FIXED_STATS_NAMES.map((name, i) => ({
-                      name, current: (activeCharState.stats?.[i] || { current: 0 }).current
+                      name, current: Number((Array.isArray(activeCharState?.stats) && activeCharState.stats[i])?.current ?? 0)
                     }));
                     const sortedStats = [...fixedStats].sort((a, b) => a.current - b.current);
-                    const computedMpMax = sortedStats[0].current + sortedStats[1].current;
+                    const computedMpMax = (sortedStats[0]?.current ?? 0) + (sortedStats[1]?.current ?? 0);
                     const res = [
-                      { ...rawResources[0], name: 'HP', color: 'red', isVisible: true, max: '3' },
-                      { ...rawResources[1], name: 'MP', color: 'blue', isVisible: true, max: String(computedMpMax) },
-                      { ...rawResources[2], name: 'EXP', color: 'purple', isVisible: true, max: '3' }
+                      { name: 'HP', color: 'red', isVisible: true, max: '3', current: Number(rawResources[0]?.current ?? 3) },
+                      { name: 'MP', color: 'blue', isVisible: true, max: String(computedMpMax), current: Number(rawResources[1]?.current ?? 0) },
+                      { name: 'EXP', color: 'purple', isVisible: true, max: '3', current: Number(rawResources[2]?.current ?? 0) }
                     ];
 
                     return (
@@ -989,7 +992,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                           <input
                             type="text"
                             className="flex-1 bg-black/60 border border-[#5a4b3c]/50 text-[11px] px-2 py-1 rounded text-white focus:outline-none focus:border-wow-gold"
-                            placeholder="Player / Character Pseudo"
+                            placeholder="Player / Character Name"
                             value={store.scratchPlayers[link]?.pseudo || ''}
                             onChange={(e) => store.updateScratchPlayer(link, e.target.value)}
                           />

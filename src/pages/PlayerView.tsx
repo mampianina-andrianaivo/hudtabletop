@@ -10,7 +10,7 @@ import { SpellBook } from '@/components/SpellBook';
 import { RollLogsSection } from '@/components/RollLogsSection';
 import { PlayerConfigModal } from '@/components/PlayerConfigModal';
 import { NoteTextarea } from '@/components/NoteTextarea';
-import { cn, parseMax, parseMpCost, rollD12 } from '@/lib/utils';
+import { cn, parseMax, parseMpCost, rollD12, evaluateSpellDice } from '@/lib/utils';
 import { deserializeEncounter } from '@/lib/encounterUtils';
 
 interface PlayerViewProps {
@@ -157,18 +157,26 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   };
 
   // Determine if we are viewing another player's sheet (View Mode)
-  const isViewMode = mpStore.isConnected && mpStore.activePlayerView && mpStore.activePlayerView !== 'me';
-  const viewedPlayer = isViewMode ? mpStore.roomPlayers[mpStore.activePlayerView || ''] : null;
+  const isViewMode = Boolean(
+    mpStore.isConnected && 
+    mpStore.activePlayerView && 
+    mpStore.activePlayerView !== 'me'
+  );
+
+  const activeKey = mpStore.activePlayerView || '';
+  const viewedPlayer = isViewMode 
+    ? (mpStore.roomPlayers[activeKey] || Object.values(mpStore.roomPlayers || {}).find(p => p?.joinCode === activeKey) || null)
+    : null;
   const activeCharState = isViewMode ? viewedPlayer?.characterState : null;
 
-  // Resolve active sheet fields
+  // Resolve active sheet fields safely
   const activeName = isViewMode ? (activeCharState?.name || viewedPlayer?.pseudo || 'Awaiting Sync...') : store.name;
-  const activePhoto = isViewMode ? activeCharState?.photo : store.photo;
-  const rawStats = isViewMode ? (activeCharState?.stats || []) : store.stats;
-  const FIXED_STATS_NAMES = ['INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'SOCIAL', 'LUCK'];
+  const activePhoto = isViewMode ? (activeCharState?.photo || null) : store.photo;
+  const rawStats = isViewMode ? (Array.isArray(activeCharState?.stats) ? activeCharState.stats : []) : store.stats;
+  const FIXED_STATS_NAMES = ['INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'PATIENCE', 'LUCK'];
   const enforcedStats = FIXED_STATS_NAMES.map((name, i) => {
-    const existing = rawStats[i] || { current: 0 };
-    return { name, current: existing.current, isVisible: true };
+    const existing = (Array.isArray(rawStats) && rawStats[i]) || { current: 0 };
+    return { name, current: Number(existing?.current ?? 0), isVisible: true };
   });
 
   const visibleStats = enforcedStats;
@@ -176,10 +184,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
   let mpMax = 0;
   if (visibleStats.length === 1) {
-    mpMax = visibleStats[0].current * 2;
+    mpMax = (visibleStats[0]?.current ?? 0) * 2;
   } else if (visibleStats.length >= 2) {
-    const sortedStats = [...visibleStats].sort((a, b) => a.current - b.current);
-    mpMax = sortedStats[0].current + sortedStats[1].current;
+    const sortedStats = [...visibleStats].sort((a, b) => (a?.current ?? 0) - (b?.current ?? 0));
+    mpMax = (sortedStats[0]?.current ?? 0) + (sortedStats[1]?.current ?? 0);
   }
 
 
@@ -214,17 +222,20 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
     }
   }, [isScratch]);
 
-  const rawResources = isViewMode ? (activeCharState?.resources || store.resources) : store.resources;
+  const rawResources = isViewMode 
+    ? (Array.isArray(activeCharState?.resources) ? activeCharState.resources : []) 
+    : store.resources;
+
   const activeResources = [
-    { ...rawResources[0], name: 'HP', color: 'red', isVisible: true, max: '3' },
-    { ...rawResources[1], name: 'MP', color: 'blue', isVisible: true, max: isScratch ? '0' : String(mpMax), current: isScratch ? 0 : rawResources[1].current },
-    { ...rawResources[2], name: 'EXP', color: 'purple', isVisible: true, max: '3', current: isScratch ? 0 : rawResources[2].current }
+    { name: 'HP', color: 'red', isVisible: true, max: '3', current: Number(rawResources?.[0]?.current ?? 3) },
+    { name: 'MP', color: 'blue', isVisible: true, max: isScratch ? '0' : String(mpMax), current: isScratch ? 0 : Number(rawResources?.[1]?.current ?? 0) },
+    { name: 'EXP', color: 'purple', isVisible: true, max: '3', current: isScratch ? 0 : Number(rawResources?.[2]?.current ?? 0) }
   ];
 
-  const activeSpells = isViewMode ? (activeCharState?.spells || []) : store.spells;
+  const activeSpells = isViewMode ? (Array.isArray(activeCharState?.spells) ? activeCharState.spells : []) : store.spells;
   
   const visibleResources = activeResources;
-  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : true;
+  const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : gmStore.isFreeEdit;
   const isRollsBlocked = mpStore.isConnected ? mpStore.blockPlayerRolls : gmStore.blockPlayerRolls;
 
   const handlePlayerRoll = () => {
@@ -572,6 +583,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
           <div className="h-2/3 min-h-0 pt-2 flex flex-col overflow-hidden border-t border-[#5a4b3c]/30">
             <SpellBook 
               spells={activeSpells} 
+              playerStats={activeStats}
               readOnly={isViewMode} 
               playerName={isViewMode ? activeName : undefined}
               targetModeProps={{
@@ -587,8 +599,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     if (!isScratch && mpCost > 0 && playerMp < mpCost && playerHp <= 0) {
                       return;
                     }
-                    const match = (spell.dice || '').match(/\d+/);
-                    const diceVal = match ? parseInt(match[0], 10) : 12;
+                    const evalRes = evaluateSpellDice(spell, activeStats);
+                    const diceVal = typeof evalRes.effectiveD === 'number' ? evalRes.effectiveD : 12;
                     setSelectedTarget({
                       type: 'spell',
                       id: spell.id,
@@ -1145,7 +1157,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     // Hide if toggles are OFF and player is unchecked
                     if (!showVisibilityToggles && !isVisible) return null;
 
-                    const isViewingThis = mpStore.activePlayerView === linkCode;
+                    const isViewingThis = mpStore.activePlayerView === linkCode || (p?.joinCode && mpStore.activePlayerView === p.joinCode);
                     return (
                       <div key={linkCode} className="flex items-center gap-1 shrink-0 w-full">
                           <div className="w-5 h-5 flex items-center justify-center shrink-0">
@@ -1160,7 +1172,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                             />
                           </div>
                           <button
-                            onClick={() => mpStore.setActivePlayerView(p.joinCode)}
+                            onClick={() => mpStore.setActivePlayerView(linkCode)}
                             className={cn(
                               "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
                               isViewingThis

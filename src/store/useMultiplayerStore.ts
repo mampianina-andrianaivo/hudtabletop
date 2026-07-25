@@ -95,6 +95,17 @@ export const useMultiplayerStore = create<MultiplayerState>()(
     }),
     {
       name: 'hud-multiplayer-storage-v1',
+      partialize: (state) => ({
+        roomName: state.roomName,
+        password: state.password,
+        role: state.role,
+        joinCode: state.joinCode,
+        gmSessionId: state.gmSessionId,
+        pseudo: state.pseudo,
+        isConnected: state.isConnected,
+        playerNotes: state.playerNotes,
+        playerNotesTab: state.playerNotesTab,
+      }),
     }
   )
 );

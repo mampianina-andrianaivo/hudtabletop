@@ -4,10 +4,11 @@ import { useGMStore } from '@/store/useGMStore';
 import { Spell } from '@/store/usePlayerStore';
 import { IconPicker, RenderGMIcon, getAbilityTagClass } from './GMIcons';
 import { RenderSpellIcon } from './SpellBook';
+import { RenderSpellDice } from './RenderSpellDice';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { cn } from '@/lib/utils';
+import { cn, evaluateSpellDice, renderMpDisplay } from '@/lib/utils';
 
 export function GMSpellCrafter() {
   const store = useGMStore();
@@ -74,14 +75,17 @@ export function GMSpellCrafter() {
         <div className="flex gap-1.5 items-center">
           <button 
             onClick={async () => {
-              const nextValue = !(mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop);
-              store.setIsFreeShop(nextValue);
+              const currentEdit = mpStore.isConnected ? mpStore.isFreeEdit : store.isFreeEdit;
+              const currentShop = mpStore.isConnected ? mpStore.isFreeShop : store.isFreeShop;
+              const nextShop = !currentShop;
+              const nextEdit = nextShop ? false : currentEdit;
+              store.setIsFreeShop(nextShop);
               if (mpStore.isConnected) {
-                mpStore.setCredentials({ isFreeEdit: mpStore.isFreeEdit, isFreeShop: nextValue });
+                mpStore.setCredentials({ isFreeEdit: nextEdit, isFreeShop: nextShop });
                 if (db && mpStore.roomName) {
                   try {
                     const roomRef = doc(db, 'rooms', mpStore.roomName.trim().toLowerCase());
-                    await updateDoc(roomRef, { isFreeShop: nextValue });
+                    await updateDoc(roomRef, { isFreeEdit: nextEdit, isFreeShop: nextShop });
                   } catch(err) {}
                 }
               }
@@ -111,14 +115,14 @@ export function GMSpellCrafter() {
 
       <div className="flex-1 overflow-y-scroll custom-scrollbar pr-2">
         <table className="w-full text-sm text-left table-fixed">
-          <thead className="text-[10px] text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
+          <thead className="text-xs text-white font-cinzel tracking-wider border-b border-[#5a4b3c]/50">
             <tr>
               <th className="pb-1 w-6"></th>
               <th className="pb-1 w-9 text-center"></th>
               <th className="pb-1 pl-2 pr-1 w-full">Ability</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8">D</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-8 text-blue-400">MP</th>
-              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24">Max</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-32 font-bold text-xs sm:text-sm">D</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-12 text-blue-400 font-bold text-xs sm:text-sm">MP</th>
+              <th className="pb-1 text-center border-l border-[#5a4b3c]/50 px-1 w-24 font-bold text-xs sm:text-sm">Max</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#5a4b3c]/30">
@@ -161,9 +165,9 @@ export function GMSpellCrafter() {
                     )}
                   </div>
                 </td>
-                <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{spell.dice}</td>
-                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{spell.r2 ?? spell.r1 ?? ''}</td>
-                <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-xs">{spell.maxUses}</td>
+                <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold"><RenderSpellDice spell={spell} showUnknownResult={true} /></td>
+                <td className="py-2 text-blue-400 font-mono text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-bold">{renderMpDisplay(spell)}</td>
+                <td className="py-2 font-mono text-white text-center border-l border-[#5a4b3c]/50 px-1 text-sm font-semibold">{spell.maxUses}</td>
               </tr>
             ))}
             {store.shopSpells.length === 0 && (
@@ -248,38 +252,191 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
   const labelClass = nameSizes[crafterTextSizeLevel] || 'text-sm';
   const valueClass = valueSizes[crafterTextSizeLevel] || 'text-xl';
 
-  const [draft, setDraft] = useState<Spell>({ ...spell });
+  const initialEval = evaluateSpellDice(spell);
+
+  const [draft, setDraft] = useState<Spell>({
+    ...spell,
+    diceStat: spell.diceStat || initialEval.statName,
+    diceSign: spell.diceSign || initialEval.sign,
+    diceVal: typeof spell.diceVal === 'number' ? spell.diceVal : initialEval.val,
+  });
+
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pickerField, setPickerField] = useState<'dice' | 'mp' | 'maxUses' | null>(null);
+
+  const [showStatModal, setShowStatModal] = useState(false);
+  const [tempStat, setTempStat] = useState<string>('INTELLIGENCE');
+  const [showValModal, setShowValModal] = useState(false);
+
+  const isDotDice = draft.diceStat === '●' || draft.dice === '●';
+
+  const ALL_STATS = ['●', 'INTELLIGENCE', 'STRENGTH', 'SPEED', 'ACCURACY', 'PATIENCE', 'LUCK'];
 
   return (
     <div className="absolute -inset-[2px] bg-black/95 z-50 rounded flex flex-col p-4 animate-in fade-in duration-200 border-2 border-[#5a4b3c] overflow-y-auto custom-scrollbar">
       {pickerField && (
         <div className="absolute inset-0 bg-wow-dark border-2 border-[#5a4b3c] p-4 rounded shadow-2xl flex flex-col gap-4 z-50">
           <h4 className="font-cinzel text-wow-gold text-lg font-bold border-b border-[#5a4b3c] pb-2 uppercase tracking-wider text-center">
-            Select {pickerField === 'dice' ? 'Dice' : pickerField === 'mp' ? 'MP Cost' : 'Max Uses'}
+            Select {pickerField === 'dice' ? 'Dice Configuration' : pickerField === 'mp' ? 'MP Cost' : 'Max Uses'}
           </h4>
-          <div className="flex-1 flex flex-col justify-center items-center gap-4">
-            <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
-              {pickerField === 'dice' && (
-                ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+
+          {pickerField === 'dice' && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full max-w-sm mx-auto">
+              <div className="w-full flex flex-col gap-3">
+                {/* BUTTON 1: Stat Reference Selection */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempStat(draft.diceStat || 'INTELLIGENCE');
+                    setShowStatModal(true);
+                  }}
+                  className="wow-button py-3 px-4 font-mono text-sm font-bold flex items-center justify-between border border-wow-gold/40 hover:border-wow-gold"
+                >
+                  <span className="font-cinzel text-xs text-gray-400">1. REFERENCE STAT:</span>
+                  <span className="text-wow-gold text-base font-extrabold uppercase">{draft.diceStat || 'INTELLIGENCE'}</span>
+                </button>
+
+                {/* BUTTON 2: Sign Toggle (+ / -) */}
+                <button
+                  type="button"
+                  disabled={draft.diceStat === '●'}
+                  onClick={() => {
+                    if (draft.diceStat === '●') return;
+                    const nextSign = draft.diceSign === '-' ? '+' : '-';
+                    const statName = draft.diceStat || 'INTELLIGENCE';
+                    const numVal = draft.diceVal ?? 0;
+                    setDraft(p => ({
+                      ...p,
+                      diceSign: nextSign,
+                      dice: `${statName} ${nextSign} ${numVal}`
+                    }));
+                  }}
+                  className={`wow-button py-3 px-4 font-mono text-sm font-bold flex items-center justify-between border ${draft.diceStat === '●' ? 'opacity-40 cursor-not-allowed border-gray-700' : 'border-wow-gold/40 hover:border-wow-gold'}`}
+                >
+                  <span className="font-cinzel text-xs text-gray-400">2. OPERATOR (+/-):</span>
+                  <span className="text-white text-lg font-black">{draft.diceStat === '●' ? '-' : (draft.diceSign || '+')}</span>
+                </button>
+
+                {/* BUTTON 3: Number X Selection (0-12) */}
+                <button
+                  type="button"
+                  disabled={draft.diceStat === '●'}
+                  onClick={() => {
+                    if (draft.diceStat === '●') return;
+                    setShowValModal(true);
+                  }}
+                  className={`wow-button py-3 px-4 font-mono text-sm font-bold flex items-center justify-between border ${draft.diceStat === '●' ? 'opacity-40 cursor-not-allowed border-gray-700' : 'border-wow-gold/40 hover:border-wow-gold'}`}
+                >
+                  <span className="font-cinzel text-xs text-gray-400">3. VALUE X (0-12):</span>
+                  <span className="text-green-400 text-lg font-black">{draft.diceStat === '●' ? '●' : (draft.diceVal ?? 0)}</span>
+                </button>
+              </div>
+
+              {/* Preview of current Dice setup */}
+              <div className="bg-black/60 p-3 rounded border border-[#5a4b3c] w-full flex flex-col items-center justify-center gap-1">
+                <span className="font-cinzel text-[10px] text-gray-400 uppercase tracking-widest">Dice Representation</span>
+                <RenderSpellDice spell={draft} showUnknownResult={true} />
+              </div>
+            </div>
+          )}
+
+          {/* Sub-modal: STAT SELECTION */}
+          {showStatModal && (
+            <div className="absolute inset-0 bg-black/95 border-2 border-wow-gold/50 p-4 rounded shadow-2xl flex flex-col gap-4 z-[60]">
+              <h5 className="font-cinzel text-wow-gold text-base font-bold text-center border-b border-[#5a4b3c] pb-2 uppercase">
+                Choose Reference Stat
+              </h5>
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 my-auto">
+                {ALL_STATS.map((st) => (
                   <button
-                    key={opt}
+                    key={st}
                     type="button"
                     onClick={() => {
-                      setDraft(p => ({ ...p, dice: opt }));
-                      setPickerField(null);
+                      if (st === '●') {
+                        setDraft(p => ({
+                          ...p,
+                          diceStat: '●',
+                          diceSign: '+',
+                          diceVal: 0,
+                          dice: '●',
+                          r1: '',
+                          r2: '',
+                          maxUses: '●'
+                        }));
+                      } else {
+                        const curSign = draft.diceSign || '+';
+                        const curVal = draft.diceVal ?? 0;
+                        setDraft(p => ({
+                          ...p,
+                          diceStat: st,
+                          diceSign: curSign,
+                          diceVal: curVal,
+                          dice: `${st} ${curSign} ${curVal}`,
+                          r1: p.r1 === '●' ? '' : p.r1,
+                          r2: p.r2 === '●' ? '' : p.r2,
+                          maxUses: p.maxUses === '●' ? '1' : p.maxUses
+                        }));
+                      }
+                      setShowStatModal(false);
                     }}
-                    className={`wow-button py-2.5 font-mono text-sm font-bold flex items-center justify-center ${draft.dice === opt ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
+                    className={`wow-button py-3 px-2 font-mono text-xs font-bold uppercase transition-all hover:bg-wow-gold/30 hover:border-wow-gold text-white ${draft.diceStat === st ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : ''}`}
                   >
-                    {opt}
+                    {st}
                   </button>
-                ))
-              )}
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowStatModal(false)}
+                  className="wow-button py-3 px-2 font-cinzel text-xs font-bold text-red-400 border-red-900/60 uppercase hover:bg-red-950/40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
-              {pickerField === 'mp' && (
-                ['●', '1', '2', '3', '4', '5', '6'].map((opt) => (
+          {/* Sub-modal: VALUE X SELECTION (0..12) */}
+          {showValModal && (
+            <div className="absolute inset-0 bg-black/95 border-2 border-wow-gold/50 p-4 rounded shadow-2xl flex flex-col gap-4 z-[60]">
+              <h5 className="font-cinzel text-wow-gold text-base font-bold text-center border-b border-[#5a4b3c] pb-2 uppercase">
+                Choose Value X (0 to 12)
+              </h5>
+              <div className="flex-1 grid grid-cols-4 gap-2 my-auto max-w-xs mx-auto w-full">
+                {Array.from({ length: 13 }, (_, i) => i).map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => {
+                      const statName = draft.diceStat || 'INTELLIGENCE';
+                      const curSign = draft.diceSign || '+';
+                      setDraft(p => ({
+                        ...p,
+                        diceVal: num,
+                        dice: `${statName} ${curSign} ${num}`
+                      }));
+                      setShowValModal(false);
+                    }}
+                    className={`wow-button py-3 font-mono text-sm font-bold ${draft.diceVal === num ? 'bg-wow-gold/30 border-wow-gold text-wow-gold' : 'text-white'}`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowValModal(false)}
+                className="wow-button w-full py-2.5 text-xs uppercase font-cinzel text-gray-400 border-[#5a4b3c]"
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          {pickerField === 'mp' && (
+            <div className="flex-1 flex flex-col justify-center items-center gap-4">
+              <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
+                {['●', '1', '2', '3', '4', '5', '6'].map((opt) => (
                   <button
                     key={opt}
                     type="button"
@@ -292,11 +449,15 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                   >
                     {opt}
                   </button>
-                ))
-              )}
+                ))}
+              </div>
+            </div>
+          )}
 
-              {pickerField === 'maxUses' && (
-                ['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
+          {pickerField === 'maxUses' && (
+            <div className="flex-1 flex flex-col justify-center items-center gap-4">
+              <div className="grid grid-cols-4 gap-2 w-full max-w-xs justify-center">
+                {['●', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((opt) => (
                   <button
                     key={opt}
                     type="button"
@@ -308,16 +469,17 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                   >
                     {opt}
                   </button>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
           <button
             type="button"
             onClick={() => setPickerField(null)}
             className="wow-button w-full py-2.5 text-xs uppercase font-cinzel tracking-wider text-gray-400 border-[#5a4b3c]"
           >
-            Back
+            Done
           </button>
         </div>
       )}
@@ -413,27 +575,33 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             onClick={() => setPickerField('dice')}
             className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
           >
-            {draft.dice || '●'}
+            <RenderSpellDice spell={draft} showUnknownResult={true} />
           </button>
         </div>
         <div>
           <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
           <button
             type="button"
-            onClick={() => setPickerField('mp')}
-            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+            disabled={isDotDice}
+            onClick={() => {
+              if (!isDotDice) setPickerField('mp');
+            }}
+            className={cn(`wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px] ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
-            {draft.r2 || draft.r1 || '●'}
+            {isDotDice ? '●' : renderMpDisplay(draft)}
           </button>
         </div>
         <div>
           <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES</label>
           <button
             type="button"
-            onClick={() => setPickerField('maxUses')}
-            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+            disabled={isDotDice}
+            onClick={() => {
+              if (!isDotDice) setPickerField('maxUses');
+            }}
+            className={cn(`wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px] ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
-            {draft.maxUses || '●'}
+            {isDotDice ? '●' : (draft.maxUses || '●')}
           </button>
         </div>
       </div>

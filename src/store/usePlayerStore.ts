@@ -25,6 +25,9 @@ export interface Spell {
   tag?: string;
   description?: string;
   dice: string;
+  diceStat?: string; // Reference stat name e.g. 'INTELLIGENCE' or '●'
+  diceSign?: '+' | '-'; // '+' or '-'
+  diceVal?: number; // X modifier (0 to 12)
   r1: string;
   r2: string;
   r3: string;
@@ -84,7 +87,7 @@ const defaultStats: Stat[] = [
   { name: 'STRENGTH', current: 0, isVisible: true },
   { name: 'SPEED', current: 0, isVisible: true },
   { name: 'ACCURACY', current: 0, isVisible: true },
-  { name: 'SOCIAL', current: 0, isVisible: true },
+  { name: 'PATIENCE', current: 0, isVisible: true },
   { name: 'LUCK', current: 0, isVisible: true },
 ];
 

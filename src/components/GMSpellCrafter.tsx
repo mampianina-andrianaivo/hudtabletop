@@ -34,14 +34,18 @@ export function GMSpellCrafter() {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (Array.isArray(json)) {
-          setPendingShopSpells(json);
-        } else {
-          alert("Invalid shop file format.");
+        if (!json) {
+          alert("Fichier JSON vide.");
+          return;
         }
+        if (!Array.isArray(json)) {
+          alert("Format invalide : Ce fichier est un JSON de Room/Campagne ou de Personnage. La boutique exige un fichier JSON de Shop (une liste d'aptitudes [ ]).");
+          return;
+        }
+        setPendingShopSpells(json);
       } catch (err) {
         console.error("Failed to parse JSON", err);
-        alert("Invalid shop file.");
+        alert("Fichier JSON de shop invalide.");
       }
     };
     reader.readAsText(file);
@@ -300,9 +304,9 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                 {/* BUTTON 2: Sign Toggle (+ / -) */}
                 <button
                   type="button"
-                  disabled={draft.diceStat === '●'}
+                  disabled={draft.diceStat === '●' || draft.diceStat === '-const-'}
                   onClick={() => {
-                    if (draft.diceStat === '●') return;
+                    if (draft.diceStat === '●' || draft.diceStat === '-const-') return;
                     const nextSign = draft.diceSign === '-' ? '+' : '-';
                     const statName = draft.diceStat || 'INTELLIGENCE';
                     const numVal = draft.diceVal ?? 0;
@@ -312,10 +316,10 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                       dice: `${statName} ${nextSign} ${numVal}`
                     }));
                   }}
-                  className={`wow-button py-3 px-4 font-mono text-sm font-bold flex items-center justify-between border ${draft.diceStat === '●' ? 'opacity-40 cursor-not-allowed border-gray-700' : 'border-wow-gold/40 hover:border-wow-gold'}`}
+                  className={`wow-button py-3 px-4 font-mono text-sm font-bold flex items-center justify-between border ${(draft.diceStat === '●' || draft.diceStat === '-const-') ? 'opacity-40 cursor-not-allowed border-gray-700' : 'border-wow-gold/40 hover:border-wow-gold'}`}
                 >
                   <span className="font-cinzel text-xs text-gray-400">2. OPERATOR (+/-):</span>
-                  <span className="text-white text-lg font-black">{draft.diceStat === '●' ? '-' : (draft.diceSign || '+')}</span>
+                  <span className="text-white text-lg font-black">{draft.diceStat === '●' ? '●' : draft.diceStat === '-const-' ? '+' : (draft.diceSign || '+')}</span>
                 </button>
 
                 {/* BUTTON 3: Number X Selection (0-12) */}
@@ -344,9 +348,18 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           {/* Sub-modal: STAT SELECTION */}
           {showStatModal && (
             <div className="absolute inset-0 bg-black/95 border-2 border-wow-gold/50 p-4 rounded shadow-2xl flex flex-col gap-4 z-[60]">
-              <h5 className="font-cinzel text-wow-gold text-base font-bold text-center border-b border-[#5a4b3c] pb-2 uppercase">
-                Choose Reference Stat
-              </h5>
+              <div className="flex items-center justify-between border-b border-[#5a4b3c] pb-2">
+                <h5 className="font-cinzel text-wow-gold text-base font-bold uppercase">
+                  Choose Reference Stat
+                </h5>
+                <button
+                  type="button"
+                  onClick={() => setShowStatModal(false)}
+                  className="text-gray-400 hover:text-white font-bold text-sm px-2 py-0.5"
+                >
+                  ✕
+                </button>
+              </div>
               <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 my-auto">
                 {ALL_STATS.map((st) => (
                   <button
@@ -387,10 +400,23 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                 ))}
                 <button
                   type="button"
-                  onClick={() => setShowStatModal(false)}
-                  className="wow-button py-3 px-2 font-cinzel text-xs font-bold text-red-400 border-red-900/60 uppercase hover:bg-red-950/40"
+                  onClick={() => {
+                    const curVal = typeof draft.diceVal === 'number' && draft.diceVal >= 0 ? draft.diceVal : 0;
+                    setDraft(p => ({
+                      ...p,
+                      diceStat: '-const-',
+                      diceSign: '+',
+                      diceVal: curVal,
+                      dice: `-const- ${curVal}`,
+                      r1: p.r1 === '●' ? '' : p.r1,
+                      r2: p.r2 === '●' ? '' : p.r2,
+                      maxUses: p.maxUses === '●' ? '1' : p.maxUses
+                    }));
+                    setShowStatModal(false);
+                  }}
+                  className={`wow-button py-3 px-2 font-mono text-xs font-bold uppercase transition-all hover:bg-wow-gold/30 hover:border-wow-gold text-white ${draft.diceStat === '-const-' ? 'bg-wow-gold/20 border-wow-gold text-wow-gold' : 'border-wow-gold/40'}`}
                 >
-                  Cancel
+                  -const-
                 </button>
               </div>
             </div>
@@ -408,13 +434,21 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
                     key={num}
                     type="button"
                     onClick={() => {
-                      const statName = draft.diceStat || 'INTELLIGENCE';
-                      const curSign = draft.diceSign || '+';
-                      setDraft(p => ({
-                        ...p,
-                        diceVal: num,
-                        dice: `${statName} ${curSign} ${num}`
-                      }));
+                      if (draft.diceStat === '-const-') {
+                        setDraft(p => ({
+                          ...p,
+                          diceVal: num,
+                          dice: `-const- ${num}`
+                        }));
+                      } else {
+                        const statName = draft.diceStat || 'INTELLIGENCE';
+                        const curSign = draft.diceSign || '+';
+                        setDraft(p => ({
+                          ...p,
+                          diceVal: num,
+                          dice: `${statName} ${curSign} ${num}`
+                        }));
+                      }
                       setShowValModal(false);
                     }}
                     className={`wow-button py-3 font-mono text-sm font-bold ${draft.diceVal === num ? 'bg-wow-gold/30 border-wow-gold text-wow-gold' : 'text-white'}`}

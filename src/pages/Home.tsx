@@ -98,11 +98,15 @@ export function Home({ onSelectRole }: HomeProps) {
         
         // Supports full GM store export or shop spells array
         if (Array.isArray(data)) {
-          setLoadedCampaignData({ shopSpells: data });
-        } else if (data) {
+          alert("Format invalide : Ce fichier est un JSON de Shop, pas un JSON de Room/Campagne. Veuillez charger un fichier JSON de Room/Campagne (objet) valide.");
+          setLoadedCampaignData(null);
+          setJsonLoadedName('');
+          return;
+        } else if (data && typeof data === 'object') {
           setLoadedCampaignData(data);
+          setJsonLoadedName(file.name);
         } else {
-          alert('Invalid JSON file format.');
+          alert('Format JSON invalide.');
           return;
         }
         

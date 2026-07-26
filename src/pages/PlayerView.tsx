@@ -227,9 +227,9 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
     : store.resources;
 
   const activeResources = [
-    { name: 'HP', color: 'red', isVisible: true, max: '3', current: Number(rawResources?.[0]?.current ?? 3) },
-    { name: 'MP', color: 'blue', isVisible: true, max: isScratch ? '0' : String(mpMax), current: isScratch ? 0 : Number(rawResources?.[1]?.current ?? 0) },
-    { name: 'EXP', color: 'purple', isVisible: true, max: '3', current: isScratch ? 0 : Number(rawResources?.[2]?.current ?? 0) }
+    { name: 'HP', color: 'red' as const, isVisible: true, max: '3', current: Number(rawResources?.[0]?.current ?? 3) },
+    { name: 'MP', color: 'blue' as const, isVisible: true, max: isScratch ? '0' : String(mpMax), current: isScratch ? 0 : Number(rawResources?.[1]?.current ?? 0) },
+    { name: 'EXP', color: 'purple' as const, isVisible: true, max: '3', current: isScratch ? 0 : Number(rawResources?.[2]?.current ?? 0) }
   ];
 
   const activeSpells = isViewMode ? (Array.isArray(activeCharState?.spells) ? activeCharState.spells : []) : store.spells;
@@ -403,8 +403,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         shopSpells: gmState.shopSpells,
         encounters: gmState.encounters,
         currentDraw: gmState.currentDraw,
-        isFreeEdit: gmState.isFreeEdit,
-        isFreeShop: gmState.isFreeShop,
+        isFreeEdit: false,
+        isFreeShop: false,
         notes: gmState.notes,
         publicNotes: mpStore.publicNotes,
         scratchLinks: gmState.scratchLinks,
@@ -435,6 +435,14 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          alert("Format invalide : Ce fichier est un JSON de Shop (liste d'aptitudes), pas un JSON de Room ou de Personnage.");
+          return;
+        }
+        if (!json || typeof json !== 'object') {
+          alert("Fichier JSON invalide.");
+          return;
+        }
         if (isScratch) {
           const gmState = useGMStore.getState();
           if (json.roomName) gmState.updateRoomName(json.roomName);
@@ -445,12 +453,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
           if (json.currentDraw !== undefined) {
             useGMStore.setState({ currentDraw: json.currentDraw });
           }
-          if (json.isFreeEdit !== undefined) {
-            useGMStore.setState({ isFreeEdit: json.isFreeEdit });
-          }
-          if (json.isFreeShop !== undefined) {
-            useGMStore.setState({ isFreeShop: json.isFreeShop });
-          }
+          useGMStore.setState({ isFreeEdit: false, isFreeShop: false });
           if (json.blockPlayerRolls !== undefined) {
             useGMStore.setState({ blockPlayerRolls: json.blockPlayerRolls });
           }
@@ -477,6 +480,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (

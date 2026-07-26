@@ -273,8 +273,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       shopSpells: store.shopSpells,
       encounters: store.encounters,
       currentDraw: store.currentDraw,
-      isFreeEdit: store.isFreeEdit,
-      isFreeShop: store.isFreeShop,
+      isFreeEdit: false,
+      isFreeShop: false,
       blockPlayerRolls: store.blockPlayerRolls,
       notes: store.notes,
       publicNotes: mpStore.publicNotes,
@@ -298,6 +298,14 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          alert("Format invalide : Ce fichier est un JSON de Shop (liste d'aptitudes), pas un JSON de Room/Campagne. Veuillez utiliser le bouton d'import dans la boutique de sort.");
+          return;
+        }
+        if (!json || typeof json !== 'object') {
+          alert("Format JSON invalide.");
+          return;
+        }
         if (json.roomName) {
            store.updateRoomName(json.roomName);
         }
@@ -308,12 +316,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         if (json.currentDraw !== undefined) {
           useGMStore.setState({ currentDraw: json.currentDraw });
         }
-        if (json.isFreeEdit !== undefined) {
-          useGMStore.setState({ isFreeEdit: json.isFreeEdit });
-        }
-        if (json.isFreeShop !== undefined) {
-          useGMStore.setState({ isFreeShop: json.isFreeShop });
-        }
+        // Always enforce false for isFreeEdit & isFreeShop on import
+        useGMStore.setState({ isFreeEdit: false, isFreeShop: false });
         if (json.blockPlayerRolls !== undefined) {
           useGMStore.setState({ blockPlayerRolls: json.blockPlayerRolls });
         }
@@ -720,9 +724,9 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                     const sortedStats = [...fixedStats].sort((a, b) => a.current - b.current);
                     const computedMpMax = (sortedStats[0]?.current ?? 0) + (sortedStats[1]?.current ?? 0);
                     const res = [
-                      { name: 'HP', color: 'red', isVisible: true, max: '3', current: Number(rawResources[0]?.current ?? 3) },
-                      { name: 'MP', color: 'blue', isVisible: true, max: String(computedMpMax), current: Number(rawResources[1]?.current ?? 0) },
-                      { name: 'EXP', color: 'purple', isVisible: true, max: '3', current: Number(rawResources[2]?.current ?? 0) }
+                      { name: 'HP', color: 'red' as const, isVisible: true, max: '3', current: Number(rawResources[0]?.current ?? 3) },
+                      { name: 'MP', color: 'blue' as const, isVisible: true, max: String(computedMpMax), current: Number(rawResources[1]?.current ?? 0) },
+                      { name: 'EXP', color: 'purple' as const, isVisible: true, max: '3', current: Number(rawResources[2]?.current ?? 0) }
                     ];
 
                     return (

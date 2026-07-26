@@ -88,6 +88,11 @@ export function evaluateSpellDice(spell: any, playerStats?: { name: string; curr
     const diceStr = (spell.dice || '').trim();
     if (diceStr === '●') {
       statName = '●';
+    } else if (diceStr.startsWith('-const-') || diceStr.startsWith('CONST')) {
+      statName = '-const-';
+      const parts = diceStr.split(/\s+/);
+      val = parseInt(parts[1] || '0', 10);
+      if (isNaN(val)) val = 0;
     } else if (diceStr.includes('+') || diceStr.includes('-')) {
       sign = diceStr.includes('-') ? '-' : '+';
       const parts = diceStr.split(/[+-]/);
@@ -98,7 +103,7 @@ export function evaluateSpellDice(spell: any, playerStats?: { name: string; curr
     } else {
       const parsedNum = parseInt(diceStr, 10);
       if (!isNaN(parsedNum)) {
-        statName = 'INTELLIGENCE';
+        statName = '-const-';
         val = parsedNum;
         sign = '+';
       } else {
@@ -109,6 +114,11 @@ export function evaluateSpellDice(spell: any, playerStats?: { name: string; curr
 
   if (statName === '●') {
     return { statName: '●', statInit: '●', sign: '+', val: 0, effectiveD: '●' };
+  }
+
+  if (statName === '-const-') {
+    const safeVal = Math.min(12, Math.max(0, val));
+    return { statName: '-const-', statInit: '-const-', sign: '+', val: safeVal, effectiveD: safeVal };
   }
 
   const targetStatUpper = (statName || '').toUpperCase() === 'SOCIAL' ? 'PATIENCE' : (statName || '').toUpperCase();

@@ -607,7 +607,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           <button
             type="button"
             onClick={() => setPickerField('dice')}
-            className={cn("wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px]", valueClass)}
+            className={cn("wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center", valueClass)}
           >
             <RenderSpellDice spell={draft} showUnknownResult={true} />
           </button>
@@ -620,7 +620,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             onClick={() => {
               if (!isDotDice) setPickerField('mp');
             }}
-            className={cn(`wow-button w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px] ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
+            className={cn(`wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
             {isDotDice ? '●' : renderMpDisplay(draft)}
           </button>
@@ -633,7 +633,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             onClick={() => {
               if (!isDotDice) setPickerField('maxUses');
             }}
-            className={cn(`wow-button w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center min-h-[38px] ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
+            className={cn(`wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
             {isDotDice ? '●' : (draft.maxUses || '●')}
           </button>

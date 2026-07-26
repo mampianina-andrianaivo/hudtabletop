@@ -410,19 +410,19 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
           <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 <RenderSpellDice spell={detailedShopSpell} playerStats={activePlayerStats} />
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedShopSpell)}
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {detailedShopSpell.maxUses || '-'}
               </div>
             </div>
@@ -560,19 +560,19 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
           <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 <RenderSpellDice spell={detailedSpell} playerStats={activePlayerStats} />
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedSpell)}
               </div>
             </div>
             <div>
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES / USES</label>
-              <div className={cn("wow-input w-full p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center min-h-[38px]", valueClass)}>
+              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {/^\d+$/.test((detailedSpell.maxUses || '').trim()) ? `${detailedSpell.uses} / ${detailedSpell.maxUses}` : detailedSpell.maxUses}
               </div>
             </div>

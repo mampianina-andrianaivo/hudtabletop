@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power, ZoomIn, ZoomOut } from 'lucide-react';
+import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power, ZoomIn, ZoomOut, RotateCcw, AlertTriangle } from 'lucide-react';
 import { GMSpellCrafter } from '@/components/GMSpellCrafter';
 import { GMEncounters } from '@/components/GMEncounters';
 import { useGMStore } from '@/store/useGMStore';
@@ -44,6 +44,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
   const [showPlayersModal, setShowPlayersModal] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showResetDbConfirm, setShowResetDbConfirm] = useState(false);
   const [showVisibilityToggles, setShowVisibilityToggles] = useState(false);
   const [visiblePlayers, setVisiblePlayers] = useState<Record<string, boolean>>({});
 
@@ -211,12 +212,22 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const performSilentSave = () => {
     if (!mpStore.isConnected) {
       const pStore = usePlayerStore.getState();
+      const baseSpells = pStore.spells || [];
+      const allSpellsMap = new Map();
+      baseSpells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+      Object.values(store.scratchPlayers).forEach((p: any) => {
+        if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
+          p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+        }
+      });
+      const commonSpells = Array.from(allSpellsMap.values());
+
       const currentCharacterState = {
         name: pStore.name || 'Scratch Base',
         photo: pStore.photo || '',
         stats: pStore.stats || [],
         resources: pStore.resources || [],
-        spells: pStore.spells || [],
+        spells: commonSpells,
         notes: pStore.notes || '',
       };
       
@@ -224,12 +235,19 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       store.scratchLinks.forEach((link, idx) => {
         const existing = updatedPlayers[link] || { pseudo: '', characterState: undefined };
         const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
+        const playerSpellsMap = new Map();
+        commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
+          existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        }
+
         updatedPlayers[link] = {
           ...existing,
           pseudo,
-          characterState: existing.characterState || {
-            ...currentCharacterState,
+          characterState: {
+            ...(existing.characterState || currentCharacterState),
             name: pseudo,
+            spells: Array.from(playerSpellsMap.values()),
           }
         };
       });
@@ -245,25 +263,91 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       roomNameToCheck = "Untitled Campaign";
     }
 
+    const pStore = usePlayerStore.getState();
+    const baseSpells = pStore.spells || [];
+    const allSpellsMap = new Map();
+    baseSpells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+    Object.values(store.scratchPlayers).forEach((p: any) => {
+      if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
+        p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+      }
+    });
+    if (mpStore.isConnected) {
+      Object.values(mpStore.roomPlayers).forEach((p: any) => {
+        if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
+          p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+        }
+      });
+    }
+    const commonSpells = Array.from(allSpellsMap.values());
+
     let finalScratchPlayers: Record<string, any> = {};
     let finalLinks: string[] = [];
 
     if (!mpStore.isConnected) {
       finalLinks = store.scratchLinks;
       finalLinks.forEach(link => {
-        finalScratchPlayers[link] = store.scratchPlayers[link] || { pseudo: '' };
+        const existing: any = store.scratchPlayers[link] || { pseudo: '' };
+        const playerSpellsMap = new Map();
+        commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
+          existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        }
+        finalScratchPlayers[link] = {
+          ...existing,
+          pseudo: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+          characterState: {
+            ...(existing.characterState || {
+              name: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+              photo: pStore.photo || '',
+              stats: pStore.stats || [],
+              resources: pStore.resources || [],
+              notes: pStore.notes || '',
+            }),
+            name: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+            spells: Array.from(playerSpellsMap.values()),
+          }
+        };
       });
     } else {
       finalLinks = mpStore.links.length > 0 ? mpStore.links : store.scratchLinks;
       finalLinks.forEach(link => {
         const connected = mpStore.roomPlayers[link];
         if (connected && connected.characterState) {
+          const playerSpellsMap = new Map();
+          commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+          if (Array.isArray(connected.characterState.spells)) {
+            connected.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+          }
           finalScratchPlayers[link] = {
             pseudo: connected.pseudo,
-            characterState: connected.characterState
+            characterState: {
+              ...connected.characterState,
+              spells: Array.from(playerSpellsMap.values())
+            }
           };
         } else {
-          finalScratchPlayers[link] = store.scratchPlayers[link] || { pseudo: '' };
+          const existing: any = store.scratchPlayers[link] || { pseudo: '' };
+          const playerSpellsMap = new Map();
+          commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+          if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
+            existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+          }
+          finalScratchPlayers[link] = {
+            ...existing,
+            pseudo: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+            characterState: {
+              ...(existing.characterState || {
+                name: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+                photo: pStore.photo || '',
+                stats: pStore.stats || [],
+                resources: pStore.resources || [],
+                notes: pStore.notes || '',
+              }),
+              name: existing.pseudo || `Player ${finalLinks.indexOf(link) + 1}`,
+              spells: Array.from(playerSpellsMap.values()),
+            }
+          };
         }
       });
     }
@@ -815,16 +899,26 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               </div>
               <div className="flex items-center gap-1.5">
                 {!mpStore.isConnected && (
-                  <button 
-                    onClick={() => {
-                      performSilentSave();
-                      alert("Campaign saved! Room name and players have been saved.");
-                    }}
-                    disabled={!mpStore.isConnected && !store.roomName.trim()}
-                    className={`wow-button-green px-3 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-[#153a15]' : ''}`}
-                  >
-                    SAVE
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => setShowResetDbConfirm(true)}
+                      className="wow-button-red px-2 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white flex items-center gap-1 bg-red-950/70 border border-red-700/80 hover:bg-red-900 transition-all shrink-0"
+                      title="Reset Scratch Database"
+                    >
+                      <RotateCcw size={11} />
+                      <span>RESET</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        performSilentSave();
+                        alert("Campaign saved! Room name and players have been saved.");
+                      }}
+                      disabled={!mpStore.isConnected && !store.roomName.trim()}
+                      className={`wow-button-green px-3 py-1 text-[10px] uppercase tracking-wider font-cinzel font-bold text-white ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-[#153a15]' : ''}`}
+                    >
+                      SAVE
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1232,6 +1326,124 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                 className="wow-button py-2 text-sm flex-1 font-bold"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESET SCRATCH DB CONFIRM MODAL */}
+      {showResetDbConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="wow-panel bg-[#12100e] border-2 border-red-600/80 rounded-lg max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 border-b border-red-900/50 pb-3">
+              <div className="p-2 bg-red-950/60 rounded border border-red-700/60 text-red-400">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="font-cinzel text-base font-bold text-red-400 uppercase tracking-wider">
+                  Reset Scratch Database
+                </h3>
+                <p className="text-[11px] text-gray-400 font-sans">Complete wipe of local Scratch memory</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 font-sans leading-relaxed">
+              Are you sure you want to clear all local Scratch data (characters, spells, encounters, notes)? The page will reload with default campaign values.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#5a4b3c]/30">
+              <button
+                onClick={() => setShowResetDbConfirm(false)}
+                className="wow-button px-4 py-2 text-xs font-bold font-cinzel text-gray-300 border-[#5a4b3c] hover:bg-[#5a4b3c]/30 uppercase tracking-wider"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('hud-gm-storage-v5');
+                    localStorage.removeItem('hud-player-storage-v5');
+                    localStorage.removeItem('hud-multiplayer-storage-v1');
+                    Object.keys(localStorage).forEach(key => {
+                      if (key.startsWith('gm_visible_players_') || key.startsWith('player_visible_players_')) {
+                        localStorage.removeItem(key);
+                      }
+                    });
+
+                    useGMStore.setState({
+                      roomName: '',
+                      shopSpells: [],
+                      encounters: [{ id: 'default-1', actionName: '', isSub: false, isEnabled: true }],
+                      currentDraw: null,
+                      notes: '',
+                      scratchLinks: [],
+                      scratchPlayers: {},
+                      isFreeEdit: true,
+                      isFreeShop: true,
+                      blockPlayerRolls: false,
+                      crafterTextSizeLevel: 0,
+                    });
+                    useGMStore.getState().initScratchLinks();
+
+                    usePlayerStore.setState({
+                      photo: null,
+                      name: 'Unknown Hero',
+                      resources: [
+                        { name: 'HP', current: 3, max: '3', isVisible: true, color: 'red' },
+                        { name: 'MP', current: 0, max: '0', isVisible: true, color: 'blue' },
+                        { name: 'EXP', current: 0, max: '3', isVisible: true, color: 'purple' },
+                      ],
+                      stats: [
+                        { name: 'INTELLIGENCE', current: 0, isVisible: true },
+                        { name: 'STRENGTH', current: 0, isVisible: true },
+                        { name: 'SPEED', current: 0, isVisible: true },
+                        { name: 'ACCURACY', current: 0, isVisible: true },
+                        { name: 'PATIENCE', current: 0, isVisible: true },
+                        { name: 'LUCK', current: 0, isVisible: true },
+                      ],
+                      spells: [],
+                      notes: '',
+                      textSizeLevel: 0,
+                      abilityTextSizeLevel: 0,
+                      photoHeight: 96,
+                      photoWidth: 96,
+                      barHeight: 10,
+                    });
+
+                    useMultiplayerStore.setState({
+                      roomName: null,
+                      password: null,
+                      role: null,
+                      joinCode: null,
+                      gmSessionId: null,
+                      pseudo: null,
+                      links: [],
+                      isConnected: false,
+                      activePlayerView: null,
+                      publishedEncounter: null,
+                      publicNotes: '',
+                      localPublicNotes: '',
+                      rollLogs: [],
+                      roomPlayers: {},
+                      isEncounterViewActive: false,
+                      shopSpells: [],
+                      isFreeEdit: false,
+                      isFreeShop: false,
+                      blockPlayerRolls: false,
+                      gmRequests: [],
+                      playerNotes: ['', '', ''],
+                      playerNotesTab: 3,
+                    });
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  setShowResetDbConfirm(false);
+                }}
+                className="wow-button-red px-4 py-2 text-xs font-bold font-cinzel text-white bg-red-800 hover:bg-red-700 uppercase tracking-wider shadow-lg flex items-center gap-1.5"
+              >
+                <RotateCcw size={14} />
+                <span>PROCEED</span>
               </button>
             </div>
           </div>

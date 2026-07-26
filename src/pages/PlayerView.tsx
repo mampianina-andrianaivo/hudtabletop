@@ -375,25 +375,39 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
       }
 
       const pStore = usePlayerStore.getState();
-      const currentCharacterState = {
-        name: pStore.name || 'Scratch Base',
-        photo: pStore.photo || '',
-        stats: pStore.stats || [],
-        resources: pStore.resources || [],
-        spells: pStore.spells || [],
-        notes: pStore.notes || '',
-      };
+      const baseSpells = pStore.spells || [];
+      const allSpellsMap = new Map();
+      baseSpells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+      Object.values(gmState.scratchPlayers).forEach((p: any) => {
+        if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
+          p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+        }
+      });
+      const commonSpells = Array.from(allSpellsMap.values());
 
       const finalScratchPlayers: Record<string, any> = {};
       gmState.scratchLinks.forEach((link, idx) => {
-        const existing = gmState.scratchPlayers[link] || { pseudo: '' };
+        const existing: any = gmState.scratchPlayers[link] || { pseudo: '' };
         const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
+        const playerSpellsMap = new Map();
+        commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
+          existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+        }
+
         finalScratchPlayers[link] = {
           ...existing,
           pseudo,
           characterState: {
-            ...currentCharacterState,
+            ...(existing.characterState || {
+              name: pseudo,
+              photo: pStore.photo || '',
+              stats: pStore.stats || [],
+              resources: pStore.resources || [],
+              notes: pStore.notes || '',
+            }),
             name: pseudo,
+            spells: Array.from(playerSpellsMap.values()),
           }
         };
       });

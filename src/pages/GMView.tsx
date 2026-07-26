@@ -1379,8 +1379,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                       notes: '',
                       scratchLinks: [],
                       scratchPlayers: {},
-                      isFreeEdit: true,
-                      isFreeShop: true,
+                      isFreeEdit: false,
+                      isFreeShop: false,
                       blockPlayerRolls: false,
                       crafterTextSizeLevel: 0,
                     });

@@ -6,11 +6,16 @@ import React, { useState, useEffect } from 'react';
 import { Home } from './pages/Home';
 import { PlayerView } from './pages/PlayerView';
 import { GMView } from './pages/GMView';
+import { applyTheme, getInitialTheme } from './lib/useTheme';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'player' | 'gm'>(() => {
     return (localStorage.getItem('tt_currentView') as 'home' | 'player' | 'gm') || 'home';
   });
+
+  useEffect(() => {
+    applyTheme(getInitialTheme());
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('tt_currentView', currentView);

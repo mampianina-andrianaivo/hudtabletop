@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power } from 'lucide-react';
+import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power, Cpu } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
+import { useTheme } from '@/lib/useTheme';
 import { useOnlineSync, sendOnlineRoll } from '@/lib/useOnlineSync';
 import { ResourceBar } from '@/components/ResourceBar';
 import { StatBar } from '@/components/StatBar';
@@ -22,6 +23,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const store = usePlayerStore();
   const mpStore = useMultiplayerStore();
   const gmStore = useGMStore();
+  const { theme, toggleTheme } = useTheme();
 
   const isScratch = !mpStore.isConnected;
   const rawEncounter = isScratch ? gmStore.currentDraw : mpStore.publishedEncounter;
@@ -538,16 +540,33 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
         {/* Section 2: Character Name Header (lg:col-span-4) */}
         <div className={cn(
-          "lg:col-span-4 wow-panel flex items-center justify-center py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]",
+          "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
           isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
         )}>
-          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate w-full uppercase">
+          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
             {activeName || "CHARACTER"}
           </div>
+          <button
+            onClick={toggleTheme}
+            className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
+            title="Switch theme (Fantasy / Sci-Fi)"
+          >
+            {theme === 'scifi' ? (
+              <>
+                <Cpu size={12} className="text-cyan-400" />
+                <span className="hidden sm:inline">SCI-FI</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={12} className="text-wow-gold" />
+                <span className="hidden sm:inline">FANTASY</span>
+              </>
+            )}
+          </button>
         </div>
         
         {/* Section 3: Load / Export / Disconnect buttons (lg:col-span-3) */}
-        <div className="lg:col-span-3 wow-panel flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
+        <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
           <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
             <Upload size={14} /> <span>I</span>
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
@@ -1119,7 +1138,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden h-full">
           
           {/* Upper Half: Players & GM List (Always rendered!) */}
-          <div className="h-[35%] sm:h-[40%] wow-panel flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative shrink-0">
+          <div className="h-[35%] sm:h-[40%] wow-panel scifi-no-tracing flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative shrink-0">
             <div className="border-b border-[#5a4b3c]/40 pb-1.5 flex items-center justify-between shrink-0">
               <h4 className="font-cinzel text-wow-gold text-xs uppercase tracking-wider flex items-center gap-1.5">
                 <Users size={14} className="text-wow-gold" />
@@ -1219,7 +1238,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
           </div>
 
           {/* Lower Half: Notes / Journal split in 4 tabs */}
-          <div className="flex-1 wow-panel flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden">
+          <div className="flex-1 wow-panel scifi-no-tracing flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden">
             <div className="absolute inset-0 opacity-10 pointer-events-none "></div>
             
             {/* TABS HEADER: Styled unified as WoW buttons */}

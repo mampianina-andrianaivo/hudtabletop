@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Macondo&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Cinzel:wght@400;700&family=Macondo&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -125,9 +125,9 @@
   }
 
   .wow-panel {
-    @apply rounded-sm p-4 relative;
+    @apply rounded-md p-4 relative;
     background-color: var(--color-wow-leather);
-        border: 2px solid #5a4b3c;
+    border: 2px solid #5a4b3c;
     box-shadow: inset 0 0 0 1px #1a1a1a, 0 0 5px rgba(0,0,0,0.8);
   }
 
@@ -137,6 +137,202 @@
     inset: 4px;
     border: 1px solid rgba(255, 209, 0, 0.1);
     pointer-events: none;
+    border-radius: 4px;
   }
+}
+
+/* FANTASY THEME ROUNDED CORNERS & PATTERN DEFAULTS */
+:root:not([data-theme="scifi"]) .wow-panel {
+  border-radius: 10px;
+}
+
+:root:not([data-theme="scifi"]) .fantasy-tracing,
+:root:not([data-theme="scifi"]) .wow-panel:not(.scifi-no-tracing) {
+  background-color: #1a110b !important;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 209, 0, 0.08) 0%, transparent 75%),
+    linear-gradient(180deg, rgba(35, 22, 13, 0.4) 0%, rgba(10, 6, 3, 0.65) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cpath d='M60 0 L120 60 L60 120 L0 60 Z' stroke='rgba(212,175,55,0.07)' stroke-width='1' fill='none'/%3E%3Cpath d='M60 15 L105 60 L60 105 L15 60 Z' stroke='rgba(90,75,60,0.12)' stroke-width='1' fill='none'/%3E%3Cpath d='M60 25 Q75 45 95 60 Q75 75 60 95 Q45 75 25 60 Q45 45 60 25' stroke='rgba(255,209,0,0.06)' stroke-width='1' fill='none'/%3E%3Ccircle cx='60' cy='60' r='2' fill='rgba(255,209,0,0.22)'/%3E%3Ccircle cx='60' cy='0' r='1.5' fill='rgba(212,175,55,0.18)'/%3E%3Ccircle cx='120' cy='60' r='1.5' fill='rgba(212,175,55,0.18)'/%3E%3Ccircle cx='60' cy='120' r='1.5' fill='rgba(212,175,55,0.18)'/%3E%3Ccircle cx='0' cy='60' r='1.5' fill='rgba(212,175,55,0.18)'/%3E%3C/svg%3E") !important;
+  background-repeat: repeat !important;
+  background-size: auto, auto, 120px 120px !important;
+}
+
+:root:not([data-theme="scifi"]) .scifi-no-tracing,
+:root:not([data-theme="scifi"]) .wow-panel.scifi-no-tracing {
+  background-color: var(--color-wow-leather) !important;
+  background-image: none !important;
+}
+
+:root:not([data-theme="scifi"]) .wow-panel::before {
+  border-radius: 7px;
+}
+
+:root:not([data-theme="scifi"]) .wow-button,
+:root:not([data-theme="scifi"]) .wow-button-green,
+:root:not([data-theme="scifi"]) .wow-button-red {
+  border-radius: 6px;
+}
+
+:root:not([data-theme="scifi"]) .border-wow {
+  border-radius: 8px;
+}
+
+:root:not([data-theme="scifi"]) input,
+:root:not([data-theme="scifi"]) textarea,
+:root:not([data-theme="scifi"]) select,
+:root:not([data-theme="scifi"]) button {
+  border-radius: 6px;
+}
+
+/* SCI-FI THEME SKIN OVERRIDES */
+[data-theme="scifi"] {
+  --color-wow-gold: #00f0ff;
+  --color-wow-dark: #090e1a;
+  --color-wow-wood: #0f172a;
+  --color-wow-parchment: #0369a1;
+  --color-wow-leather: #0b1120;
+
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  scrollbar-color: #0284c7 rgba(3, 7, 18, 0.8);
+}
+
+[data-theme="scifi"] .font-cinzel {
+  font-family: 'Chakra Petch', 'Orbitron', system-ui, sans-serif !important;
+  letter-spacing: -0.02em !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="scifi"] .font-macondo {
+  font-family: 'Rajdhani', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+
+[data-theme="scifi"] h1,
+[data-theme="scifi"] h2,
+[data-theme="scifi"] h3,
+[data-theme="scifi"] h4,
+[data-theme="scifi"] h5,
+[data-theme="scifi"] h6 {
+  font-family: 'Chakra Petch', 'Orbitron', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+[data-theme="scifi"] button,
+[data-theme="scifi"] input,
+[data-theme="scifi"] select,
+[data-theme="scifi"] textarea {
+  letter-spacing: -0.01em;
+}
+
+/* Force all right angles (no rounded corners) in Sci-Fi mode */
+[data-theme="scifi"] *,
+[data-theme="scifi"] *::before,
+[data-theme="scifi"] *::after {
+  border-radius: 0 !important;
+}
+
+[data-theme="scifi"] *::-webkit-scrollbar-thumb {
+  background-color: #0284c7;
+  border: 1px solid #090e1a;
+}
+
+[data-theme="scifi"] *::-webkit-scrollbar-thumb:hover {
+  background-color: #00f0ff;
+}
+
+[data-theme="scifi"] .bg-iron {
+  background-color: #050812 !important;
+}
+
+[data-theme="scifi"] .bg-leather {
+  background-color: #0b1120 !important;
+}
+
+[data-theme="scifi"] .bg-wood {
+  background-color: #0d1527 !important;
+}
+
+[data-theme="scifi"] .bg-wow-dark {
+  background-color: #080d19 !important;
+}
+
+[data-theme="scifi"] .text-wow-gold {
+  color: #00f0ff !important;
+}
+
+[data-theme="scifi"] .border-wow,
+[data-theme="scifi"] .border-\[\#5a4b3c\] {
+  border-color: #0284c7 !important;
+  box-shadow: inset 0 0 0 1px #080d19, 0 0 6px rgba(0, 240, 255, 0.2) !important;
+}
+
+[data-theme="scifi"] .wow-panel {
+  background-color: #0b1120 !important;
+  border: 2px solid #0284c7 !important;
+  box-shadow: inset 0 0 0 1px #050a14, 0 0 8px rgba(0, 240, 255, 0.2) !important;
+}
+
+/* High-tech tracing pattern overlay for panels (except right column / no-tracing) */
+[data-theme="scifi"] .scifi-tracing,
+[data-theme="scifi"] .wow-panel:not(.scifi-no-tracing) {
+  background-color: #080d1a !important;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(2, 132, 199, 0.03) 0%, rgba(0, 0, 0, 0.35) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cpath d='M0 35 H140 M0 105 H140 M35 0 V140 M105 0 V140' stroke='rgba(2,132,199,0.06)' stroke-width='1' fill='none'/%3E%3Cpath d='M0 18 L25 18 L35 28 L105 28 L115 18 L140 18 M0 122 L25 122 L35 112 L105 112 L115 122 L140 122' stroke='rgba(0,240,255,0.09)' stroke-width='1' fill='none'/%3E%3Cpath d='M35 28 V50 L45 60 V80 L35 90 V112' stroke='rgba(0,240,255,0.08)' stroke-width='1' fill='none'/%3E%3Cpath d='M105 28 V50 L95 60 V80 L105 90 V112' stroke='rgba(0,240,255,0.08)' stroke-width='1' fill='none'/%3E%3Ccircle cx='35' cy='28' r='1.5' fill='rgba(0,240,255,0.25)'/%3E%3Ccircle cx='105' cy='28' r='1.5' fill='rgba(0,240,255,0.25)'/%3E%3Ccircle cx='35' cy='112' r='1.5' fill='rgba(0,240,255,0.25)'/%3E%3Ccircle cx='105' cy='112' r='1.5' fill='rgba(0,240,255,0.25)'/%3E%3C/svg%3E") !important;
+  background-repeat: repeat !important;
+  background-size: auto, auto, 140px 140px !important;
+}
+
+/* Explicitly disable high-tech tracing for right-column sections */
+[data-theme="scifi"] .scifi-no-tracing,
+[data-theme="scifi"] .wow-panel.scifi-no-tracing {
+  background-color: #0b1120 !important;
+  background-image: none !important;
+}
+
+[data-theme="scifi"] .wow-panel::before {
+  border: 1px solid rgba(0, 240, 255, 0.2) !important;
+}
+
+[data-theme="scifi"] .wow-button {
+  background: linear-gradient(to bottom, #033659 0%, #021e33 100%) !important;
+  border: 2px solid #00f0ff !important;
+  box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.3), 0 4px 6px rgba(0,0,0,0.8) !important;
+  color: #00f0ff !important;
+  text-shadow: 0 0 4px rgba(0, 240, 255, 0.5) !important;
+}
+
+[data-theme="scifi"] .wow-button:hover {
+  background: linear-gradient(to bottom, #044b7a 0%, #032b47 100%) !important;
+  box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.5), 0 6px 8px rgba(0,0,0,0.9) !important;
+}
+
+[data-theme="scifi"] .wow-button-green,
+[data-theme="scifi"] .wow-button.bg-green-600 {
+  background: linear-gradient(to bottom, #059669 0%, #064e3b 100%) !important;
+  border: 2px solid #34d399 !important;
+  box-shadow: inset 0 0 10px rgba(52, 211, 153, 0.4), 0 4px 6px rgba(0,0,0,0.8) !important;
+}
+
+[data-theme="scifi"] .wow-button-red {
+  background: linear-gradient(to bottom, #be123c 0%, #881337 100%) !important;
+  border: 2px solid #fb7185 !important;
+  box-shadow: inset 0 0 10px rgba(251, 113, 133, 0.4), 0 4px 6px rgba(0,0,0,0.8) !important;
+}
+
+/* Sci-fi cursors with cyan pointer */
+[data-theme="scifi"] html, [data-theme="scifi"] body, [data-theme="scifi"] select, [data-theme="scifi"] option, [data-theme="scifi"] .cursor-default {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M 1.5 1.5 L 7.5 23.5 L 11.5 14.5 L 19.5 11.5 Z' fill='rgba(0,0,0,0.6)' /%3E%3Cpath d='M 0 0 L 6 22 L 10 13 L 18 10 Z' fill='%2300f0ff' stroke='%23031f38' stroke-width='1.5' stroke-linejoin='round' /%3E%3C/svg%3E") 0 0, auto !important;
+}
+
+[data-theme="scifi"] a, [data-theme="scifi"] button, [data-theme="scifi"] [role="button"], [data-theme="scifi"] input[type="submit"], [data-theme="scifi"] input[type="button"], [data-theme="scifi"] input[type="checkbox"], [data-theme="scifi"] input[type="radio"], [data-theme="scifi"] label, [data-theme="scifi"] .cursor-pointer, [data-theme="scifi"] [class*="cursor-pointer"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M 1.5 1.5 L 7.5 23.5 L 11.5 14.5 L 19.5 11.5 Z' fill='rgba(0,0,0,0.6)' /%3E%3Cpath d='M 0 0 L 6 22 L 10 13 L 18 10 Z' fill='%2300f0ff' stroke='%23031f38' stroke-width='1.5' stroke-linejoin='round' /%3E%3C/svg%3E") 0 0, pointer !important;
+}
+
+[data-theme="scifi"] input[type="text"], [data-theme="scifi"] input[type="number"], [data-theme="scifi"] textarea, [data-theme="scifi"] [contenteditable="true"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='20' viewBox='0 0 16 20'%3E%3Cpath d='M 4 2 H 12 M 8 2 V 18 M 4 18 H 12' stroke='rgba%280,0,0,0.5%29' stroke-width='2.5' stroke-linecap='round' /%3E%3Cpath d='M 4 2 H 12 M 8 2 V 18 M 4 18 H 12' stroke='%2300f0ff' stroke-width='1.5' stroke-linecap='round' /%3E%3C/svg%3E") 8 10, text !important;
 }
 

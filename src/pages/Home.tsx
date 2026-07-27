@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, ScrollText, Swords, Upload, Sparkles, User, Key, Link } from 'lucide-react';
+import { Shield, ScrollText, Swords, Upload, Sparkles, User, Key, Link, Cpu } from 'lucide-react';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useGMStore } from '@/store/useGMStore';
+import { useTheme } from '@/lib/useTheme';
 
 // Helper to wipe Firestore players if configured (to wipe everything)
 async function wipeFirestorePlayers() {
@@ -25,6 +26,7 @@ interface HomeProps {
 }
 
 export function Home({ onSelectRole }: HomeProps) {
+  const { theme, toggleTheme } = useTheme();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
@@ -466,6 +468,26 @@ export function Home({ onSelectRole }: HomeProps) {
 
         <div className="w-full h-px bg-gradient-to-r from-transparent via-[#5a4b3c] to-transparent mt-8 mb-4"></div>
         <p className="font-cinzel text-xs text-white text-center">Copyright Mampianina</p>
+        <div className="flex justify-center mt-3">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="wow-button py-1 px-3 text-xs uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1.5 cursor-pointer"
+            title="Switch theme (Fantasy / Sci-Fi)"
+          >
+            {theme === 'scifi' ? (
+              <>
+                <Cpu size={14} className="text-cyan-400" />
+                <span>THEME: SCI-FI</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} className="text-wow-gold" />
+                <span>THEME: FANTASY</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* CREATE AS GAME MASTER MODAL */}

@@ -55,7 +55,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [isNonComputer, setIsNonComputer] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeZone, setActiveZone] = useState<string>('spells');
+  const [activeZone, setActiveZone] = useState<string>(() => !useMultiplayerStore.getState().isConnected ? 'stats' : 'spells');
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -73,6 +73,19 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   }, []);
 
   const isVerticalMode = isVerticalScreen || isNonComputer || windowWidth < 1024;
+
+  const getVerticalButtonClass = (zone: string) => {
+    const isActive = activeZone === zone;
+    if (theme === 'scifi') {
+      return isActive
+        ? "bg-cyan-500 text-slate-950 border border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.6)]"
+        : "bg-slate-950 text-cyan-400 border border-[#06b6d4]/20 hover:bg-slate-900";
+    } else {
+      return isActive
+        ? "bg-wow-gold text-red-950 border border-amber-300 shadow-[0_0_10px_rgba(212,175,55,0.6)] font-bold"
+        : "bg-[#4a0d0d] text-wow-gold border border-[#5a4b3c]/50 hover:bg-[#5e1212]";
+    }
+  };
 
   useEffect(() => {
     try {
@@ -514,47 +527,11 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       {/* TOP BANNER IN VERTICAL MODE */}
       {isVerticalMode ? (
         <div className="bg-[#120d08] border-b-2 border-[#5a4b3c] shadow-2xl p-2 -mx-2 -mt-2 mb-3 flex flex-col gap-1.5 shrink-0">
-          {/* Section 2: Menu Button + Dashboard Title + Theme Switcher */}
+          {/* Section 2: Dashboard Title + Theme Switcher */}
           <div className={cn(
             "wow-panel flex items-center justify-between py-1 px-2.5 shadow-md gap-2 relative",
             isViewingPlayer && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
           )}>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="wow-button py-1 px-2.5 text-xs font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center gap-1.5 shrink-0 cursor-pointer shadow-md"
-                title="Ouvrir le menu des zones"
-              >
-                {mobileMenuOpen ? <X size={16} className="text-red-400" /> : <Menu size={16} className="text-wow-gold" />}
-                <span>MENU</span>
-              </button>
-              
-              <div className="flex items-center gap-1 bg-black/40 border border-[#5a4b3c]/50 p-0.5 rounded">
-                <button
-                  onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
-                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'logs' ? 'bg-amber-900/40 border-amber-500/50' : '')}
-                  title="Roll Logs"
-                >
-                  <Scroll size={14} className={activeZone === 'logs' ? "text-amber-400" : "text-wow-gold"} />
-                </button>
-                <button
-                  onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
-                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'stats' ? 'bg-purple-900/40 border-purple-500/50' : '')}
-                  title="Character Stats"
-                >
-                  <User size={14} className={activeZone === 'stats' ? "text-purple-400" : "text-wow-gold"} />
-                </button>
-                <button
-                  onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
-                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'spells' ? 'bg-cyan-900/40 border-cyan-500/50' : '')}
-                  title="Abilities"
-                >
-                  <Zap size={14} className={activeZone === 'spells' ? "text-cyan-400" : "text-wow-gold"} />
-                </button>
-              </div>
-            </div>
-
             <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
               {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
             </div>
@@ -703,142 +680,97 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         </div>
       )}
 
-      {/* FULLSCREEN MOBILE MENU OVERLAY */}
-      {isVerticalMode && mobileMenuOpen && (
-        <div className="fixed inset-0 z-[100] bg-[#0c0a08] p-4 overflow-y-auto flex flex-col gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-[#5a4b3c]/60 shrink-0">
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold uppercase font-bold tracking-widest">
-              Mobile Navigation GM - Select a View
-            </div>
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              className="wow-button px-2.5 py-1 text-wow-gold flex items-center justify-center gap-1.5 text-xs font-bold font-cinzel rounded border border-[#5a4b3c] hover:text-white"
-            >
-              <X size={16} />
-              <span>CLOSE</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2.5">
-            <button
-              onClick={() => { setActiveZone('header3'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'header3' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><Download size={18} className="text-amber-400" /> Import / Export & Options</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'logs' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><Scroll size={18} className="text-amber-400" /> Roll Logs & Dice History</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'spells' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><Zap size={18} className="text-cyan-400" /> Ability Crafter & Spells</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'stats' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><User size={18} className="text-purple-400" /> Encounter Control & Inspection</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('players'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'players' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><Users size={18} className="text-blue-400" /> Online Players List</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('notes'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'notes' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><FileText size={18} className="text-emerald-400" /> Notes & GM Journal</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button
-              onClick={() => { setActiveZone('all'); setMobileMenuOpen(false); }}
-              className={cn(
-                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
-                activeZone === 'all' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
-              )}
-            >
-              <span className="flex items-center gap-2"><LayoutGrid size={18} className="text-wow-gold" /> Show All Views (Continuous)</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* DEDICATED FULL-SCREEN IMPORT / EXPORT PANEL FOR VERTICAL MODE */}
-      {isVerticalMode && activeZone === 'header3' && (
-        <div className="wow-panel scifi-no-tracing flex flex-col items-center justify-center gap-6 p-6 shadow-xl bg-leather relative h-[calc(100dvh-110px)] min-h-[calc(100dvh-110px)] w-full text-center">
-          <h3 className="font-cinzel text-wow-gold text-lg font-bold tracking-widest uppercase border-b border-[#5a4b3c] pb-2 w-full max-w-xs">
-            Import / Export Options
-          </h3>
-          <p className="font-sans text-xs text-gray-300 max-w-xs">
-            Save or restore the complete GM state via a local JSON file.
-          </p>
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            <label className="wow-button p-4 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg">
-              <Upload size={18} /> <span>LOAD JSON FILE</span>
-              <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
-            </label>
-            <button 
-              onClick={handleExportGMJSON} 
-              disabled={!mpStore.isConnected && !store.roomName.trim()}
-              className={cn(
-                "wow-button p-4 flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg",
-                (!mpStore.isConnected && !store.roomName.trim()) && "opacity-50 !cursor-default"
-              )}
-            >
-              <Download size={18} /> <span>EXPORTER SAUVEGARDE (.JSON)</span>
-            </button>
-            {mpStore.isConnected && (
-              <button 
-                onClick={() => setShowDisconnectConfirm(true)}
-                className="wow-button p-3 text-red-400 border-2 border-red-800/80 bg-red-950/30 hover:bg-red-900/50 text-xs font-cinzel font-bold flex items-center justify-center gap-2 rounded shadow-md mt-2"
+      {/* HORIZONTAL WRAPPER FOR VERTICAL SIDEBAR AND MAIN GRID */}
+      <div className="flex-1 flex gap-2.5 overflow-hidden h-full w-full">
+        {/* PERMANENT VERTICAL SIDEBAR FOR VERTICAL SCREEN MODE ONLY */}
+        {isVerticalMode && (
+          <div className="flex flex-col items-center p-1 bg-black/40 border border-[#5a4b3c]/60 rounded shrink-0 h-full justify-start w-11 shadow-2xl relative z-10">
+            <div className="h-3/4 w-full flex flex-col gap-2 items-center py-2">
+              <button
+                onClick={() => setActiveZone('logs')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('logs'))}
+                title="Roll Logs"
               >
-                <Power size={16} /> <span>SE DÉCONNECTER DE LA ROOM</span>
+                <Scroll size={18} />
               </button>
-            )}
+              <button
+                onClick={() => setActiveZone('spells')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('spells'))}
+                title="Ability Crafter & Spells"
+              >
+                <Zap size={18} />
+              </button>
+              <button
+                onClick={() => setActiveZone('stats')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('stats'))}
+                title="Encounter Control & Inspection"
+              >
+                <User size={18} />
+              </button>
+              <button
+                onClick={() => setActiveZone('players')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('players'))}
+                title="Online Players List"
+              >
+                <Users size={18} />
+              </button>
+              <button
+                onClick={() => setActiveZone('notes')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('notes'))}
+                title="Notes & GM Journal"
+              >
+                <FileText size={18} />
+              </button>
+              <button
+                onClick={() => setActiveZone('header3')}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('header3'))}
+                title="Import / Export Options"
+              >
+                <Download size={18} />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Main Full-height Grid Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden h-full">
+        <div className="flex-1 h-full min-h-0 overflow-hidden relative">
+          {/* DEDICATED FULL-SCREEN IMPORT / EXPORT PANEL FOR VERTICAL MODE */}
+          {isVerticalMode && activeZone === 'header3' && (
+            <div className="wow-panel scifi-no-tracing flex flex-col items-center justify-center gap-6 p-6 shadow-xl bg-leather relative h-[calc(100dvh-110px)] min-h-[calc(100dvh-110px)] w-full text-center">
+              <h3 className="font-cinzel text-wow-gold text-lg font-bold tracking-widest uppercase border-b border-[#5a4b3c] pb-2 w-full max-w-xs">
+                Import / Export Options
+              </h3>
+              <p className="font-sans text-xs text-gray-300 max-w-xs">
+                Save or restore the complete GM state via a local JSON file.
+              </p>
+              <div className="flex flex-col gap-4 w-full max-w-xs">
+                <label className="wow-button p-4 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg">
+                  <Upload size={18} /> <span>LOAD JSON FILE</span>
+                  <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
+                </label>
+                <button 
+                  onClick={handleExportGMJSON} 
+                  disabled={!mpStore.isConnected && !store.roomName.trim()}
+                  className={cn(
+                    "wow-button p-4 flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg",
+                    (!mpStore.isConnected && !store.roomName.trim()) && "opacity-50 !cursor-default"
+                  )}
+                >
+                  <Download size={18} /> <span>EXPORTER SAUVEGARDE (.JSON)</span>
+                </button>
+                {mpStore.isConnected && (
+                  <button 
+                    onClick={() => setShowDisconnectConfirm(true)}
+                    className="wow-button p-3 text-red-400 border-2 border-red-800/80 bg-red-950/30 hover:bg-red-900/50 text-xs font-cinzel font-bold flex items-center justify-center gap-2 rounded shadow-md mt-2"
+                  >
+                    <Power size={16} /> <span>SE DÉCONNECTER DE LA ROOM</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Main Full-height Grid Layout */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden h-full w-full">
         
         {/* COLUMN 1: SPELL CRAFTER / ROLL LOGS (col-span-5) */}
         {(!isVerticalMode || activeZone === 'all' || activeZone === 'logs' || activeZone === 'spells') && (
@@ -959,81 +891,123 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               </div>
 
               {/* Controls row (Zoom & Gear - Ask For Stat disabled) */}
-              <div className="flex items-center justify-center gap-1.5 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
-                {/* ALL MINUS CONTROLS (LEFT of ZoomOut) */}
-                <div className="flex gap-0.5 items-center shrink-0">
+              <div className="flex flex-col items-center justify-center gap-1.5 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0">
+                {/* Row 1: H-, W- | ASK FOR STAT | W+, H+ */}
+                <div className="flex items-center justify-center gap-1.5 w-full flex-wrap">
+                  {/* ALL MINUS CONTROLS (LEFT of ZoomOut) */}
+                  <div className="flex gap-0.5 items-center shrink-0">
+                    <button 
+                      onClick={() => pStore.decreasePhotoHeight?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
+                      title="Diminuer la hauteur de la photo"
+                    >
+                      H-
+                    </button>
+                    <button 
+                      onClick={() => pStore.decreasePhotoWidth?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
+                      title="Diminuer la largeur de la photo"
+                    >
+                      W-
+                    </button>
+                    <button 
+                      onClick={() => pStore.decreaseBarHeight?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white items-center justify-center text-[10px] font-mono h-[22px] lg:flex hidden"
+                      title="Diminuer la hauteur des barres de stat"
+                    >
+                      B-
+                    </button>
+                  </div>
+
+                  {/* LOUPE MINUS */}
                   <button 
-                    onClick={() => pStore.decreasePhotoHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                    title="Diminuer la hauteur de la photo"
+                    onClick={() => pStore.decreaseTextSize()}
+                    className="wow-button p-1 text-wow-gold hover:text-white lg:flex hidden"
+                    title="Réduire la taille du texte"
                   >
-                    <User size={10} />H-
+                    <ZoomOut size={14} />
                   </button>
+
+                  {/* CENTER: ASK FOR STAT (Disabled for GM) */}
                   <button 
-                    onClick={() => pStore.decreasePhotoWidth?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                    title="Diminuer la largeur de la photo"
+                    disabled
+                    className="px-2 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[110px] wow-button text-wow-gold opacity-30 cursor-not-allowed"
+                    title="Disabled for GM"
                   >
-                    <User size={10} />W-
+                    ASK FOR STAT
                   </button>
+
+                  {/* LOUPE PLUS */}
                   <button 
-                    onClick={() => pStore.decreaseBarHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                    title="Diminuer la hauteur des barres de stat"
+                    onClick={() => pStore.increaseTextSize()}
+                    className="wow-button p-1 text-wow-gold hover:text-white lg:flex hidden"
+                    title="Augmenter la taille du texte"
                   >
-                    <FileText size={10} />-
+                    <ZoomIn size={14} />
                   </button>
+
+                  {/* ALL PLUS CONTROLS (RIGHT of ZoomIn) */}
+                  <div className="flex gap-0.5 items-center shrink-0">
+                    <button 
+                      onClick={() => pStore.increaseBarHeight?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white items-center justify-center text-[10px] font-mono h-[22px] lg:flex hidden"
+                      title="Augmenter la hauteur des barres de stat"
+                    >
+                      B+
+                    </button>
+                    <button 
+                      onClick={() => pStore.increasePhotoWidth?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
+                      title="Augmenter la largeur de la photo"
+                    >
+                      W+
+                    </button>
+                    <button 
+                      onClick={() => pStore.increasePhotoHeight?.()}
+                      className="wow-button px-1.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
+                      title="Augmenter la hauteur de la photo"
+                    >
+                      H+
+                    </button>
+                  </div>
                 </div>
 
-                {/* LOUPE MINUS */}
-                <button 
-                  onClick={() => pStore.decreaseTextSize()}
-                  className="wow-button p-1 text-wow-gold hover:text-white"
-                  title="Réduire la taille du texte"
-                >
-                  <ZoomOut size={14} />
-                </button>
+                {/* Row 2: Only in Vertical Mode (narrow screens), centered right under Row 1, containing B-, ZoomOut, ZoomIn, B+ */}
+                <div className="flex items-center justify-center gap-4 w-full pt-1 lg:hidden">
+                  {/* B- button */}
+                  <button 
+                    onClick={() => pStore.decreaseBarHeight?.()}
+                    className="wow-button px-2.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
+                    title="Diminuer la hauteur des barres de stat"
+                  >
+                    B-
+                  </button>
 
-                {/* CENTER: ASK FOR STAT (Disabled for GM) */}
-                <button 
-                  disabled
-                  className="px-2.5 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[130px] wow-button text-wow-gold opacity-30 cursor-not-allowed"
-                  title="Disabled for GM"
-                >
-                  <Sparkles size={12} /> ASK FOR STAT
-                </button>
+                  {/* LOUPE MINUS */}
+                  <button 
+                    onClick={() => pStore.decreaseTextSize()}
+                    className="wow-button p-1 text-wow-gold hover:text-white flex items-center justify-center"
+                    title="Réduire la taille du texte"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
 
-                {/* LOUPE PLUS */}
-                <button 
-                  onClick={() => pStore.increaseTextSize()}
-                  className="wow-button p-1 text-wow-gold hover:text-white"
-                  title="Augmenter la taille du texte"
-                >
-                  <ZoomIn size={14} />
-                </button>
+                  {/* LOUPE PLUS */}
+                  <button 
+                    onClick={() => pStore.increaseTextSize()}
+                    className="wow-button p-1 text-wow-gold hover:text-white flex items-center justify-center"
+                    title="Augmenter la taille du texte"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
 
-                {/* ALL PLUS CONTROLS (RIGHT of ZoomIn) */}
-                <div className="flex gap-0.5 items-center shrink-0">
+                  {/* B+ button */}
                   <button 
                     onClick={() => pStore.increaseBarHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
+                    className="wow-button px-2.5 py-0.5 text-wow-gold hover:text-white flex items-center justify-center text-[10px] font-mono h-[22px]"
                     title="Augmenter la hauteur des barres de stat"
                   >
-                    <FileText size={10} />+
-                  </button>
-                  <button 
-                    onClick={() => pStore.increasePhotoWidth?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                    title="Augmenter la largeur de la photo"
-                  >
-                    <User size={10} />W+
-                  </button>
-                  <button 
-                    onClick={() => pStore.increasePhotoHeight?.()}
-                    className="wow-button px-1 py-0.5 text-wow-gold hover:text-white flex items-center gap-0.5 text-[10px] font-mono h-[22px]"
-                    title="Augmenter la hauteur de la photo"
-                  >
-                    <User size={10} />H+
+                    B+
                   </button>
                 </div>
               </div>
@@ -1166,6 +1140,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                   ))}
                 </div>
               </div>
+
+
             </div>
           ) : (
             // NORMAL GM DRAWER VIEW
@@ -1519,6 +1495,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         </div>
       )}
 
+          </div>
+        </div>
       </div>
 
       {/* GM PLAYERS LINK GENERATION WINDOW */}

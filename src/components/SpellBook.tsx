@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, ChevronUp, ChevronDown, ShoppingBag, Check, ZoomIn, ZoomOut, SlidersHorizontal } from 'lucide-react';
+import { Trash2, ChevronUp, ChevronDown, ShoppingBag, Check, ZoomIn, ZoomOut, SlidersHorizontal, X } from 'lucide-react';
 import { usePlayerStore, Spell } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
@@ -33,6 +33,7 @@ interface SpellBookProps {
     onSelectTarget: (spell: Spell) => void;
     onLaunchRoll?: () => void;
     onSwitchToStats?: () => void;
+    onCancelTargeting?: () => void;
     playerMp?: number;
     playerHp?: number;
     hasMP?: boolean;
@@ -125,18 +126,35 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
         )}
       </div>
 
-      {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO STATS) */}
-      <div className="mb-2 shrink-0 h-8 flex items-center justify-center">
+      {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO STATS) & CANCEL */}
+      <div className="mb-2 shrink-0 h-8 flex gap-2 w-full">
+        {/* Cancel/X Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (targetModeProps?.onCancelTargeting) {
+              targetModeProps.onCancelTargeting();
+            }
+          }}
+          className={cn(
+            "h-full w-10 shrink-0 font-cinzel font-bold text-xs uppercase rounded border flex items-center justify-center shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer",
+            targetModeProps?.isSelectingTarget && targetModeProps?.isVerticalMode ? "opacity-100 pointer-events-auto" : "invisible"
+          )}
+          title="Annuler le ciblage et revenir à la fiche héros"
+        >
+          <X size={14} className="stroke-[2.5]" />
+        </button>
+
+        {/* Switch Button */}
         <button
           type="button"
           onClick={targetModeProps?.onSwitchToStats}
           className={cn(
-            "w-full h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-emerald-950/90 text-emerald-300 border-emerald-500/80",
+            "flex-1 h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-emerald-950/90 text-emerald-300 border-emerald-500/80",
             targetModeProps?.isSelectingTarget && targetModeProps?.isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-emerald-900 shadow-[0_0_12px_rgba(16,185,129,0.4)]" : "invisible"
           )}
         >
-          <SlidersHorizontal size={14} className="animate-pulse text-emerald-400" />
-          <span>SWITCH TO STATS (TARGET SELECTION) ➔</span>
+          <span>SWITCH TO STATS (TARGET SELECTION)</span>
         </button>
       </div>
 
@@ -264,7 +282,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
                           </button>
 
                           <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                            {isSelected && (
+                            {isSelected && !targetModeProps?.isVerticalMode && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

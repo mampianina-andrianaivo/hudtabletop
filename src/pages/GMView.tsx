@@ -52,6 +52,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
   // Mobile Vertical View & Navigation State
   const [isVerticalScreen, setIsVerticalScreen] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [isNonComputer, setIsNonComputer] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeZone, setActiveZone] = useState<string>('spells');
@@ -59,6 +60,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   useEffect(() => {
     const checkOrientation = () => {
       setIsVerticalScreen(window.innerHeight > window.innerWidth);
+      setWindowWidth(window.innerWidth);
     };
     checkOrientation();
     window.addEventListener('resize', checkOrientation);
@@ -70,7 +72,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
     return () => window.removeEventListener('resize', checkOrientation);
   }, []);
 
-  const isVerticalMode = isVerticalScreen && !isNonComputer;
+  const isVerticalMode = isVerticalScreen || isNonComputer || windowWidth < 1024;
 
   useEffect(() => {
     try {

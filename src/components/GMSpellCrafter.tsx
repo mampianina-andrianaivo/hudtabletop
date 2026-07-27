@@ -56,7 +56,7 @@ export function GMSpellCrafter() {
     setEditingSpell({
       id: Date.now().toString(),
       icon: 'Sword', // default GM icon
-      color: 'gold', // default yellow/gold
+      color: 'blue', // default blue
       name: 'New Ability',
       tag: '',
       description: '',
@@ -116,6 +116,9 @@ export function GMSpellCrafter() {
           </button>
         </div>
       </div>
+
+      {/* RESERVED SLOT FOR SYMMETRY (Invisible) */}
+      <div className="mb-2 shrink-0 h-8 flex items-center justify-center invisible" />
 
       <div className="flex-1 overflow-y-scroll custom-scrollbar pr-2">
         <table className="w-full text-sm text-left table-fixed">
@@ -522,9 +525,9 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
         <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-[#5a4b3c]/50">
           <button 
             type="button"
-            onClick={() => setDraft(p => ({ ...p, color: 'gold' }))}
-            className={`w-5 h-5 rounded-sm bg-[#f3d178] border border-black/40 cursor-pointer transition-all ${(!draft.color || draft.color === 'gold') ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
-            title="Yellow (Default)"
+            onClick={() => setDraft(p => ({ ...p, color: 'blue' }))}
+            className={`w-5 h-5 rounded-sm bg-cyan-500 border border-black/40 cursor-pointer transition-all ${(!draft.color || draft.color === 'blue' || draft.color === 'gold') ? 'ring-2 ring-white scale-110' : 'opacity-50 hover:opacity-100'}`}
+            title="Blue (Default)"
           />
           <button 
             type="button"
@@ -563,7 +566,6 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
       
       <div className="flex gap-3 mb-3 shrink-0">
         <div className="relative">
-          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Icon</label>
           <button 
             type="button"
             onClick={() => setShowIconPicker(!showIconPicker)}
@@ -590,7 +592,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           />
         </div>
         <div className="flex-1 min-w-0">
-          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Tag (Golden Label)</label>
+          <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
           <input 
             type="text" 
             value={draft.tag || ''} 
@@ -613,7 +615,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           </button>
         </div>
         <div>
-          <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
+          <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
           <button
             type="button"
             disabled={isDotDice}
@@ -626,7 +628,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
           </button>
         </div>
         <div>
-          <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES</label>
+          <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
           <button
             type="button"
             disabled={isDotDice}

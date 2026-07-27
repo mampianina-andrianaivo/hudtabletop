@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power, Cpu } from 'lucide-react';
+import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power, Cpu, Menu, X, ChevronRight, LayoutGrid, Zap, SlidersHorizontal, Scroll } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
@@ -100,6 +100,31 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
   const [isSelectingStatForBoost, setIsSelectingStatForBoost] = useState(false);
   const [selectedStatForBoost, setSelectedStatForBoost] = useState<string | null>(null);
+
+  // Mobile Vertical View & Navigation State
+  const [isVerticalScreen, setIsVerticalScreen] = useState(false);
+  const [isNonComputer, setIsNonComputer] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeZone, setActiveZone] = useState<string>('spells');
+
+  const spellsRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsVerticalScreen(window.innerHeight > window.innerWidth);
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+
+    if (typeof navigator !== 'undefined') {
+      setIsNonComputer(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    }
+
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
+
+  const isVerticalMode = isVerticalScreen && !isNonComputer;
 
   const handleConfirmStatBoost = async (statName: string) => {
     if (!statName) return;
@@ -500,171 +525,452 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   };
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-iron text-white flex flex-col p-2 md:p-3  select-none">
+    <div className="bg-iron text-white flex flex-col p-2 md:p-3 select-none h-full w-full overflow-hidden">
       
-      {/* TOP BANNER SPLIT IN 3 SECTIONS ALIGNED WITH MAIN COLUMNS Below */}
-      <div className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
-        
-        {/* Section 1: Home / Status Button (lg:col-span-5) */}
-        <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          {!mpStore.isConnected && (
-            <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
-              <Home size={15} /> <span className="hidden sm:inline">Home</span>
-            </button>
-          )}
-          
-          <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
-            {mpStore.isConnected ? (
-              <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner">
-                <Wifi size={12} />
-                <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                  <WifiOff size={12} />
-                  <span className="font-cinzel tracking-wider">OFFLINE</span>
-                </div>
-                <div className="flex items-center gap-0">
-                  <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
-                    GM EDITS
-                  </button>
-                  <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">
-                    PLAYER EDITS
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Section 2: Character Name Header (lg:col-span-4) */}
-        <div className={cn(
-          "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
-          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
-        )}>
-          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
-            {activeName || "CHARACTER"}
-          </div>
-          <button
-            onClick={toggleTheme}
-            className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
-            title="Switch theme (Fantasy / Sci-Fi)"
-          >
-            {theme === 'scifi' ? (
-              <>
-                <Cpu size={12} className="text-cyan-400" />
-                <span className="hidden sm:inline">SCI-FI</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={12} className="text-wow-gold" />
-                <span className="hidden sm:inline">FANTASY</span>
-              </>
-            )}
-          </button>
-        </div>
-        
-        {/* Section 3: Load / Export / Disconnect buttons (lg:col-span-3) */}
-        <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
-          <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
-            <Upload size={14} /> <span>I</span>
-            <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
-          </label>
-          <button onClick={handleExportJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
-            <Download size={14} /> <span>E</span>
-          </button>
-          
-          {mpStore.isConnected && (
-            <>
-              <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
-              <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`CODE: ${mpStore.joinCode}`}>
-                CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
-              </div>
-              <button 
-                onClick={() => {
-                  if (confirm("Disconnect from room?")) {
-                    mpStore.disconnect();
-                    onGoHome();
-                  }
-                }}
-                className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
-                title="DISCONNECT"
+      {/* TOP HEADER CONTAINER */}
+      {isVerticalMode ? (
+        <div className="bg-[#120d08] border-b-2 border-[#5a4b3c] shadow-2xl p-2 -mx-2 -mt-2 mb-3 flex flex-col gap-1.5 shrink-0">
+          {/* Line 1: Character Header with MENU button and Theme */}
+          <div className="wow-panel flex items-center justify-between py-1 px-2.5 shadow-md gap-2 relative">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="wow-button py-1 px-2.5 text-xs font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center gap-1.5 shrink-0 cursor-pointer shadow-md"
+                title="Ouvrir le menu des zones"
               >
-                <Power size={14} />
+                {mobileMenuOpen ? <X size={16} className="text-red-400" /> : <Menu size={16} className="text-wow-gold" />}
+                <span>MENU</span>
               </button>
-            </>
-          )}
+              
+              <div className="flex items-center gap-1 bg-black/40 border border-[#5a4b3c]/50 p-0.5 rounded">
+                <button
+                  onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'logs' ? 'bg-amber-900/40 border-amber-500/50' : '')}
+                  title="Roll Logs"
+                >
+                  <Scroll size={14} className={activeZone === 'logs' ? "text-amber-400" : "text-wow-gold"} />
+                </button>
+                <button
+                  onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'stats' ? 'bg-purple-900/40 border-purple-500/50' : '')}
+                  title="Character Stats"
+                >
+                  <User size={14} className={activeZone === 'stats' ? "text-purple-400" : "text-wow-gold"} />
+                </button>
+                <button
+                  onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'spells' ? 'bg-cyan-900/40 border-cyan-500/50' : '')}
+                  title="Abilities"
+                >
+                  <Zap size={14} className={activeZone === 'spells' ? "text-cyan-400" : "text-wow-gold"} />
+                </button>
+              </div>
+            </div>
+
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+              {activeName || "CHARACTER"}
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
+              title="Switch theme (Fantasy / Sci-Fi)"
+            >
+              {theme === 'scifi' ? (
+                <>
+                  <Cpu size={12} className="text-cyan-400" />
+                  <span className="hidden sm:inline">SCI-FI</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} className="text-wow-gold" />
+                  <span className="hidden sm:inline">FANTASY</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Line 2: Connection / Sync Status Bar */}
+          <div className="wow-panel flex items-center justify-between py-1 px-2.5 shadow-sm min-h-[32px] gap-2">
+            {!mpStore.isConnected && (
+              <button onClick={onGoHome} className="wow-button px-2 py-0.5 flex items-center gap-1 text-[11px] shrink-0">
+                <Home size={12} /> <span>Home</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1.5 font-mono text-[10px] truncate flex-1 justify-center">
+              {mpStore.isConnected ? (
+                <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner truncate">
+                  <Wifi size={11} />
+                  <span className="font-cinzel tracking-wider truncate max-w-[140px]">ONLINE: {mpStore.roomName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                    <WifiOff size={11} />
+                    <span className="font-cinzel tracking-wider text-[10px]">OFFLINE</span>
+                  </div>
+                  <div className="flex items-center gap-0">
+                    <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel text-white opacity-70">
+                      GM
+                    </button>
+                    <span className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel bg-black/50 text-wow-gold cursor-default">
+                      PLAYER
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
+          {/* Section 1: Home / Status Button (lg:col-span-5) */}
+          <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
+            {!mpStore.isConnected && (
+              <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
+                <Home size={15} /> <span className="hidden sm:inline">Home</span>
+              </button>
+            )}
+            
+            <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
+              {mpStore.isConnected ? (
+                <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner">
+                  <Wifi size={12} />
+                  <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                    <WifiOff size={12} />
+                    <span className="font-cinzel tracking-wider">OFFLINE</span>
+                  </div>
+                  <div className="flex items-center gap-0">
+                    <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
+                      GM EDITS
+                    </button>
+                    <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">
+                      PLAYER EDITS
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 2: Character Name Header (lg:col-span-4) */}
+          <div className={cn(
+            "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
+            isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+          )}>
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+              {activeName || "CHARACTER"}
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
+              title="Switch theme (Fantasy / Sci-Fi)"
+            >
+              {theme === 'scifi' ? (
+                <>
+                  <Cpu size={12} className="text-cyan-400" />
+                  <span className="hidden sm:inline">SCI-FI</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} className="text-wow-gold" />
+                  <span className="hidden sm:inline">FANTASY</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Section 3: Load / Export / Disconnect buttons (lg:col-span-3) */}
+          <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
+            <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+              <Upload size={14} /> <span>I</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+            </label>
+            <button onClick={handleExportJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
+              <Download size={14} /> <span>E</span>
+            </button>
+            
+            {mpStore.isConnected && (
+              <>
+                <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
+                <div className="text-[10px] text-white font-mono tracking-widest bg-black/30 border border-[#5a4b3c]/10 px-2 py-1 rounded truncate shrink-0" title={`CODE: ${mpStore.joinCode}`}>
+                  CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (confirm("Disconnect from room?")) {
+                      mpStore.disconnect();
+                      onGoHome();
+                    }
+                  }}
+                  className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
+                  title="DISCONNECT"
+                >
+                  <Power size={14} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN MOBILE MENU OVERLAY */}
+      {isVerticalMode && mobileMenuOpen && (
+        <div className="fixed inset-0 z-[100] bg-[#0c0a08] p-4 overflow-y-auto flex flex-col gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-3 border-b border-[#5a4b3c]/60 shrink-0">
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold uppercase font-bold tracking-widest">
+              Mobile Navigation - Select a View
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="wow-button px-2.5 py-1 text-wow-gold flex items-center justify-center gap-1.5 text-xs font-bold font-cinzel rounded border border-[#5a4b3c] hover:text-white"
+            >
+              <X size={16} />
+              <span>CLOSE</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2.5">
+            <button
+              onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'logs' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><Scroll size={18} className="text-amber-400" /> Roll Logs & Dice History</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'spells' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><Zap size={18} className="text-cyan-400" /> Abilities (Grimoire)</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'stats' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><User size={18} className="text-purple-400" /> Character Sheet & Stats</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('players'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'players' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><Users size={18} className="text-blue-400" /> Player List & GM</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('notes'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'notes' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><FileText size={18} className="text-emerald-400" /> Notes & Journal</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('header3'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'header3' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><Download size={18} className="text-amber-400" /> Import / Export Options</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('all'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3.5 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all border-dashed opacity-80",
+                activeZone === 'all' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-300"
+              )}
+            >
+              <span className="flex items-center gap-2.5"><LayoutGrid size={18} className="text-wow-gold" /> Show All Views (Continuous)</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED FULLSCREEN PANEL FOR IMPORT/EXPORT IN VERTICAL MODE */}
+      {isVerticalMode && activeZone === 'header3' && (
+        <div className="w-full h-[calc(100dvh-110px)] min-h-[calc(100dvh-110px)] wow-panel flex flex-col items-center justify-center p-6 bg-leather border border-[#5a4b3c] rounded text-center gap-5 shadow-2xl">
+          <h3 className="font-cinzel text-lg text-wow-gold uppercase tracking-widest font-bold border-b border-[#5a4b3c]/40 pb-2 w-full">
+            Import / Export & Options
+          </h3>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <label className="wow-button p-3 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold">
+              <Upload size={18} /> <span>LOAD JSON FILE</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+            </label>
+            <button onClick={handleExportJSON} className="wow-button p-3 flex items-center justify-center gap-2 text-sm font-cinzel font-bold">
+              <Download size={18} /> <span>EXPORT AS JSON</span>
+            </button>
+            {mpStore.isConnected && (
+              <div className="flex flex-col gap-2 pt-3 border-t border-[#5a4b3c]/30">
+                <div className="text-xs text-white font-mono bg-black/40 border border-[#5a4b3c]/20 p-2 rounded">
+                  ROOM CODE: <span className="text-wow-gold font-bold">{mpStore.joinCode}</span>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (confirm("Disconnect from room?")) {
+                      mpStore.disconnect();
+                      onGoHome();
+                    }
+                  }}
+                  className="wow-button p-3 text-red-400 border-red-800/60 bg-red-950/20 hover:bg-red-900/40 flex items-center justify-center gap-2 font-cinzel font-bold"
+                >
+                  <Power size={18} /> <span>DECONNEXION DU MULTIJOUEUR</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Layout Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden h-full">
         
-        {/* COLUMN 1: SPELLS grimoire (col-span-5) */}
-        <div className={cn(
-          "lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative h-full",
-          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
-        )}>
-          <div className={cn("absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
-          <div className={cn("absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
-          <div className={cn("absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
-          <div className={cn("absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
-          
-          {/* Tiers 1: Roll Logs Section with large fonts */}
-          <div className="h-1/3 min-h-0 pb-2 flex flex-col overflow-visible">
-            <RollLogsSection />
+        {/* COLUMN 1: SPELLS grimoire / ROLL LOGS (col-span-5) */}
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'logs' || activeZone === 'spells') && (
+          <div 
+            ref={spellsRef}
+            className={cn(
+              "lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative",
+              isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full" : "h-full min-h-0",
+              isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+            )}
+          >
+            <div className={cn("absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+            <div className={cn("absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+            <div className={cn("absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+            <div className={cn("absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 opacity-30 m-1", isViewMode ? "border-red-600" : "border-wow-gold")}></div>
+            
+            {/* Tiers 1: Roll Logs Section */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'logs') && (
+              <div className={cn(
+                "flex flex-col overflow-visible",
+                isVerticalMode && activeZone === 'logs' ? "h-full min-h-0" : "h-1/3 min-h-0 pb-2"
+              )}>
+                <RollLogsSection />
+              </div>
+            )}
+            
+            {/* Tiers 2 & 3: Spells SpellBook */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'spells') && (
+              <div className={cn(
+                "flex flex-col overflow-hidden",
+                isVerticalMode && activeZone === 'spells' ? "h-full min-h-0" : "h-2/3 min-h-0 pt-2 border-t border-[#5a4b3c]/30"
+              )}>
+                <SpellBook 
+                  spells={activeSpells} 
+                  playerStats={activeStats}
+                  readOnly={isViewMode} 
+                  playerName={isViewMode ? activeName : undefined}
+                  targetModeProps={{
+                    isSelectingTarget,
+                    isVerticalMode,
+                    selectedTargetId: selectedTarget?.type === 'spell' ? (selectedTarget.id || null) : null,
+                    onSelectTarget: (spell) => {
+                      if (selectedTarget?.type === 'spell' && selectedTarget?.id === spell.id) {
+                        setSelectedTarget(null);
+                      } else {
+                        const mpCost = parseMpCost(spell.r2 ?? spell.r1);
+                        const playerMp = activeResources.find(r => r.name === 'MP')?.current || 0;
+                        const playerHp = activeResources.find(r => r.name === 'HP')?.current || 0;
+                        if (!isScratch && mpCost > 0 && playerMp < mpCost && playerHp <= 0) {
+                          return;
+                        }
+                        const evalRes = evaluateSpellDice(spell, activeStats);
+                        const diceVal = typeof evalRes.effectiveD === 'number' ? evalRes.effectiveD : 12;
+                        setSelectedTarget({
+                          type: 'spell',
+                          id: spell.id,
+                          name: spell.name,
+                          value: diceVal,
+                          spell
+                        });
+                      }
+                    },
+                    onLaunchRoll: () => {
+                      if (!rolling) {
+                        handlePlayerRoll();
+                      }
+                    },
+                    onSwitchToStats: () => {
+                      if (isVerticalMode) {
+                        setActiveZone('stats');
+                      } else {
+                        statsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    },
+                    playerMp: activeResources.find(r => r.name === 'MP')?.current || 0,
+                    playerHp: activeResources.find(r => r.name === 'HP')?.current || 0,
+                    isConnected: mpStore.isConnected
+                  }}
+                />
+              </div>
+            )}
           </div>
-          
-          {/* Tiers 2 & 3: Spells SpellBook */}
-          <div className="h-2/3 min-h-0 pt-2 flex flex-col overflow-hidden border-t border-[#5a4b3c]/30">
-            <SpellBook 
-              spells={activeSpells} 
-              playerStats={activeStats}
-              readOnly={isViewMode} 
-              playerName={isViewMode ? activeName : undefined}
-              targetModeProps={{
-                isSelectingTarget,
-                selectedTargetId: selectedTarget?.type === 'spell' ? (selectedTarget.id || null) : null,
-                onSelectTarget: (spell) => {
-                  if (selectedTarget?.type === 'spell' && selectedTarget?.id === spell.id) {
-                    setSelectedTarget(null);
-                  } else {
-                    const mpCost = parseMpCost(spell.r2 ?? spell.r1);
-                    const playerMp = activeResources.find(r => r.name === 'MP')?.current || 0;
-                    const playerHp = activeResources.find(r => r.name === 'HP')?.current || 0;
-                    if (!isScratch && mpCost > 0 && playerMp < mpCost && playerHp <= 0) {
-                      return;
-                    }
-                    const evalRes = evaluateSpellDice(spell, activeStats);
-                    const diceVal = typeof evalRes.effectiveD === 'number' ? evalRes.effectiveD : 12;
-                    setSelectedTarget({
-                      type: 'spell',
-                      id: spell.id,
-                      name: spell.name,
-                      value: diceVal,
-                      spell
-                    });
-                  }
-                },
-                onLaunchRoll: () => {
-                  if (!rolling) {
-                    handlePlayerRoll();
-                  }
-                },
-                playerMp: activeResources.find(r => r.name === 'MP')?.current || 0,
-                playerHp: activeResources.find(r => r.name === 'HP')?.current || 0,
-                isConnected: mpStore.isConnected
-              }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* COLUMN 2: CHARACTER stats, resource trackers, and toggleable Encounter board (col-span-4) */}
-        <div className={cn(
-          "lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden h-full",
-          isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
-        )}>
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'stats') && (
+          <div 
+            ref={statsRef}
+            className={cn(
+              "lg:col-span-4 wow-panel flex flex-col shadow-xl bg-leather p-3 relative overflow-hidden",
+              isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full overflow-y-auto" : "h-full min-h-0",
+              isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+            )}
+          >
+            {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO ABILITIES) */}
+            <div className="mb-2 shrink-0 h-8 flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isVerticalMode) {
+                    setActiveZone('spells');
+                  } else {
+                    spellsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className={cn(
+                  "w-full h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-amber-950/90 text-amber-300 border-amber-500/80",
+                  isSelectingTarget && isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-amber-900 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "invisible"
+                )}
+              >
+                <Zap size={14} className="animate-pulse text-amber-400" />
+                <span>SWITCH TO ABILITIES (GRIMOIRE) ➔</span>
+              </button>
+            </div>
           
           {/* Controls row (ASK FOR STAT + Symmetrical Zoom & Controls) - centered above 3 squares */}
           <div className="flex items-center justify-center gap-1.5 w-full border-b border-[#5a4b3c]/20 pb-1.5 mb-1.5 shrink-0 flex-wrap">
@@ -1133,112 +1439,125 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             )}
           </div>
         </div>
+      )}
 
         {/* COLUMN 3: PARTY PLAYERS (top) & NOTES/JOURNAL (bottom) (col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden h-full">
-          
-          {/* Upper Half: Players & GM List (Always rendered!) */}
-          <div className="h-[35%] sm:h-[40%] wow-panel scifi-no-tracing flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative shrink-0">
-            <div className="border-b border-[#5a4b3c]/40 pb-1.5 flex items-center justify-between shrink-0">
-              <h4 className="font-cinzel text-wow-gold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <Users size={14} className="text-wow-gold" />
-                <span>Party Members</span>
-              </h4>
-              {mpStore.isConnected && (
-                <button
-                  onClick={() => setShowVisibilityToggles(!showVisibilityToggles)}
-                  className={cn(
-                    "p-1 rounded transition-all hover:bg-[#5a4b3c]/20 text-xs",
-                    showVisibilityToggles ? "text-wow-gold brightness-125" : "text-white"
-                  )}
-                  title={showVisibilityToggles ? "Masquer les cases à cocher" : "Afficher les cases à cocher"}
-                >
-                  {showVisibilityToggles ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              )}
-            </div>
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'players' || activeZone === 'notes') && (
+          <div className={cn(
+            "flex flex-col gap-3 overflow-hidden",
+            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full" : "lg:col-span-3 h-full min-h-0"
+          )}>
             
-            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 mt-2 pr-1">
-              {mpStore.isConnected ? (
-                <>
-                  {/* "Me" button to view own HUD */}
-                  <div className="flex items-center gap-1 shrink-0 w-full">
-                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                      <div className="w-3.5 h-3.5" />
-                    </div>
+            {/* Upper Half: Players & GM List */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'players') && (
+              <div className={cn(
+                "wow-panel scifi-no-tracing flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative",
+                isVerticalMode && activeZone !== 'all' ? "h-full w-full flex-1" : "h-[35%] sm:h-[40%] min-h-[220px] shrink-0"
+              )}>
+                <div className="border-b border-[#5a4b3c]/40 pb-1.5 flex items-center justify-between shrink-0">
+                  <h4 className="font-cinzel text-wow-gold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <Users size={14} className="text-wow-gold" />
+                    <span>Party Members</span>
+                  </h4>
+                  {mpStore.isConnected && (
                     <button
-                      onClick={() => mpStore.setActivePlayerView('me')}
+                      onClick={() => setShowVisibilityToggles(!showVisibilityToggles)}
                       className={cn(
-                        "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
-                        (!mpStore.activePlayerView || mpStore.activePlayerView === 'me')
-                          ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
-                          : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
+                        "p-1 rounded transition-all hover:bg-[#5a4b3c]/20 text-xs",
+                        showVisibilityToggles ? "text-wow-gold brightness-125" : "text-white"
                       )}
+                      title={showVisibilityToggles ? "Masquer les cases à cocher" : "Afficher les cases à cocher"}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <User size={12} className="text-wow-gold" />
-                        <span>Me (My HUD)</span>
-                      </span>
-                      <span className="font-mono text-[9px] text-wow-gold/60">Active</span>
+                      {showVisibilityToggles ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
-                  </div>
-
-                   {/* List of other players */}
-                  {mpStore.links.map((linkCode) => {
-                    const p = mpStore.roomPlayers[linkCode];
-                    if (!p) return null; // If nobody is connected yet in this link, hide it or show empty
-                    if (p.pseudo === mpStore.pseudo) return null; // Skip duplicate me
-                    
-                    const isVisible = visiblePlayers[linkCode] !== false;
-
-                    // Hide if toggles are OFF and player is unchecked
-                    if (!showVisibilityToggles && !isVisible) return null;
-
-                    const isViewingThis = mpStore.activePlayerView === linkCode || (p?.joinCode && mpStore.activePlayerView === p.joinCode);
-                    return (
-                      <div key={linkCode} className="flex items-center gap-1 shrink-0 w-full">
-                          <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={isVisible}
-                              onChange={() => togglePlayerVisibility(linkCode)}
-                              className={cn(
-                                "w-3.5 h-3.5 cursor-pointer accent-wow-gold bg-black/60 border border-[#5a4b3c]/50 rounded transition-all duration-200",
-                                showVisibilityToggles ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-                              )}
-                            />
-                          </div>
-                          <button
-                            onClick={() => mpStore.setActivePlayerView(linkCode)}
-                            className={cn(
-                              "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
-                              isViewingThis
-                                ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
-                                : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
-                            )}
-                          >
-                            <span className="flex items-center gap-1.5 truncate max-w-[70%]">
-                              <Users size={12} className="text-white" />
-                              <span className="truncate">{p.pseudo}</span>
-                            </span>
-                            <span className="font-mono text-[9px] text-white uppercase shrink-0">View HUD</span>
-                          </button>
-                        </div>
-                      );
-                    })}
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-                  <WifiOff size={24} className="text-[#5a4b3c] mb-2" />
-                  <span className="text-[10px] font-cinzel tracking-wider text-white uppercase">Offline Mode</span>
-                  <p className="text-[10px] text-white mt-1 max-w-[180px]">Connect to a room to view other players.</p>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 mt-2 pr-1">
+                  {mpStore.isConnected ? (
+                    <>
+                      {/* "Me" button to view own HUD */}
+                      <div className="flex items-center gap-1 shrink-0 w-full">
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                          <div className="w-3.5 h-3.5" />
+                        </div>
+                        <button
+                          onClick={() => mpStore.setActivePlayerView('me')}
+                          className={cn(
+                            "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
+                            (!mpStore.activePlayerView || mpStore.activePlayerView === 'me')
+                              ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
+                              : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <User size={12} className="text-wow-gold" />
+                            <span>Me (My HUD)</span>
+                          </span>
+                          <span className="font-mono text-[9px] text-wow-gold/60">Active</span>
+                        </button>
+                      </div>
 
-          {/* Lower Half: Notes / Journal split in 4 tabs */}
-          <div className="flex-1 wow-panel scifi-no-tracing flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden">
+                       {/* List of other players */}
+                      {mpStore.links.map((linkCode) => {
+                        const p = mpStore.roomPlayers[linkCode];
+                        if (!p) return null;
+                        if (p.pseudo === mpStore.pseudo) return null;
+                        
+                        const isVisible = visiblePlayers[linkCode] !== false;
+
+                        if (!showVisibilityToggles && !isVisible) return null;
+
+                        const isViewingThis = mpStore.activePlayerView === linkCode || (p?.joinCode && mpStore.activePlayerView === p.joinCode);
+                        return (
+                          <div key={linkCode} className="flex items-center gap-1 shrink-0 w-full">
+                              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isVisible}
+                                  onChange={() => togglePlayerVisibility(linkCode)}
+                                  className={cn(
+                                    "w-3.5 h-3.5 cursor-pointer accent-wow-gold bg-black/60 border border-[#5a4b3c]/50 rounded transition-all duration-200",
+                                    showVisibilityToggles ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                                  )}
+                                />
+                              </div>
+                              <button
+                                onClick={() => mpStore.setActivePlayerView(linkCode)}
+                                className={cn(
+                                  "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
+                                  isViewingThis
+                                    ? "bg-wow-gold/15 text-wow-gold border-wow-gold"
+                                    : "bg-black/30 text-white border-[#5a4b3c]/30 hover:bg-black/55 hover:border-[#5a4b3c]/60"
+                                )}
+                              >
+                                <span className="flex items-center gap-1.5 truncate max-w-[70%]">
+                                  <Users size={12} className="text-white" />
+                                  <span className="truncate">{p.pseudo}</span>
+                                </span>
+                                <span className="font-mono text-[9px] text-white uppercase shrink-0">View HUD</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+                      <WifiOff size={24} className="text-[#5a4b3c] mb-2" />
+                      <span className="text-[10px] font-cinzel tracking-wider text-white uppercase">Offline Mode</span>
+                      <p className="text-[10px] text-white mt-1 max-w-[180px]">Connect to a room to view other players.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Lower Half: Notes / Journal split in 4 tabs */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'notes') && (
+              <div className={cn(
+                "wow-panel scifi-no-tracing flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden",
+                isVerticalMode && activeZone !== 'all' ? "h-full w-full flex-1" : "flex-1 min-h-[300px]"
+              )}>
             <div className="absolute inset-0 opacity-10 pointer-events-none "></div>
             
             {/* TABS HEADER: Styled unified as WoW buttons */}
@@ -1331,7 +1650,9 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             </div>
 
           </div>
-        </div>
+        )}
+      </div>
+    )}
 
       </div>
 

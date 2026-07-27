@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, Cpu } from 'lucide-react';
+import { Home, Wifi, WifiOff, Upload, Download, Users, User, FileText, Swords, Sword, Dices, X, Copy, Check, Lock, ShieldAlert, Sparkles, Eye, EyeOff, Power, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, Cpu, Menu, ChevronRight, LayoutGrid, Zap, Scroll } from 'lucide-react';
 import { GMSpellCrafter } from '@/components/GMSpellCrafter';
 import { GMEncounters } from '@/components/GMEncounters';
 import { useGMStore } from '@/store/useGMStore';
@@ -49,6 +49,28 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const [showResetDbConfirm, setShowResetDbConfirm] = useState(false);
   const [showVisibilityToggles, setShowVisibilityToggles] = useState(false);
   const [visiblePlayers, setVisiblePlayers] = useState<Record<string, boolean>>({});
+
+  // Mobile Vertical View & Navigation State
+  const [isVerticalScreen, setIsVerticalScreen] = useState(false);
+  const [isNonComputer, setIsNonComputer] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeZone, setActiveZone] = useState<string>('spells');
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsVerticalScreen(window.innerHeight > window.innerWidth);
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+
+    if (typeof navigator !== 'undefined') {
+      setIsNonComputer(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    }
+
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
+
+  const isVerticalMode = isVerticalScreen && !isNonComputer;
 
   useEffect(() => {
     try {
@@ -485,144 +507,398 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   };
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-iron text-white flex flex-col p-2 md:p-3  select-none">
+    <div className="bg-iron text-white flex flex-col p-2 md:p-3 select-none h-full w-full overflow-hidden">
       
-      {/* TOP BANNER SPLIT IN 3 SECTIONS ALIGNED WITH MAIN COLUMNS Below */}
-      <div className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
-        
-        {/* Section 1: Home / Connection Status Badge (lg:col-span-5) */}
-        <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          {!mpStore.isConnected && (
-            <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
-              <Home size={15} /> <span className="hidden sm:inline">Home</span>
+      {/* TOP BANNER IN VERTICAL MODE */}
+      {isVerticalMode ? (
+        <div className="bg-[#120d08] border-b-2 border-[#5a4b3c] shadow-2xl p-2 -mx-2 -mt-2 mb-3 flex flex-col gap-1.5 shrink-0">
+          {/* Section 2: Menu Button + Dashboard Title + Theme Switcher */}
+          <div className={cn(
+            "wow-panel flex items-center justify-between py-1 px-2.5 shadow-md gap-2 relative",
+            isViewingPlayer && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+          )}>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="wow-button py-1 px-2.5 text-xs font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center gap-1.5 shrink-0 cursor-pointer shadow-md"
+                title="Ouvrir le menu des zones"
+              >
+                {mobileMenuOpen ? <X size={16} className="text-red-400" /> : <Menu size={16} className="text-wow-gold" />}
+                <span>MENU</span>
+              </button>
+              
+              <div className="flex items-center gap-1 bg-black/40 border border-[#5a4b3c]/50 p-0.5 rounded">
+                <button
+                  onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'logs' ? 'bg-amber-900/40 border-amber-500/50' : '')}
+                  title="Roll Logs"
+                >
+                  <Scroll size={14} className={activeZone === 'logs' ? "text-amber-400" : "text-wow-gold"} />
+                </button>
+                <button
+                  onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'stats' ? 'bg-purple-900/40 border-purple-500/50' : '')}
+                  title="Character Stats"
+                >
+                  <User size={14} className={activeZone === 'stats' ? "text-purple-400" : "text-wow-gold"} />
+                </button>
+                <button
+                  onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
+                  className={cn("wow-button p-1 border border-[#5a4b3c] bg-black/60 hover:bg-black/90 flex items-center justify-center shrink-0 shadow-md rounded-sm transition-colors", activeZone === 'spells' ? 'bg-cyan-900/40 border-cyan-500/50' : '')}
+                  title="Abilities"
+                >
+                  <Zap size={14} className={activeZone === 'spells' ? "text-cyan-400" : "text-wow-gold"} />
+                </button>
+              </div>
+            </div>
+
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+              {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
+              title="Switch theme (Fantasy / Sci-Fi)"
+            >
+              {theme === 'scifi' ? (
+                <>
+                  <Cpu size={12} className="text-cyan-400" />
+                  <span className="hidden sm:inline">SCI-FI</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} className="text-wow-gold" />
+                  <span className="hidden sm:inline">FANTASY</span>
+                </>
+              )}
             </button>
-          )}
+          </div>
+
+          {/* Section 1: Home / Connection status row */}
+          <div className="wow-panel flex items-center justify-between py-1 px-2.5 shadow-sm min-h-[32px] gap-2">
+            {!mpStore.isConnected && (
+              <button onClick={onGoHome} className="wow-button px-2 py-0.5 flex items-center gap-1 text-[11px] shrink-0">
+                <Home size={12} /> <span>Home</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1.5 font-mono text-[10px] truncate flex-1 justify-center" title="Sync Status">
+              {mpStore.isConnected ? (
+                <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner truncate">
+                  <Wifi size={11} />
+                  <span className="font-cinzel tracking-wider truncate max-w-[140px]">ONLINE: {mpStore.roomName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                    <WifiOff size={11} />
+                    <span className="font-cinzel tracking-wider text-[10px]">OFFLINE</span>
+                  </div>
+                  <div className="flex items-center gap-0">
+                    <span className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel bg-black/50 text-wow-gold cursor-default">GM</span>
+                    <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel text-white opacity-70">
+                      PLAYER
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* DESKTOP / LANDSCAPE TOP BANNER SPLIT IN 3 SECTIONS */
+        <div className="mb-3 grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
           
-          <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
-            {mpStore.isConnected ? (
-              <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner">
-                <Wifi size={12} />
-                <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                  <WifiOff size={12} />
-                  <span className="font-cinzel tracking-wider">OFFLINE</span>
+          {/* Section 1: Home / Connection Status Badge (lg:col-span-5) */}
+          <div className="lg:col-span-5 wow-panel flex items-center gap-3 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
+            {!mpStore.isConnected && (
+              <button onClick={onGoHome} className="wow-button px-3 py-1.5 flex items-center gap-2 text-sm shrink-0">
+                <Home size={15} /> <span className="hidden sm:inline">Home</span>
+              </button>
+            )}
+            
+            <div className="flex items-center gap-1.5 font-mono text-[11px]" title="Sync Status">
+              {mpStore.isConnected ? (
+                <div className="flex items-center gap-1 text-green-400 bg-green-950/40 border border-green-800/40 px-2 py-0.5 rounded shadow-inner">
+                  <Wifi size={12} />
+                  <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
                 </div>
-                <div className="flex items-center gap-0">
-                  <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">GM EDITS</span>
-                  <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
-                    PLAYER EDITS
-                  </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
+                    <WifiOff size={12} />
+                    <span className="font-cinzel tracking-wider">OFFLINE</span>
+                  </div>
+                  <div className="flex items-center gap-0">
+                    <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">GM EDITS</span>
+                    <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
+                      PLAYER EDITS
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 2: Character Name / GM Dashboard Header (lg:col-span-4) */}
+          <div className={cn(
+            "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-50 min-h-[44px] gap-2 relative",
+            isViewingPlayer && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
+          )}>
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+              {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
+              title="Switch theme (Fantasy / Sci-Fi)"
+            >
+              {theme === 'scifi' ? (
+                <>
+                  <Cpu size={12} className="text-cyan-400" />
+                  <span className="hidden sm:inline">SCI-FI</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} className="text-wow-gold" />
+                  <span className="hidden sm:inline">FANTASY</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Section 3: Load / Export buttons & Room controls (lg:col-span-3) */}
+          <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
+            <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+              <Upload size={14} /> <span>I</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
+            </label>
+            <button 
+              onClick={handleExportGMJSON} 
+              disabled={!mpStore.isConnected && !store.roomName.trim()}
+              className={`wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-transparent hover:!text-wow-gold' : ''}`} 
+              title="EXPORT"
+            >
+              <Download size={14} /> <span>E</span>
+            </button>
+
+            {mpStore.isConnected && (
+              <>
+                <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
+                <button 
+                  onClick={() => setShowDisconnectConfirm(true)}
+                  className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
+                  title="DISCONNECT"
+                >
+                  <Power size={14} />
+                </button>
+              </>
             )}
           </div>
         </div>
+      )}
 
-        {/* Section 2: Character Name / GM Dashboard Header (lg:col-span-4) */}
-        <div className={cn(
-          "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
-          isViewingPlayer && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
-        )}>
-          <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
-            {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
+      {/* FULLSCREEN MOBILE MENU OVERLAY */}
+      {isVerticalMode && mobileMenuOpen && (
+        <div className="fixed inset-0 z-[100] bg-[#0c0a08] p-4 overflow-y-auto flex flex-col gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-3 border-b border-[#5a4b3c]/60 shrink-0">
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold uppercase font-bold tracking-widest">
+              Mobile Navigation GM - Select a View
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="wow-button px-2.5 py-1 text-wow-gold flex items-center justify-center gap-1.5 text-xs font-bold font-cinzel rounded border border-[#5a4b3c] hover:text-white"
+            >
+              <X size={16} />
+              <span>CLOSE</span>
+            </button>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
-            title="Switch theme (Fantasy / Sci-Fi)"
-          >
-            {theme === 'scifi' ? (
-              <>
-                <Cpu size={12} className="text-cyan-400" />
-                <span className="hidden sm:inline">SCI-FI</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={12} className="text-wow-gold" />
-                <span className="hidden sm:inline">FANTASY</span>
-              </>
-            )}
-          </button>
-        </div>
-        
-        {/* Section 3: Load / Export buttons & Room controls (lg:col-span-3) */}
-        <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-          <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
-            <Upload size={14} /> <span>I</span>
-            <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
-          </label>
-          <button 
-            onClick={handleExportGMJSON} 
-            disabled={!mpStore.isConnected && !store.roomName.trim()}
-            className={`wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold ${(!mpStore.isConnected && !store.roomName.trim()) ? 'opacity-50 !cursor-default hover:!bg-transparent hover:!text-wow-gold' : ''}`} 
-            title="EXPORT"
-          >
-            <Download size={14} /> <span>E</span>
-          </button>
 
-          {mpStore.isConnected && (
-            <>
-              <div className="w-px h-6 bg-[#5a4b3c]/40 mx-1 shrink-0"></div>
+          <div className="grid grid-cols-1 gap-2.5">
+            <button
+              onClick={() => { setActiveZone('header3'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'header3' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><Download size={18} className="text-amber-400" /> Import / Export & Options</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('logs'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'logs' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><Scroll size={18} className="text-amber-400" /> Roll Logs & Dice History</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('spells'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'spells' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><Zap size={18} className="text-cyan-400" /> Ability Crafter & Spells</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('stats'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'stats' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><User size={18} className="text-purple-400" /> Encounter Control & Inspection</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('players'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'players' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><Users size={18} className="text-blue-400" /> Online Players List</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('notes'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'notes' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><FileText size={18} className="text-emerald-400" /> Notes & GM Journal</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={() => { setActiveZone('all'); setMobileMenuOpen(false); }}
+              className={cn(
+                "wow-button p-3 flex items-center justify-between text-left rounded font-cinzel font-bold text-xs sm:text-sm tracking-wide transition-all",
+                activeZone === 'all' ? "bg-wow-gold/20 text-wow-gold border-wow-gold shadow-[0_0_12px_rgba(212,175,55,0.4)]" : "text-gray-200"
+              )}
+            >
+              <span className="flex items-center gap-2"><LayoutGrid size={18} className="text-wow-gold" /> Show All Views (Continuous)</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED FULL-SCREEN IMPORT / EXPORT PANEL FOR VERTICAL MODE */}
+      {isVerticalMode && activeZone === 'header3' && (
+        <div className="wow-panel scifi-no-tracing flex flex-col items-center justify-center gap-6 p-6 shadow-xl bg-leather relative h-[calc(100dvh-110px)] min-h-[calc(100dvh-110px)] w-full text-center">
+          <h3 className="font-cinzel text-wow-gold text-lg font-bold tracking-widest uppercase border-b border-[#5a4b3c] pb-2 w-full max-w-xs">
+            Import / Export Options
+          </h3>
+          <p className="font-sans text-xs text-gray-300 max-w-xs">
+            Save or restore the complete GM state via a local JSON file.
+          </p>
+          <div className="flex flex-col gap-4 w-full max-w-xs">
+            <label className="wow-button p-4 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg">
+              <Upload size={18} /> <span>LOAD JSON FILE</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
+            </label>
+            <button 
+              onClick={handleExportGMJSON} 
+              disabled={!mpStore.isConnected && !store.roomName.trim()}
+              className={cn(
+                "wow-button p-4 flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg",
+                (!mpStore.isConnected && !store.roomName.trim()) && "opacity-50 !cursor-default"
+              )}
+            >
+              <Download size={18} /> <span>EXPORTER SAUVEGARDE (.JSON)</span>
+            </button>
+            {mpStore.isConnected && (
               <button 
                 onClick={() => setShowDisconnectConfirm(true)}
-                className="wow-button p-2 text-red-400 border-red-800/60 bg-red-950/10 hover:bg-red-900/30 shrink-0 flex items-center justify-center"
-                title="DISCONNECT"
+                className="wow-button p-3 text-red-400 border-2 border-red-800/80 bg-red-950/30 hover:bg-red-900/50 text-xs font-cinzel font-bold flex items-center justify-center gap-2 rounded shadow-md mt-2"
               >
-                <Power size={14} />
+                <Power size={16} /> <span>SE DÉCONNECTER DE LA ROOM</span>
               </button>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Full-height Grid Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden h-full">
         
         {/* COLUMN 1: SPELL CRAFTER / ROLL LOGS (col-span-5) */}
-        <div className="lg:col-span-5 wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative h-full">
-          <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
-          <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
-          
-          {/* Section 1/3 always: Roll Logs Section with large fonts */}
-          <div className="h-1/3 min-h-0 pb-2 flex flex-col overflow-visible">
-            <RollLogsSection />
-          </div>
-          
-          {/* Remaining 2/3 */}
-          <div className="h-2/3 min-h-0 pt-2 flex flex-col overflow-hidden border-t border-[#5a4b3c]/30">
-            {isViewingPlayer && viewedPlayer ? (
-              <div className="flex flex-col h-full overflow-hidden gap-2">
-                {/* Spell Crafter is now only 1/2 of the remaining 2/3 (i.e. 1/3 of the total) */}
-                <div className="h-1/2 min-h-0 pb-1">
-                  <GMSpellCrafter />
-                </div>
-                {/* Inspected Player Grimoire is the other 1/2 of the remaining 2/3 (i.e. last 1/3 of the total) */}
-                <div className="h-1/2 min-h-0 flex flex-col overflow-hidden border-t border-[#5a4b3c]/60 pt-2 relative">
-                  <div className="text-wow-gold font-cinzel text-[11px] uppercase tracking-wider mb-1 flex items-center gap-1.5 px-1 font-bold shrink-0">
-                    <FileText size={12} className="text-wow-gold" />
-                    <span>GRIMOIRE OF {viewedPlayer.pseudo}</span>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border-2 border-red-600 rounded shadow-[0_0_20px_rgba(220,38,38,0.2)]">
-                    <SpellBook spells={activeSpells} playerStats={viewedPlayer?.characterState?.stats} readOnly={true} playerName={viewedPlayer.pseudo} />
-                  </div>
-                </div>
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'logs' || activeZone === 'spells') && (
+          <div className={cn(
+            "wow-panel flex flex-col overflow-hidden shadow-xl bg-leather relative",
+            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full" : "lg:col-span-5 h-full min-h-0"
+          )}>
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-wow-gold opacity-30 m-1"></div>
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-wow-gold opacity-30 m-1"></div>
+            
+            {/* Roll Logs Section */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'logs') && (
+              <div className={cn(
+                "flex flex-col overflow-visible",
+                isVerticalMode && activeZone === 'logs' ? "h-full min-h-0" : "h-1/3 min-h-0 pb-2"
+              )}>
+                <RollLogsSection />
               </div>
-            ) : (
-              // Spell Crafter takes up the entire remaining 2/3 of Column 1
-              <div className="h-full min-h-0">
-                <GMSpellCrafter />
+            )}
+            
+            {/* Spell Crafter / Inspected Grimoire */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'spells') && (
+              <div className={cn(
+                "flex flex-col overflow-hidden",
+                isVerticalMode && activeZone === 'spells' ? "h-full min-h-0" : "h-2/3 min-h-0 pt-2 border-t border-[#5a4b3c]/30"
+              )}>
+                {isViewingPlayer && viewedPlayer ? (
+                  <div className="flex flex-col h-full overflow-hidden gap-2">
+                    {/* Spell Crafter is now only 1/2 of the remaining 2/3 (i.e. 1/3 of the total) */}
+                    <div className="h-1/2 min-h-0 pb-1">
+                      <GMSpellCrafter />
+                    </div>
+                    {/* Inspected Player Grimoire is the other 1/2 of the remaining 2/3 (i.e. last 1/3 of the total) */}
+                    <div className="h-1/2 min-h-0 flex flex-col overflow-hidden border-t border-[#5a4b3c]/60 pt-2 relative">
+                      <div className="text-wow-gold font-cinzel text-[11px] uppercase tracking-wider mb-1 flex items-center gap-1.5 px-1 font-bold shrink-0">
+                        <FileText size={12} className="text-wow-gold" />
+                        <span>GRIMOIRE OF {viewedPlayer.pseudo}</span>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1.5 bg-black/40 border-2 border-red-600 rounded shadow-[0_0_20px_rgba(220,38,38,0.2)]">
+                        <SpellBook spells={activeSpells} playerStats={viewedPlayer?.characterState?.stats} readOnly={true} playerName={viewedPlayer.pseudo} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Spell Crafter takes up the entire remaining 2/3 of Column 1
+                  <div className="h-full min-h-0">
+                    <GMSpellCrafter />
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* COLUMN 2: ENCOUNTERS DRAW ZONE / VIEWED PLAYER HUD (col-span-4) */}
-        <div className="lg:col-span-4 wow-panel !p-0 flex flex-col shadow-xl bg-leather relative overflow-hidden">
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'stats') && (
+          <div className={cn(
+            "wow-panel !p-0 flex flex-col shadow-xl bg-leather relative overflow-hidden",
+            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full overflow-y-auto" : "lg:col-span-4 h-full min-h-0"
+          )}>
           
           {/* GM REQUEST NOTIFICATION OVERLAY (FULL CENTER ZONE) */}
           {currentRequest && (
@@ -894,12 +1170,21 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
             <GMEncounters />
           )}
         </div>
+        )}
 
         {/* COLUMN 3: PLAYERS BUTTONS (top) & JOURNAL / TABS (bottom) (col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden h-full">
-          
-          {/* Upper Half: Players & GM list */}
-          <div className="h-[35%] sm:h-[40%] wow-panel scifi-no-tracing flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative shrink-0">
+        {(!isVerticalMode || activeZone === 'all' || activeZone === 'players' || activeZone === 'notes') && (
+          <div className={cn(
+            "flex flex-col gap-3 overflow-hidden",
+            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full" : "lg:col-span-3 h-full min-h-0"
+          )}>
+            
+            {/* Upper Half: Players & GM list */}
+            {(!isVerticalMode || activeZone === 'all' || activeZone === 'players') && (
+              <div className={cn(
+                "wow-panel scifi-no-tracing flex flex-col p-3 bg-wow-dark border border-[#5a4b3c] rounded overflow-hidden shadow-lg relative",
+                isVerticalMode && activeZone !== 'all' ? "h-full w-full flex-1" : "h-[35%] sm:h-[40%] min-h-[220px] shrink-0"
+              )}>
             <div className="flex items-center justify-between border-b border-[#5a4b3c]/40 pb-1.5 shrink-0">
               <div className="flex items-center gap-1.5">
                 <Users size={16} className="text-wow-gold" />
@@ -1121,9 +1406,14 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               )}
             </div>
           </div>
+        )}
 
           {/* Lower Half: Notes / Journal split in 4 tabs */}
-          <div className="flex-1 wow-panel scifi-no-tracing flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden">
+          {(!isVerticalMode || activeZone === 'all' || activeZone === 'notes') && (
+            <div className={cn(
+              "wow-panel scifi-no-tracing flex flex-col bg-black/40 border border-[#5a4b3c] rounded relative overflow-hidden",
+              isVerticalMode && activeZone !== 'all' ? "h-full w-full flex-1" : "flex-1 min-h-[300px]"
+            )}>
             <div className="absolute inset-0 opacity-10 pointer-events-none "></div>
             
             {/* TABS HEADER: Styled unified as WoW buttons */}
@@ -1223,7 +1513,9 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
             </div>
 
           </div>
+        )}
         </div>
+      )}
 
       </div>
 

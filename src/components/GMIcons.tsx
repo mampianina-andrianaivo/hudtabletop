@@ -37,13 +37,15 @@ export const GMIcons = Object.values(GMIconCategories).flat();
 export function getAbilityColorClass(color?: string) {
   if (color === 'purple') return 'text-purple-400';
   if (color === 'rose') return 'text-rose-400';
-  return 'text-wow-gold';
+  if (color === 'gold') return 'text-wow-gold'; // Keep it for backwards compatibility if needed
+  return 'text-cyan-400';
 }
 
 export function getAbilityTagClass(color?: string) {
   if (color === 'purple') return 'text-purple-300 bg-purple-500/20 border-purple-400/40';
   if (color === 'rose') return 'text-rose-300 bg-rose-500/20 border-rose-400/40';
-  return 'text-wow-gold bg-wow-gold/20 border-wow-gold/40';
+  if (color === 'gold') return 'text-wow-gold bg-wow-gold/20 border-wow-gold/40'; // Keep for old
+  return 'text-cyan-300 bg-cyan-500/20 border-cyan-400/40';
 }
 
 interface IconPickerProps {

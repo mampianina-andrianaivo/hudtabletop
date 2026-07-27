@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, ChevronUp, ChevronDown, ShoppingBag, Check, ZoomIn, ZoomOut } from 'lucide-react';
+import { Trash2, ChevronUp, ChevronDown, ShoppingBag, Check, ZoomIn, ZoomOut, SlidersHorizontal } from 'lucide-react';
 import { usePlayerStore, Spell } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
@@ -28,9 +28,11 @@ interface SpellBookProps {
   playerName?: string;
   targetModeProps?: {
     isSelectingTarget: boolean;
+    isVerticalMode?: boolean;
     selectedTargetId: string | null;
     onSelectTarget: (spell: Spell) => void;
     onLaunchRoll?: () => void;
+    onSwitchToStats?: () => void;
     playerMp?: number;
     playerHp?: number;
     hasMP?: boolean;
@@ -121,6 +123,21 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
             })()}
           </div>
         )}
+      </div>
+
+      {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO STATS) */}
+      <div className="mb-2 shrink-0 h-8 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={targetModeProps?.onSwitchToStats}
+          className={cn(
+            "w-full h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-emerald-950/90 text-emerald-300 border-emerald-500/80",
+            targetModeProps?.isSelectingTarget && targetModeProps?.isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-emerald-900 shadow-[0_0_12px_rgba(16,185,129,0.4)]" : "invisible"
+          )}
+        >
+          <SlidersHorizontal size={14} className="animate-pulse text-emerald-400" />
+          <span>SWITCH TO STATS (TARGET SELECTION) ➔</span>
+        </button>
       </div>
 
       {/* ABILITIES LIST */}
@@ -382,7 +399,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
 
           <div className="flex gap-3 mb-3 shrink-0">
             <div>
-              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Icon</label>
+              <div className={cn("block font-cinzel text-transparent select-none mb-1", labelClass)}>ICON</div>
               <div className="w-12 h-12 wow-button rounded flex items-center justify-center shadow-md shrink-0">
                 <RenderSpellIcon icon={detailedShopSpell.icon} size={24} color={detailedShopSpell.color} />
               </div>
@@ -394,7 +411,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Tag (Golden Label)</label>
+              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
               <div className={cn("wow-input w-full p-1.5 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
                 {detailedShopSpell.tag ? (
                   <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", labelClass, getAbilityTagClass(detailedShopSpell.color))}>
@@ -415,13 +432,13 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
               </div>
             </div>
             <div>
-              <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
+              <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
               <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedShopSpell)}
               </div>
             </div>
             <div>
-              <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES</label>
+              <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
               <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {detailedShopSpell.maxUses || '-'}
               </div>
@@ -532,7 +549,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
 
           <div className="flex gap-3 mb-3 shrink-0">
             <div>
-              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Icon</label>
+              <div className={cn("block font-cinzel text-transparent select-none mb-1", labelClass)}>ICON</div>
               <div className="w-12 h-12 wow-button rounded flex items-center justify-center shadow-md shrink-0">
                 <RenderSpellIcon icon={detailedSpell.icon} size={24} color={detailedSpell.color} />
               </div>
@@ -544,7 +561,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Tag (Golden Label)</label>
+              <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
               <div className={cn("wow-input w-full p-1.5 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
                 {detailedSpell.tag ? (
                   <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", labelClass, getAbilityTagClass(detailedSpell.color))}>
@@ -565,13 +582,13 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
               </div>
             </div>
             <div>
-              <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP COST</label>
+              <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
               <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedSpell)}
               </div>
             </div>
             <div>
-              <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>MAX USES / USES</label>
+              <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
               <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {/^\d+$/.test((detailedSpell.maxUses || '').trim()) ? `${detailedSpell.uses} / ${detailedSpell.maxUses}` : detailedSpell.maxUses}
               </div>

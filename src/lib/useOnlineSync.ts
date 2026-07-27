@@ -121,7 +121,7 @@ export function useOnlineSync() {
       } catch (err) {
         console.error('Sync error:', err);
       }
-    }, 2000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [isConnected, roomName, role, joinCode, gmSessionId]);
@@ -134,7 +134,7 @@ export function useOnlineSync() {
     const unsubscribe = onSnapshot(roomRef, (docSnap) => {
       if (!docSnap.exists()) {
         if (role === 'player') {
-          alert('The Game Master has closed this online session.');
+          console.warn('The Game Master has closed this online session.');
         }
         useMultiplayerStore.getState().disconnect();
         if (onDisconnectRef.current) onDisconnectRef.current();
@@ -145,14 +145,14 @@ export function useOnlineSync() {
 
       // Check if GM recreated the session
       if (role === 'player' && gmSessionId && data?.gmSessionId && data.gmSessionId !== gmSessionId) {
-        alert('The Game Master has restarted the session. You have been disconnected.');
+        console.warn('The Game Master has restarted the session. You have been disconnected.');
         useMultiplayerStore.getState().disconnect();
         if (onDisconnectRef.current) onDisconnectRef.current();
         return;
       }
 
-      // Only keep the last 50 rolls
-      if (data.rollLogs && data.rollLogs.length > 50) {
+      // Only keep the last 50 rolls (only GM trims to avoid N redundant writes)
+      if (role === 'gm' && data.rollLogs && data.rollLogs.length > 50) {
         const trimmedLogs = data.rollLogs.slice(-50);
         updateDoc(roomRef, { rollLogs: trimmedLogs }).catch(console.error);
       }
@@ -243,6 +243,13 @@ export function useOnlineSync() {
       }
 
       useMultiplayerStore.setState(updates);
+    }, (error: any) => {
+      console.error("Firebase sync error:", error);
+      if (error?.message?.includes('Quota') || error?.message?.includes('exceeded') || error?.message?.includes('resource-exhausted') || error?.message?.includes('Rate')) {
+        console.error("The server has reached its temporary rate limit (Quota exceeded). Disconnecting from live session.");
+        useMultiplayerStore.getState().disconnect();
+        if (onDisconnectRef.current) onDisconnectRef.current();
+      }
     });
 
     return () => unsubscribe();

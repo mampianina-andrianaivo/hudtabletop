@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Cinzel:wght@400;700&family=Macondo&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
+/* 
+  SUPPRESS VITE ERROR OVERLAY
+  This prevents the screen from going completely white randomly due to ResizeObserver loop limits.
+*/
+vite-error-overlay {
+  display: none !important;
+}
+
 @theme {
   --font-cinzel: "Cinzel", serif;
   --font-macondo: "Macondo", cursive;
@@ -13,6 +21,20 @@
 }
 
 @layer base {
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden !important;
+    position: fixed;
+    inset: 0;
+  }
+
+  html {
+    font-size: clamp(10px, 0.7vw + 0.35vh + 2px, 16px);
+  }
+
   /* Custom Cursors (WoW style) with zero lag - Elongated Golden Triangle pointer */
   html, body, select, option, .cursor-default {
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M 1.5 1.5 L 7.5 23.5 L 11.5 14.5 L 19.5 11.5 Z' fill='rgba(0,0,0,0.45)' /%3E%3Cpath d='M 0 0 L 6 22 L 10 13 L 18 10 Z' fill='%23FFD100' stroke='%232c1a0c' stroke-width='1.5' stroke-linejoin='round' /%3E%3C/svg%3E") 0 0, auto !important;

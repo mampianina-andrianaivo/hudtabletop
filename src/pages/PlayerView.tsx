@@ -561,7 +561,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               <X size={15} className="stroke-[2.5]" />
             </button>
 
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-sm sm:text-lg text-wow-gold tracking-[0.18em] font-black text-center truncate flex-1 uppercase px-1 leading-tight">
               {activeName || "CHARACTER"}
             </div>
 
@@ -649,7 +649,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               <X size={15} className="stroke-[2.5]" />
             </button>
 
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-sm sm:text-lg text-wow-gold tracking-[0.18em] font-black text-center truncate flex-1 uppercase px-1 leading-tight">
               {activeName || "CHARACTER"}
             </div>
 
@@ -868,45 +868,84 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
                 )}
               >
-                {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO ABILITIES) & CANCEL */}
-                <div className="mb-2 shrink-0 h-8 flex gap-2 w-full">
-                  {/* Cancel/X Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedTarget(null);
-                      setIsSelectingTarget(false);
-                      setRollResult(null);
-                      if (isVerticalMode) {
-                        setActiveZone('stats');
-                      }
-                    }}
-                    className={cn(
-                      "h-full w-10 shrink-0 font-cinzel font-bold text-xs uppercase rounded border flex items-center justify-center shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer",
-                      isSelectingTarget && isVerticalMode ? "opacity-100 pointer-events-auto" : "invisible"
-                    )}
-                    title="Annuler le ciblage"
-                  >
-                    <X size={14} className="stroke-[2.5]" />
-                  </button>
+                {/* RESERVED SLOT FOR TARGETING / STAT BOOST ACTIONS & CANCEL */}
+                <div className={cn("mb-2 shrink-0 flex w-full", isSelectingStatForBoost ? "flex-col gap-1.5" : "h-8 flex-row gap-2")}>
+                  {isSelectingStatForBoost ? (
+                    <>
+                      {selectedStatForBoost ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleConfirmStatBoost(selectedStatForBoost);
+                            setIsSelectingStatForBoost(false);
+                            setSelectedStatForBoost(null);
+                          }}
+                          className="w-full py-1.5 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-purple-900/90 text-purple-200 border-purple-400 hover:bg-purple-800 hover:text-white cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.6)] animate-pulse"
+                        >
+                          <Check size={16} className="text-green-400 stroke-[3]" />
+                          <span>SEND REQUEST (+1 {selectedStatForBoost})</span>
+                        </button>
+                      ) : (
+                        <div className="w-full py-1.5 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-purple-950/90 text-purple-300 border-purple-500/80 shadow-[0_0_10px_rgba(168,85,247,0.3)] text-center">
+                          <span>TAP A STAT TO INCREASE</span>
+                        </div>
+                      )}
 
-                  {/* Switch Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isVerticalMode) {
-                        setActiveZone('spells');
-                      } else {
-                        spellsRef.current?.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}
-                    className={cn(
-                      "flex-1 h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-amber-950/90 text-amber-300 border-amber-500/80",
-                      isSelectingTarget && isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-amber-900 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "invisible"
-                    )}
-                  >
-                    <span>SWITCH TO ABILITIES (GRIMOIRE)</span>
-                  </button>
+                      {/* Cancel button below (stacked vertically) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSelectingStatForBoost(false);
+                          setSelectedStatForBoost(null);
+                        }}
+                        className="w-full py-1 px-3 text-[11px] font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-1.5 shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X size={14} className="stroke-[2.5]" />
+                        <span>CANCEL</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Cancel/X Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTarget(null);
+                          setIsSelectingTarget(false);
+                          setRollResult(null);
+                          if (isVerticalMode) {
+                            setActiveZone('stats');
+                          }
+                        }}
+                        className={cn(
+                          "h-full w-10 shrink-0 font-cinzel font-bold text-xs uppercase rounded border flex items-center justify-center shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer",
+                          isSelectingTarget && isVerticalMode ? "opacity-100 pointer-events-auto" : "invisible"
+                        )}
+                        title="Annuler le ciblage"
+                      >
+                        <X size={14} className="stroke-[2.5]" />
+                      </button>
+
+                      {/* Switch Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isVerticalMode) {
+                            setActiveZone('spells');
+                          } else {
+                            spellsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }
+                        }}
+                        className={cn(
+                          "flex-1 h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-amber-950/90 text-amber-300 border-amber-500/80",
+                          isSelectingTarget && isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-amber-900 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "invisible"
+                        )}
+                      >
+                        <span>SWITCH TO ABILITIES (GRIMOIRE)</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               
               {/* Controls row (ASK FOR STAT + Symmetrical Zoom & Controls) - centered above 3 squares */}
@@ -949,7 +988,9 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
                   {/* CENTER: ASK FOR STAT */}
                   {(() => {
-                    const isWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && (r.type === 'ask_stat' || r.type === 'ask_spell'));
+                    const hasAnyGMRequest = (mpStore.gmRequests?.length ?? 0) > 0;
+                    const isMyRequestWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode);
+                    const isWaiting = hasAnyGMRequest;
                     const has3Exp = (store.resources.find(r => r.name === 'EXP')?.current ?? 0) >= 3;
                     const canAsk = !isFreeEdit && has3Exp && !isWaiting;
                     return (
@@ -968,16 +1009,22 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                         }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] flex items-center justify-center gap-1 uppercase tracking-wider font-cinzel transition-all w-[110px]",
-                          isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer font-bold" :
+                          isMyRequestWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 font-bold" :
+                          hasAnyGMRequest ? "bg-yellow-950/40 text-yellow-600 border border-yellow-800/60 opacity-60 cursor-not-allowed font-bold" :
                           isSelectingStatForBoost ? "bg-red-950/80 text-red-300 border border-red-800 hover:bg-red-900 font-bold cursor-pointer" :
                           isFreeEdit ? "wow-button opacity-40 cursor-not-allowed" :
                           canAsk ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] font-bold cursor-pointer" :
                           "wow-button text-wow-gold opacity-30 cursor-not-allowed"
                         )}
-                        title={isFreeEdit ? "Free Edit is active (modify stats directly)" : isSelectingStatForBoost ? "Cancel stat boost" : "Request a stat increase from GM (Cost: 3 EXP)"}
-                        style={isWaiting ? { cursor: 'pointer' } : {}}
+                        title={
+                          isFreeEdit ? "Free Edit is active (modify stats directly)" :
+                          isSelectingStatForBoost ? "Cancel stat boost" :
+                          isMyRequestWaiting ? "Waiting for GM to approve your request..." :
+                          hasAnyGMRequest ? "Another request is currently pending GM validation. Please wait." :
+                          "Request a stat increase from GM (Cost: 3 EXP)"
+                        }
                       >
-                        {isSelectingStatForBoost ? "CANCEL" : isWaiting ? "WAITING..." : "ASK FOR STAT"}
+                        {isSelectingStatForBoost ? "CANCEL" : isMyRequestWaiting ? "WAITING..." : hasAnyGMRequest ? "GM BUSY..." : "ASK FOR STAT"}
                       </button>
                     );
                   })()}
@@ -1381,6 +1428,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                             statBoostModeProps={{
                               isSelectingForBoost: isSelectingStatForBoost && !isViewMode,
                               isSelectedForBoost: selectedStatForBoost === stat.name,
+                              isVerticalMode,
                               onSelectForBoost: () => {
                                 if (selectedStatForBoost === stat.name) {
                                   setSelectedStatForBoost(null);

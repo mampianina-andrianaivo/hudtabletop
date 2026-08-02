@@ -97,30 +97,33 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
         {!readOnly && (
           <div className="flex gap-1.5 items-center">
             {(() => {
-              const isWaiting = mpStore.gmRequests?.some(r => 
-                r.joinCode === mpStore.joinCode && 
-                (r.type === 'ask_spell' || r.type === 'ask_stat')
-              );
+              const hasAnyGMRequest = (mpStore.gmRequests?.length ?? 0) > 0;
+              const isMyRequestWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode);
               const expIdx = store.resources.findIndex(r => r.name === 'EXP');
               const has3Exp = expIdx !== -1 && store.resources[expIdx].current >= 3;
-              const isDisabled = isWaiting || isFreeEdit;
+              const isDisabled = hasAnyGMRequest || isFreeEdit;
               return (
                 <button 
                   onClick={() => !isDisabled && setShowShop(true)}
                   disabled={isDisabled}
                   className={cn(
                     "text-[10px] sm:text-xs py-1 px-3 flex items-center justify-center gap-1.5 h-7 min-w-[100px] font-cinzel transition-all",
-                    isWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 opacity-50 !cursor-pointer font-bold" :
+                    isMyRequestWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 font-bold opacity-60 cursor-not-allowed" :
+                    hasAnyGMRequest ? "bg-yellow-950/40 text-yellow-600 border border-yellow-800/60 font-bold opacity-60 cursor-not-allowed" :
                     isFreeEdit ? "wow-button text-wow-gold opacity-40 cursor-not-allowed font-bold" :
                     isFreeShop ? "wow-button-green font-bold cursor-pointer" :
                     has3Exp ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] font-bold cursor-pointer" :
                     "wow-button cursor-pointer"
                   )}
-                  title={isFreeEdit ? "Free Edit is active (add spells directly)" : isWaiting ? "Waiting for GM..." : "Open Ability Shop"}
-                  style={isWaiting ? { cursor: 'pointer' } : {}}
+                  title={
+                    isFreeEdit ? "Free Edit is active (add spells directly)" :
+                    isMyRequestWaiting ? "Waiting for GM to approve your request..." :
+                    hasAnyGMRequest ? "Another request is currently pending GM validation." :
+                    "Open Ability Shop"
+                  }
                 >
                   <ShoppingBag size={12} />
-                  <span>{isWaiting ? "WAITING..." : "ABILITY SHOP"}</span>
+                  <span>{isMyRequestWaiting ? "WAITING..." : hasAnyGMRequest ? "GM BUSY..." : "ABILITY SHOP"}</span>
                 </button>
               );
             })()}
@@ -481,8 +484,10 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
 
               const expIdx = store.resources.findIndex(r => r.name === 'EXP');
               const has3Exp = expIdx !== -1 && store.resources[expIdx].current >= 3;
+              const hasAnyGMRequest = (mpStore.gmRequests?.length ?? 0) > 0;
               const isWaitingSpell = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode && r.type === 'ask_spell' && r.spellName === detailedShopSpell.name);
-              const canBuy = (isFreeShop || has3Exp) && !isWaitingSpell;
+              const isMyRequestWaiting = mpStore.gmRequests?.some(r => r.joinCode === mpStore.joinCode);
+              const canBuy = (isFreeShop || has3Exp) && !hasAnyGMRequest;
 
               return (
                 <button 
@@ -527,13 +532,15 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
                   }}
                   className={cn(
                     "px-4 py-2 text-xs rounded flex-1 font-cinzel font-bold transition-all whitespace-nowrap",
-                    isWaitingSpell ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 cursor-pointer" :
-                    isFreeShop ? "wow-button-green" :
+                    isMyRequestWaiting ? "bg-yellow-900/50 text-yellow-500 border border-yellow-700 opacity-60 cursor-not-allowed" :
+                    hasAnyGMRequest ? "bg-yellow-950/40 text-yellow-600 border border-yellow-800/60 opacity-60 cursor-not-allowed" :
+                    isFreeShop ? "wow-button-green cursor-pointer" :
                     has3Exp ? "bg-purple-900/90 hover:bg-purple-800 text-purple-200 border border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.6)] font-bold cursor-pointer" :
-                    "wow-button text-white border-gray-700 cursor-pointer opacity-50"
+                    "wow-button text-white border-gray-700 cursor-not-allowed opacity-50"
                   )}
+                  title={hasAnyGMRequest && !isMyRequestWaiting ? "Another request is currently pending GM validation." : undefined}
                 >
-                  {isWaitingSpell ? "WAITING GM..." : (isFreeShop ? "BUY (FREE)" : (mpStore.isConnected ? (has3Exp ? "ASK TO BUY (3 EXP)" : "NEED 3 EXP") : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP")))}
+                  {isMyRequestWaiting ? "WAITING GM..." : hasAnyGMRequest ? "GM BUSY..." : (isFreeShop ? "BUY (FREE)" : (mpStore.isConnected ? (has3Exp ? "ASK TO BUY (3 EXP)" : "NEED 3 EXP") : (has3Exp ? "BUY (3 EXP)" : "NEED 3 EXP")))}
                 </button>
               );
             })()}

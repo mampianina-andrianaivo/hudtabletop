@@ -21,6 +21,7 @@ interface StatBarProps {
     isSelectedForBoost: boolean;
     onSelectForBoost: () => void;
     onConfirmBoost: () => void;
+    isVerticalMode?: boolean;
   };
 }
 
@@ -63,7 +64,7 @@ export function StatBar({ stat, onChange, isFreeEdit, targetModeProps, statBoost
             )}
 
             <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-              {!isAtMax && statBoostModeProps.isSelectedForBoost && (
+              {!isAtMax && statBoostModeProps.isSelectedForBoost && !statBoostModeProps.isVerticalMode && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

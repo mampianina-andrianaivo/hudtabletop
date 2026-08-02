@@ -584,7 +584,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               <X size={15} className="stroke-[2.5]" />
             </button>
 
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-sm sm:text-lg text-wow-gold tracking-[0.18em] font-black text-center truncate flex-1 uppercase px-1 leading-tight">
               {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
             </div>
 
@@ -674,7 +674,7 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               <X size={15} className="stroke-[2.5]" />
             </button>
 
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-sm sm:text-lg text-wow-gold tracking-[0.18em] font-black text-center truncate flex-1 uppercase px-1 leading-tight">
               {isViewingPlayer ? (activeCharState?.name || viewedPlayer?.pseudo || "CHARACTER") : "GM CONTROL DASHBOARD"}
             </div>
 

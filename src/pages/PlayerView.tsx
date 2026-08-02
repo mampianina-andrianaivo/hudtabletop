@@ -416,80 +416,71 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const latestRoll = mpStore.rollLogs[mpStore.rollLogs.length - 1];
 
   const handleExportJSON = () => {
-    if (isScratch) {
-      // Export full campaign campaignData
-      const gmState = useGMStore.getState();
-      if (!gmState.roomName || !gmState.roomName.trim()) {
-        alert("Room name cannot be empty for export.");
-        return;
+    const gmState = useGMStore.getState();
+    const pStore = usePlayerStore.getState();
+    
+    const roomNameToCheck = gmState.roomName?.trim() || 'scratch';
+    
+    const baseSpells = pStore.spells || [];
+    const allSpellsMap = new Map();
+    baseSpells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+
+    Object.values(gmState.scratchPlayers).forEach((p: any) => {
+      if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
+        p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
+      }
+    });
+
+    const commonSpells = Array.from(allSpellsMap.values());
+
+    const finalScratchPlayers: Record<string, any> = {};
+    gmState.scratchLinks.forEach((link, idx) => {
+      const existing: any = gmState.scratchPlayers[link] || { pseudo: '' };
+      const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
+      
+      const playerSpellsMap = new Map();
+      commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
+      if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
+        existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
       }
 
-      const pStore = usePlayerStore.getState();
-      const baseSpells = pStore.spells || [];
-      const allSpellsMap = new Map();
-      baseSpells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
-      Object.values(gmState.scratchPlayers).forEach((p: any) => {
-        if (p?.characterState?.spells && Array.isArray(p.characterState.spells)) {
-          p.characterState.spells.forEach((s: any) => allSpellsMap.set(s.id || s.name, s));
-        }
-      });
-      const commonSpells = Array.from(allSpellsMap.values());
-
-      const finalScratchPlayers: Record<string, any> = {};
-      gmState.scratchLinks.forEach((link, idx) => {
-        const existing: any = gmState.scratchPlayers[link] || { pseudo: '' };
-        const pseudo = (existing.pseudo || '').trim() || `Player ${idx + 1}`;
-        const playerSpellsMap = new Map();
-        commonSpells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
-        if (existing.characterState?.spells && Array.isArray(existing.characterState.spells)) {
-          existing.characterState.spells.forEach((s: any) => playerSpellsMap.set(s.id || s.name, s));
-        }
-
-        finalScratchPlayers[link] = {
-          ...existing,
-          pseudo,
-          characterState: {
-            ...(existing.characterState || {
-              name: pseudo,
-              photo: pStore.photo || '',
-              stats: pStore.stats || [],
-              resources: pStore.resources || [],
-              notes: pStore.notes || '',
-            }),
+      finalScratchPlayers[link] = {
+        ...existing,
+        pseudo,
+        characterState: {
+          ...(existing.characterState || {
             name: pseudo,
-            spells: Array.from(playerSpellsMap.values()),
-          }
-        };
-      });
-
-      const campaignData = {
-        roomName: gmState.roomName,
-        shopSpells: gmState.shopSpells,
-        encounters: gmState.encounters,
-        currentDraw: gmState.currentDraw,
-        isFreeEdit: false,
-        isFreeShop: false,
-        notes: gmState.notes,
-        publicNotes: mpStore.publicNotes,
-        scratchLinks: gmState.scratchLinks,
-        scratchPlayers: finalScratchPlayers,
+            photo: pStore.photo || '',
+            stats: pStore.stats || [],
+            resources: pStore.resources || [],
+            notes: pStore.notes || '',
+          }),
+          name: pseudo,
+          spells: Array.from(playerSpellsMap.values()),
+        }
       };
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(campaignData, null, 2));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", `${gmState.roomName || 'scratch'}_campaign.json`);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-    } else {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", "character_sheet.json");
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-    }
+    });
+
+    const campaignData = {
+      roomName: roomNameToCheck,
+      shopSpells: gmState.shopSpells,
+      encounters: gmState.encounters,
+      currentDraw: gmState.currentDraw,
+      isFreeEdit: false,
+      isFreeShop: false,
+      notes: gmState.notes,
+      publicNotes: mpStore.publicNotes,
+      scratchLinks: gmState.scratchLinks,
+      scratchPlayers: finalScratchPlayers,
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(campaignData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${roomNameToCheck}_campaign.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -555,7 +546,16 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         <div className="bg-[#120d08] border-b-2 border-[#5a4b3c] shadow-2xl p-2 -mx-2 -mt-2 mb-3 flex flex-col gap-1.5 shrink-0">
           {/* Line 1: Character Header with Theme Toggle */}
           <div className="wow-panel flex items-center justify-between py-1 px-2.5 shadow-md gap-2 relative">
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 flex items-center justify-center gap-2 uppercase px-1">
+              {isViewMode && (
+                <button
+                  onClick={() => mpStore.setActivePlayerView('me')}
+                  className="p-1 hover:bg-red-950/50 rounded-full text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                  title="Return to my character"
+                >
+                  <X size={14} className="stroke-[2.5]" />
+                </button>
+              )}
               {activeName || "CHARACTER"}
             </div>
 
@@ -633,7 +633,16 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
             isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
           )}>
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 flex items-center justify-center gap-2 uppercase px-1">
+              {isViewMode && (
+                <button
+                  onClick={() => mpStore.setActivePlayerView('me')}
+                  className="p-1 hover:bg-red-950/50 rounded-full text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                  title="Return to my character"
+                >
+                  <X size={14} className="stroke-[2.5]" />
+                </button>
+              )}
               {activeName || "CHARACTER"}
             </div>
 
@@ -658,11 +667,11 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
 
           {/* Section 3: Load / Export / Disconnect buttons (lg:col-span-3) */}
           <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] overflow-hidden">
-            <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+            <label className={cn("wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold", mpStore.isConnected ? "opacity-50 cursor-not-allowed" : "cursor-pointer")} title="LOAD">
               <Upload size={14} /> <span>I</span>
-              <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+              <input type="file" accept=".json" className="hidden" disabled={mpStore.isConnected} onChange={handleImportJSON} />
             </label>
-            <button onClick={handleExportJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="EXPORT">
+            <button onClick={handleExportJSON} className="wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold cursor-pointer" title="EXPORT">
               <Download size={14} /> <span>E</span>
             </button>
             
@@ -1638,7 +1647,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               {isScratch ? (
                 <>
                   <p className="font-sans text-xs text-gray-300 max-w-xs">
-                    Save or restore the complete GM state via a local JSON file.
+                    Save or restore the complete state via a local JSON file.
                   </p>
                   <div className="flex flex-col gap-4 w-full max-w-xs">
                     <label className="wow-button p-4 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg">
@@ -1647,7 +1656,7 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                     </label>
                     <button 
                       onClick={handleExportJSON}
-                      className="wow-button p-4 flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg"
+                      className="wow-button p-4 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold text-wow-gold border-2 border-wow-gold/60 bg-black/60 hover:bg-black/80 rounded shadow-lg"
                     >
                       <Download size={18} /> <span>EXPORTER SAUVEGARDE (.JSON)</span>
                     </button>
@@ -1655,11 +1664,11 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                 </>
               ) : (
                 <div className="flex flex-col gap-3 w-full max-w-xs">
-                  <label className="wow-button p-3 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold">
+                  <label className={cn("wow-button p-3 flex items-center justify-center gap-2 text-sm font-cinzel font-bold", mpStore.isConnected ? "opacity-50 cursor-not-allowed" : "cursor-pointer")}>
                     <Upload size={18} /> <span>LOAD JSON FILE</span>
-                    <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+                    <input type="file" accept=".json" className="hidden" disabled={mpStore.isConnected} onChange={handleImportJSON} />
                   </label>
-                  <button onClick={handleExportJSON} className="wow-button p-3 flex items-center justify-center gap-2 text-sm font-cinzel font-bold">
+                  <button onClick={handleExportJSON} className="wow-button p-3 cursor-pointer flex items-center justify-center gap-2 text-sm font-cinzel font-bold">
                     <Download size={18} /> <span>EXPORT AS JSON</span>
                   </button>
                   {mpStore.isConnected && (

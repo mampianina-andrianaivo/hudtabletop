@@ -674,9 +674,9 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
 
           {/* Section 3: Load / Export buttons & Room controls (lg:col-span-3) */}
           <div className="lg:col-span-3 wow-panel scifi-no-tracing flex items-center justify-end gap-2 py-2 px-4 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px]">
-            <label className="wow-button p-2 cursor-pointer flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold" title="LOAD">
+            <label className={cn("wow-button p-2 flex items-center justify-center gap-1.5 text-xs shrink-0 font-sans font-bold", mpStore.isConnected ? "opacity-50 cursor-not-allowed" : "cursor-pointer")} title="LOAD">
               <Upload size={14} /> <span>I</span>
-              <input type="file" accept=".json" className="hidden" onChange={handleImportGMJSON} />
+              <input type="file" accept=".json" className="hidden" disabled={mpStore.isConnected} onChange={handleImportGMJSON} />
             </label>
             <button 
               onClick={handleExportGMJSON} 

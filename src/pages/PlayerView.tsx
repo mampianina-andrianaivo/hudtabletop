@@ -1122,7 +1122,8 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                       selectedTarget !== null ? "bg-green-950/90 border-2 border-green-500 text-green-300" : "",
                       isSelectingTarget && selectedTarget === null ? "bg-green-900/40 border-2 border-green-500/80 " : "",
                       isRollsBlocked ? "border-red-600/80 bg-red-950/30 text-red-400" : "",
-                      (isViewMode || rolling || isRollsBlocked) && "opacity-60 cursor-pointer"
+                      (isViewMode || rolling || isRollsBlocked) && "opacity-60",
+                      isViewMode ? "cursor-not-allowed" : "cursor-pointer"
                     )}
                     title={isRollsBlocked ? "Rolls blocked by GM" : selectedTarget !== null ? "Click to roll D12 against target" : "Click to select target"}
                   >
@@ -1199,12 +1200,15 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                       </span>
                     ) : (
                       <button 
-                        disabled={rolling}
+                        disabled={rolling || isViewMode}
                         onClick={() => {
-                          if (rolling) return;
+                          if (rolling || isViewMode) return;
                           setIsSelectingTarget(true);
                         }}
-                        className="hover:text-white transition-colors cursor-pointer font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider"
+                        className={cn(
+                          "transition-colors font-cinzel font-bold text-wow-gold text-xs sm:text-sm drop-shadow-md uppercase tracking-wider",
+                          isViewMode ? "opacity-50 cursor-not-allowed" : "hover:text-white cursor-pointer"
+                        )}
                       >
                         TARGET
                       </button>

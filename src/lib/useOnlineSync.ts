@@ -186,10 +186,21 @@ export function useOnlineSync() {
             return isNaN(parsed) ? 0 : parsed;
           };
           
+          // Calculate dynamic MP Max based on the 6 fixed stats
+          const currentStats = pStore.stats || [];
+          const fixedStats = currentStats.slice(0, 6);
+          const sortedStats = [...fixedStats].sort((a, b) => (a.current ?? 0) - (b.current ?? 0));
+          let dynamicMpMax = 0;
+          if (fixedStats.length >= 2) {
+             dynamicMpMax = (sortedStats[0]?.current ?? 0) + (sortedStats[1]?.current ?? 0);
+          } else if (fixedStats.length === 1) {
+             dynamicMpMax = (sortedStats[0]?.current ?? 0) * 2;
+          }
+          
           myPlayer.pendingCommands.forEach((cmd: any) => {
             if (cmd.type === 'add_mp') {
               const res = newResources[mpIndex];
-              const max = parseMaxVal(res.max);
+              const max = Math.max(parseMaxVal(res.max), dynamicMpMax);
               let newCurrent = res.current + cmd.value;
               if (max > 0 && newCurrent > max) newCurrent = max;
               if (newCurrent < 0) newCurrent = 0;

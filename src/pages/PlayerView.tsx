@@ -868,84 +868,45 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
                 )}
               >
-                {/* RESERVED SLOT FOR TARGETING / STAT BOOST ACTIONS & CANCEL */}
-                <div className={cn("mb-2 shrink-0 flex w-full", isSelectingStatForBoost ? "flex-col gap-1.5" : "h-8 flex-row gap-2")}>
-                  {isSelectingStatForBoost ? (
-                    <>
-                      {selectedStatForBoost ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleConfirmStatBoost(selectedStatForBoost);
-                            setIsSelectingStatForBoost(false);
-                            setSelectedStatForBoost(null);
-                          }}
-                          className="w-full py-1.5 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-purple-900/90 text-purple-200 border-purple-400 hover:bg-purple-800 hover:text-white cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.6)] animate-pulse"
-                        >
-                          <Check size={16} className="text-green-400 stroke-[3]" />
-                          <span>SEND REQUEST (+1 {selectedStatForBoost})</span>
-                        </button>
-                      ) : (
-                        <div className="w-full py-1.5 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-purple-950/90 text-purple-300 border-purple-500/80 shadow-[0_0_10px_rgba(168,85,247,0.3)] text-center">
-                          <span>TAP A STAT TO INCREASE</span>
-                        </div>
-                      )}
+                {/* RESERVED SLOT FOR TARGETING SWITCH BUTTON (TO ABILITIES) & CANCEL */}
+                <div className="mb-2 shrink-0 h-8 flex gap-2 w-full">
+                  {/* Cancel/X Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTarget(null);
+                      setIsSelectingTarget(false);
+                      setRollResult(null);
+                      if (isVerticalMode) {
+                        setActiveZone('stats');
+                      }
+                    }}
+                    className={cn(
+                      "h-full w-10 shrink-0 font-cinzel font-bold text-xs uppercase rounded border flex items-center justify-center shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer",
+                      isSelectingTarget && isVerticalMode ? "opacity-100 pointer-events-auto" : "invisible"
+                    )}
+                    title="Annuler le ciblage"
+                  >
+                    <X size={14} className="stroke-[2.5]" />
+                  </button>
 
-                      {/* Cancel button below (stacked vertically) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSelectingStatForBoost(false);
-                          setSelectedStatForBoost(null);
-                        }}
-                        className="w-full py-1 px-3 text-[11px] font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-1.5 shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer"
-                        title="Cancel"
-                      >
-                        <X size={14} className="stroke-[2.5]" />
-                        <span>CANCEL</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Cancel/X Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedTarget(null);
-                          setIsSelectingTarget(false);
-                          setRollResult(null);
-                          if (isVerticalMode) {
-                            setActiveZone('stats');
-                          }
-                        }}
-                        className={cn(
-                          "h-full w-10 shrink-0 font-cinzel font-bold text-xs uppercase rounded border flex items-center justify-center shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer",
-                          isSelectingTarget && isVerticalMode ? "opacity-100 pointer-events-auto" : "invisible"
-                        )}
-                        title="Annuler le ciblage"
-                      >
-                        <X size={14} className="stroke-[2.5]" />
-                      </button>
-
-                      {/* Switch Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isVerticalMode) {
-                            setActiveZone('spells');
-                          } else {
-                            spellsRef.current?.scrollIntoView({ behavior: 'smooth' });
-                          }
-                        }}
-                        className={cn(
-                          "flex-1 h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-amber-950/90 text-amber-300 border-amber-500/80",
-                          isSelectingTarget && isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-amber-900 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "invisible"
-                        )}
-                      >
-                        <span>SWITCH TO ABILITIES (GRIMOIRE)</span>
-                      </button>
-                    </>
-                  )}
+                  {/* Switch Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isVerticalMode) {
+                        setActiveZone('spells');
+                      } else {
+                        spellsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    className={cn(
+                      "flex-1 h-full py-1 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-amber-950/90 text-amber-300 border-amber-500/80",
+                      isSelectingTarget && isVerticalMode ? "opacity-100 cursor-pointer pointer-events-auto hover:bg-amber-900 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "invisible"
+                    )}
+                  >
+                    <span>SWITCH TO ABILITIES (GRIMOIRE)</span>
+                  </button>
                 </div>
               
               {/* Controls row (ASK FOR STAT + Symmetrical Zoom & Controls) - centered above 3 squares */}
@@ -1866,6 +1827,58 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   <span>BACK</span>
                 </button>
               </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {isVerticalMode && isSelectingStatForBoost && selectedStatForBoost !== null && (
+        <div className="fixed inset-0 z-[110] bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="wow-panel w-full max-w-[280px] p-5 bg-[#120d08] border-2 border-purple-500 flex flex-col items-center justify-center gap-4 text-center shadow-[0_0_30px_rgba(168,85,247,0.4)] relative rounded-none">
+            
+            {/* Title */}
+            <h4 className="font-cinzel text-xs text-purple-300 uppercase tracking-widest font-bold border-b border-[#5a4b3c]/60 pb-2 w-full">
+              STAT BOOST REQUEST
+            </h4>
+
+            {/* Target Information */}
+            <div className="flex flex-col items-center gap-1 my-1">
+              <span className="font-macondo text-xl text-purple-200 tracking-wide font-bold uppercase truncate max-w-[240px]">
+                +1 {selectedStatForBoost}
+              </span>
+              <span className="font-sans text-xs text-purple-300/80 font-bold">
+                Cost: <span className="text-wow-gold font-mono font-bold">3 EXP</span>
+              </span>
+            </div>
+
+            {/* Action Buttons: STACKED VERTICALLY (dessus-dessous) to avoid any width overflow issues */}
+            <div className="flex flex-col gap-2.5 w-full mt-1">
+              {/* Top Button: SEND REQUEST */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleConfirmStatBoost(selectedStatForBoost);
+                  setIsSelectingStatForBoost(false);
+                  setSelectedStatForBoost(null);
+                }}
+                className="w-full py-2.5 px-3 text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-2 shadow-md select-none bg-purple-900/90 text-purple-200 border-purple-400 hover:bg-purple-800 hover:text-white cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.6)] active:scale-95"
+              >
+                <Check size={16} className="text-green-400 stroke-[3]" />
+                <span>SEND REQUEST</span>
+              </button>
+
+              {/* Bottom Button: CANCEL */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatForBoost(null);
+                }}
+                className="w-full py-2 px-3 text-xs font-bold uppercase tracking-wider font-cinzel rounded border flex items-center justify-center gap-1.5 shadow-md bg-red-950/90 text-red-400 border-red-800/80 hover:bg-red-900 hover:text-white transition-colors cursor-pointer active:scale-95"
+              >
+                <X size={14} className="stroke-[2.5]" />
+                <span>CANCEL</span>
+              </button>
             </div>
 
           </div>

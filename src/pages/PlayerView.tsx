@@ -546,34 +546,35 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
         <div className="bg-[#120d08] border-b-2 border-[#5a4b3c] shadow-2xl p-2 -mx-2 -mt-2 mb-3 flex flex-col gap-1.5 shrink-0">
           {/* Line 1: Character Header with Theme Toggle */}
           <div className="wow-panel flex items-center justify-between py-1 px-2.5 shadow-md gap-2 relative">
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 flex items-center justify-center gap-2 uppercase px-1">
-              {isViewMode && (
-                <button
-                  onClick={() => mpStore.setActivePlayerView('me')}
-                  className="p-1 hover:bg-red-950/50 rounded-full text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                  title="Return to my character"
-                >
-                  <X size={14} className="stroke-[2.5]" />
-                </button>
+            <button
+              type="button"
+              disabled={!isViewMode}
+              onClick={() => mpStore.setActivePlayerView('me')}
+              className={cn(
+                "wow-button w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center p-0 transition-all border border-[#5a4b3c] shadow-sm",
+                isViewMode 
+                  ? "text-red-400 hover:text-red-200 hover:bg-red-950/70 cursor-pointer bg-black/40" 
+                  : "text-gray-600 border-[#5a4b3c]/30 bg-black/20 opacity-30 cursor-not-allowed"
               )}
+              title={isViewMode ? "Quitter le HUD d'autrui" : undefined}
+            >
+              <X size={15} className="stroke-[2.5]" />
+            </button>
+
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
               {activeName || "CHARACTER"}
             </div>
 
             <button
+              type="button"
               onClick={toggleTheme}
-              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
-              title="Switch theme (Fantasy / Sci-Fi)"
+              className="wow-button w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center p-0 border border-[#5a4b3c] bg-black/40 hover:bg-black/70 cursor-pointer shadow-sm"
+              title="Changer de thème (Fantasy / Sci-Fi)"
             >
               {theme === 'scifi' ? (
-                <>
-                  <Cpu size={12} className="text-cyan-400" />
-                  <span className="hidden sm:inline">SCI-FI</span>
-                </>
+                <Cpu size={15} className="text-cyan-400" />
               ) : (
-                <>
-                  <Sparkles size={12} className="text-wow-gold" />
-                  <span className="hidden sm:inline">FANTASY</span>
-                </>
+                <Sparkles size={15} className="text-wow-gold" />
               )}
             </button>
           </div>
@@ -633,34 +634,35 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             "lg:col-span-4 wow-panel flex items-center justify-between py-2 px-3 shadow-[0_4px_10px_rgba(0,0,0,0.8)] z-10 min-h-[44px] gap-2 relative",
             isViewMode && "!border-red-600 !border-2 shadow-[0_0_20px_rgba(220,38,38,0.2)]"
           )}>
-            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 flex items-center justify-center gap-2 uppercase px-1">
-              {isViewMode && (
-                <button
-                  onClick={() => mpStore.setActivePlayerView('me')}
-                  className="p-1 hover:bg-red-950/50 rounded-full text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                  title="Return to my character"
-                >
-                  <X size={14} className="stroke-[2.5]" />
-                </button>
+            <button
+              type="button"
+              disabled={!isViewMode}
+              onClick={() => mpStore.setActivePlayerView('me')}
+              className={cn(
+                "wow-button w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center p-0 transition-all border border-[#5a4b3c] shadow-sm",
+                isViewMode 
+                  ? "text-red-400 hover:text-red-200 hover:bg-red-950/70 cursor-pointer bg-black/40" 
+                  : "text-gray-600 border-[#5a4b3c]/30 bg-black/20 opacity-30 cursor-not-allowed"
               )}
+              title={isViewMode ? "Quitter le HUD d'autrui" : undefined}
+            >
+              <X size={15} className="stroke-[2.5]" />
+            </button>
+
+            <div className="font-cinzel text-xs sm:text-sm text-wow-gold tracking-[0.2em] font-bold text-center truncate flex-1 uppercase px-1">
               {activeName || "CHARACTER"}
             </div>
 
             <button
+              type="button"
               onClick={toggleTheme}
-              className="wow-button py-1 px-2 text-[10px] uppercase font-cinzel font-bold text-wow-gold border border-[#5a4b3c] bg-black/40 hover:bg-black/70 flex items-center gap-1 shrink-0 cursor-pointer"
-              title="Switch theme (Fantasy / Sci-Fi)"
+              className="wow-button w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center p-0 border border-[#5a4b3c] bg-black/40 hover:bg-black/70 cursor-pointer shadow-sm"
+              title="Changer de thème (Fantasy / Sci-Fi)"
             >
               {theme === 'scifi' ? (
-                <>
-                  <Cpu size={12} className="text-cyan-400" />
-                  <span className="hidden sm:inline">SCI-FI</span>
-                </>
+                <Cpu size={15} className="text-cyan-400" />
               ) : (
-                <>
-                  <Sparkles size={12} className="text-wow-gold" />
-                  <span className="hidden sm:inline">FANTASY</span>
-                </>
+                <Sparkles size={15} className="text-wow-gold" />
               )}
             </button>
           </div>
@@ -1465,7 +1467,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                               <div className="w-3.5 h-3.5" />
                             </div>
                             <button
-                              onClick={() => mpStore.setActivePlayerView('me')}
+                              onClick={() => {
+                                mpStore.setActivePlayerView('me');
+                                if (isVerticalMode) setActiveZone('stats');
+                              }}
                               className={cn(
                                 "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
                                 (!mpStore.activePlayerView || mpStore.activePlayerView === 'me')
@@ -1506,7 +1511,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                                     />
                                   </div>
                                   <button
-                                    onClick={() => mpStore.setActivePlayerView(linkCode)}
+                                    onClick={() => {
+                                      mpStore.setActivePlayerView(linkCode);
+                                      if (isVerticalMode) setActiveZone('stats');
+                                    }}
                                     className={cn(
                                       "flex-1 py-1.5 px-3 rounded font-cinzel text-xs text-left flex items-center justify-between border transition-all duration-200 shadow-sm",
                                       isViewingThis

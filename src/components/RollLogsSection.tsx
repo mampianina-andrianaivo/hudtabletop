@@ -66,7 +66,7 @@ export function RollLogsSection() {
         ) : (
           <>
             <LifeBuoy size={11} className="text-wow-gold shrink-0" />
-            <span>MANUAL SYNC</span>
+            <span>SYNC</span>
           </>
         )}
       </button>
@@ -77,7 +77,6 @@ export function RollLogsSection() {
           <Dices size={12} className="text-wow-gold" />
           <span>ROLL LOGS</span>
         </span>
-        <span className="text-[9px] font-mono text-white font-bold">{rollLogs.length} LOGS</span>
       </div>
 
       {/* Logs Scroll container */}

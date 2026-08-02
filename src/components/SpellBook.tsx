@@ -67,10 +67,12 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
   const isFreeEdit = mpStore.isConnected ? mpStore.isFreeEdit : gmStore.isFreeEdit;
   const isFreeShop = mpStore.isConnected ? mpStore.isFreeShop : gmStore.isFreeShop;
 
+  const labelSizes = ["text-sm", "text-base", "text-lg", "text-lg", "text-lg"];
   const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
   const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
   const abilityTextSizeLevel = store.abilityTextSizeLevel ?? 0;
-  const labelClass = nameSizes[abilityTextSizeLevel] || 'text-sm';
+  const labelClass = labelSizes[abilityTextSizeLevel] || 'text-sm';
+  const nameClass = nameSizes[abilityTextSizeLevel] || 'text-sm';
   const valueClass = valueSizes[abilityTextSizeLevel] || 'text-xl';
 
   React.useEffect(() => {
@@ -422,17 +424,17 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
                 <RenderSpellIcon icon={detailedShopSpell.icon} size={24} color={detailedShopSpell.color} />
               </div>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Name</label>
-              <div className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 font-macondo font-bold text-wow-gold truncate flex items-center min-h-[38px]", labelClass)}>
+              <div className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 font-macondo font-bold text-wow-gold truncate flex items-center min-h-[38px]", nameClass)}>
                 {detailedShopSpell.name}
               </div>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
-              <div className={cn("wow-input w-full p-1.5 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
+              <div className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
                 {detailedShopSpell.tag ? (
-                  <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", labelClass, getAbilityTagClass(detailedShopSpell.color))}>
+                  <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", nameClass, getAbilityTagClass(detailedShopSpell.color))}>
                     {detailedShopSpell.tag}
                   </span>
                 ) : (
@@ -443,21 +445,21 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
           </div>
 
           <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 <RenderSpellDice spell={detailedShopSpell} playerStats={activePlayerStats} />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedShopSpell)}
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {detailedShopSpell.maxUses || '-'}
               </div>
             </div>
@@ -465,7 +467,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
 
           <div className="flex-1 flex flex-col mb-3 min-h-0">
             <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Description</label>
-            <div className={cn("wow-input w-full p-2 flex-1 overflow-y-auto whitespace-pre-wrap bg-black/60 border border-wow-gold/30 text-gray-300 custom-scrollbar rounded", labelClass)}>
+            <div className={cn("wow-input w-full p-2 flex-1 overflow-y-auto whitespace-pre-wrap bg-black/60 border border-wow-gold/30 text-gray-300 custom-scrollbar rounded", nameClass)}>
               {detailedShopSpell.description || "No description provided."}
             </div>
           </div>
@@ -572,17 +574,17 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
                 <RenderSpellIcon icon={detailedSpell.icon} size={24} color={detailedSpell.color} />
               </div>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Name</label>
-              <div className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 font-macondo font-bold text-wow-gold truncate flex items-center min-h-[38px]", labelClass)}>
+              <div className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 font-macondo font-bold text-wow-gold truncate flex items-center min-h-[38px]", nameClass)}>
                 {detailedSpell.name}
               </div>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
-              <div className={cn("wow-input w-full p-1.5 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
+              <div className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 text-wow-gold flex items-center truncate min-h-[38px]", labelClass)}>
                 {detailedSpell.tag ? (
-                  <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", labelClass, getAbilityTagClass(detailedSpell.color))}>
+                  <span className={cn("shrink-0 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-sans font-semibold backdrop-blur-[1px] leading-none border", nameClass, getAbilityTagClass(detailedSpell.color))}>
                     {detailedSpell.tag}
                   </span>
                 ) : (
@@ -593,21 +595,21 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
           </div>
 
           <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 <RenderSpellDice spell={detailedSpell} playerStats={activePlayerStats} />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {renderMpDisplay(detailedSpell)}
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
-              <div className={cn("wow-input w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
+              <div className={cn("wow-input w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 rounded flex items-center justify-center", valueClass)}>
                 {/^\d+$/.test((detailedSpell.maxUses || '').trim()) ? `${detailedSpell.uses} / ${detailedSpell.maxUses}` : detailedSpell.maxUses}
               </div>
             </div>
@@ -615,7 +617,7 @@ export function SpellBook({ spells, playerStats, readOnly, playerName, targetMod
 
           <div className="flex-1 flex flex-col mb-3 min-h-0">
             <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Description</label>
-            <div className={cn("wow-input w-full p-2 flex-1 overflow-y-auto whitespace-pre-wrap bg-black/60 border border-wow-gold/30 text-gray-300 custom-scrollbar rounded", labelClass)}>
+            <div className={cn("wow-input w-full p-2 flex-1 overflow-y-auto whitespace-pre-wrap bg-black/60 border border-wow-gold/30 text-gray-300 custom-scrollbar rounded", nameClass)}>
               {detailedSpell.description || "No description provided."}
             </div>
           </div>

@@ -58,6 +58,12 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
   const [activeZone, setActiveZone] = useState<string>(() => !useMultiplayerStore.getState().isConnected ? 'stats' : 'spells');
 
   useEffect(() => {
+    if (activeZone === 'logs') {
+      mpStore.setLastViewedLogCountGM(mpStore.rollLogs.length);
+    }
+  }, [activeZone, mpStore.rollLogs.length, mpStore.setLastViewedLogCountGM]);
+
+  useEffect(() => {
     const checkOrientation = () => {
       setIsVerticalScreen(window.innerHeight > window.innerWidth);
       setWindowWidth(window.innerWidth);
@@ -226,6 +232,37 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
       setTimeout(() => {
         setDisabledButtons(prev => ({ ...prev, [btnKey]: false }));
       }, 500);
+    }
+  };
+
+  const pressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  const handleAddMpStart = (e: React.PointerEvent, linkCode: string) => {
+    e.stopPropagation();
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (disabledButtons[`${linkCode}-add_mp`]) return;
+    
+    pressTimerRef.current = setTimeout(() => {
+      handlePlayerCommand(linkCode, 'add_mp', 999);
+      pressTimerRef.current = null;
+    }, 600); // 600ms for full heal
+  };
+
+  const handleAddMpEnd = (e: React.PointerEvent, linkCode: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+      handlePlayerCommand(linkCode, 'add_mp', 1);
+    }
+  };
+
+  const handleAddMpCancel = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
     }
   };
 
@@ -570,17 +607,10 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                   <span className="font-cinzel tracking-wider truncate max-w-[140px]">ONLINE: {mpStore.roomName}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                    <WifiOff size={11} />
-                    <span className="font-cinzel tracking-wider text-[10px]">OFFLINE</span>
-                  </div>
-                  <div className="flex items-center gap-0">
-                    <span className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel bg-black/50 text-wow-gold cursor-default">GM</span>
-                    <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel text-white opacity-70">
-                      PLAYER
-                    </button>
-                  </div>
+                <div className="flex items-center">
+                  <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[195px] text-center text-wow-gold flex items-center justify-center gap-1.5 border border-[#5a4b3c]">
+                    <User size={12} /> SWITCH TO PLAYER
+                  </button>
                 </div>
               )}
             </div>
@@ -605,17 +635,10 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                   <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                    <WifiOff size={12} />
-                    <span className="font-cinzel tracking-wider">OFFLINE</span>
-                  </div>
-                  <div className="flex items-center gap-0">
-                    <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">GM EDITS</span>
-                    <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
-                      PLAYER EDITS
-                    </button>
-                  </div>
+                <div className="flex items-center">
+                  <button onClick={onSwitchToPlayer} className="wow-button text-[10px] py-1 px-3 font-cinzel w-[225px] text-center text-wow-gold flex items-center justify-center gap-2 border border-[#5a4b3c]">
+                    <User size={14} /> SWITCH TO PLAYER
+                  </button>
                 </div>
               )}
             </div>
@@ -688,10 +711,15 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
             <div className="h-3/4 w-full flex flex-col gap-2 items-center py-2">
               <button
                 onClick={() => setActiveZone('logs')}
-                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('logs'))}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0 relative", getVerticalButtonClass('logs'))}
                 title="Roll Logs"
               >
                 <Scroll size={18} />
+                {mpStore.rollLogs.length > mpStore.lastViewedLogCountGM && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 border border-black text-white font-bold text-[9px] font-sans rounded-full flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.5)] z-10">
+                    {Math.min(9, mpStore.rollLogs.length - mpStore.lastViewedLogCountGM)}
+                  </div>
+                )}
               </button>
               <button
                 onClick={() => setActiveZone('spells')}
@@ -702,10 +730,15 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
               </button>
               <button
                 onClick={() => setActiveZone('stats')}
-                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('stats'))}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0 relative", getVerticalButtonClass('stats'))}
                 title="Encounter Control & Inspection"
               >
                 <User size={18} />
+                {(mpStore.isConnected ? mpStore.publishedEncounter : store.currentDraw?.published) && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-wow-gold border border-black text-[#1c120c] font-extrabold text-[9px] font-sans rounded-full flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.5)] z-10">
+                    !!
+                  </div>
+                )}
               </button>
               <button
                 onClick={() => setActiveZone('players')}
@@ -831,7 +864,8 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
         {(!isVerticalMode || activeZone === 'all' || activeZone === 'stats') && (
           <div className={cn(
             "wow-panel !p-0 flex flex-col shadow-xl bg-leather relative overflow-hidden",
-            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full overflow-y-auto" : "lg:col-span-4 h-full min-h-0"
+            isVerticalMode && activeZone !== 'all' ? "h-full min-h-0 w-full overflow-y-auto" : "lg:col-span-4 h-full min-h-0",
+            !activeCharState && theme !== 'scifi' ? "fantasy-no-rounded" : ""
           )}>
           
           {/* GM REQUEST NOTIFICATION OVERLAY (FULL CENTER ZONE) */}
@@ -1296,10 +1330,13 @@ export function GMView({ onGoHome, onSwitchToPlayer }: GMViewProps) {
                             <Swords size={12} />
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handlePlayerCommand(linkCode, 'add_mp', 1); }}
+                            onPointerDown={(e) => handleAddMpStart(e, linkCode)}
+                            onPointerUp={(e) => handleAddMpEnd(e, linkCode)}
+                            onPointerLeave={handleAddMpCancel}
+                            onContextMenu={(e) => e.preventDefault()}
                             disabled={disabledButtons[`${linkCode}-add_mp`]}
-                            className="wow-button p-1.5 shrink-0 bg-green-950/40 text-green-400 hover:text-green-300 border-green-900/50 disabled:opacity-50"
-                            title="Heal +1 MP"
+                            className="wow-button p-1.5 shrink-0 bg-green-950/40 text-green-400 hover:text-green-300 border-green-900/50 disabled:opacity-50 select-none"
+                            title="Heal +1 MP (Long press for MAX)"
                           >
                             <Sparkles size={12} />
                           </button>

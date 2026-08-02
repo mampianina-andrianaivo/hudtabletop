@@ -49,11 +49,6 @@ export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps
           {resource.name}
         </span>
         <div className="flex items-center gap-1.5">
-          {isSciFi && (
-            <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-950/60 px-1 border border-cyan-500/30 font-bold">
-              {Math.round(percentage)}%
-            </span>
-          )}
           <span className={cn(
             "font-mono font-bold text-right leading-none min-w-16 shrink-0",
             isSciFi ? "text-cyan-200 drop-shadow-[0_0_5px_rgba(6,182,212,0.7)]" : "text-white",
@@ -87,15 +82,6 @@ export function ResourceBar({ resource, onChange, isFreeEdit }: ResourceBarProps
           )}
           style={{ height: `${barHeight}px` }}
         >
-          {/* Sci-Fi HUD 10-segment overlay ticks */}
-          {isSciFi && (
-            <div className="grid grid-cols-10 absolute inset-0 pointer-events-none z-10">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="border-r border-slate-950/80 last:border-r-0 h-full"></div>
-              ))}
-            </div>
-          )}
-
           {/* Inner shadow / background texture */}
           {!isSciFi && <div className="absolute inset-0 opacity-50"></div>}
           

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power, Cpu, Menu, X, ChevronRight, LayoutGrid, Zap, SlidersHorizontal, Scroll } from 'lucide-react';
+import { Home, Download, Upload, Settings, Wifi, WifiOff, ZoomIn, ZoomOut, User, Users, Swords, Sword, FileText, Lock, Sparkles, Dices, Eye, EyeOff, Copy, Check, Power, Cpu, Menu, X, ChevronRight, LayoutGrid, Zap, SlidersHorizontal, Scroll, Shield } from 'lucide-react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useMultiplayerStore } from '@/store/useMultiplayerStore';
 import { useGMStore } from '@/store/useGMStore';
@@ -30,8 +30,9 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const activeEncounter = React.useMemo(() => {
     if (!rawEncounter) return null;
     const deserialized = deserializeEncounter(rawEncounter);
+    if (isScratch && !deserialized?.published) return null;
     return (deserialized && Array.isArray(deserialized.lines) && deserialized.lines.length > 0) ? deserialized : null;
-  }, [rawEncounter]);
+  }, [rawEncounter, isScratch]);
   
   // Ensure role is set for PlayerView
   useEffect(() => {
@@ -107,6 +108,12 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [isNonComputer, setIsNonComputer] = useState(false);
   const [activeZone, setActiveZone] = useState<string>(() => !useMultiplayerStore.getState().isConnected ? 'stats' : 'spells');
+
+  useEffect(() => {
+    if (activeZone === 'logs') {
+      mpStore.setLastViewedLogCountPlayer(mpStore.rollLogs.length);
+    }
+  }, [activeZone, mpStore.rollLogs.length, mpStore.setLastViewedLogCountPlayer]);
 
   const spellsRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
@@ -586,19 +593,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   <span className="font-cinzel tracking-wider truncate max-w-[140px]">ONLINE: {mpStore.roomName}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                    <WifiOff size={11} />
-                    <span className="font-cinzel tracking-wider text-[10px]">OFFLINE</span>
-                  </div>
-                  <div className="flex items-center gap-0">
-                    <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel text-white opacity-70">
-                      GM
-                    </button>
-                    <span className="wow-button text-[10px] py-0.5 px-1.5 font-cinzel bg-black/50 text-wow-gold cursor-default">
-                      PLAYER
-                    </span>
-                  </div>
+                <div className="flex items-center">
+                  <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[195px] text-center text-wow-gold flex items-center justify-center gap-1.5 border border-[#5a4b3c]">
+                    <Shield size={12} /> SWITCH TO GM
+                  </button>
                 </div>
               )}
             </div>
@@ -621,19 +619,10 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
                   <span className="font-cinzel tracking-wider truncate max-w-[120px]">ONLINE: {mpStore.roomName}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-white bg-black/40 border border-[#5a4b3c]/30 px-2 py-0.5 rounded shadow-inner">
-                    <WifiOff size={12} />
-                    <span className="font-cinzel tracking-wider">OFFLINE</span>
-                  </div>
-                  <div className="flex items-center gap-0">
-                    <button onClick={onSwitchToGM} className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center text-white opacity-70">
-                      GM EDITS
-                    </button>
-                    <span className="wow-button text-[10px] py-0.5 px-2 font-cinzel w-[100px] text-center bg-black/50 text-wow-gold cursor-default">
-                      PLAYER EDITS
-                    </span>
-                  </div>
+                <div className="flex items-center">
+                  <button onClick={onSwitchToGM} className="wow-button text-[10px] py-1 px-3 font-cinzel w-[225px] text-center text-wow-gold flex items-center justify-center gap-2 border border-[#5a4b3c]">
+                    <Shield size={14} /> SWITCH TO GM
+                  </button>
                 </div>
               )}
             </div>
@@ -709,10 +698,15 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
             <div className="h-3/4 w-full flex flex-col gap-2 items-center py-2">
               <button
                 onClick={() => setActiveZone('logs')}
-                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('logs'))}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0 relative", getVerticalButtonClass('logs'))}
                 title="Roll Logs"
               >
                 <Scroll size={18} />
+                {mpStore.rollLogs.length > mpStore.lastViewedLogCountPlayer && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 border border-black text-white font-bold text-[9px] font-sans rounded-full flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.5)] z-10">
+                    {Math.min(9, mpStore.rollLogs.length - mpStore.lastViewedLogCountPlayer)}
+                  </div>
+                )}
               </button>
               <button
                 onClick={() => setActiveZone('spells')}
@@ -723,10 +717,15 @@ export function PlayerView({ onGoHome, onSwitchToGM }: PlayerViewProps) {
               </button>
               <button
                 onClick={() => setActiveZone('stats')}
-                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0", getVerticalButtonClass('stats'))}
+                className={cn("w-9 flex-1 flex items-center justify-center rounded transition-all duration-150 cursor-pointer shrink-0 relative", getVerticalButtonClass('stats'))}
                 title="Character Sheet & Stats"
               >
                 <User size={18} />
+                {activeEncounter && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-wow-gold border border-black text-[#1c120c] font-extrabold text-[9px] font-sans rounded-full flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.5)] z-10">
+                    !!
+                  </div>
+                )}
               </button>
               <button
                 onClick={() => setActiveZone('players')}

@@ -24,6 +24,8 @@ export interface MultiplayerState {
   gmRequests: any[];
   playerNotes: string[]; // 3 tabs for private notes
   playerNotesTab: number; // 0, 1, 2 (private notes), 3 (PUB public notes)
+  lastViewedLogCountGM: number;
+  lastViewedLogCountPlayer: number;
 
   setCredentials: (data: Partial<MultiplayerState>) => void;
   disconnect: () => void;
@@ -32,6 +34,8 @@ export interface MultiplayerState {
   setLocalPublicNotes: (notes: string) => void;
   setPlayerNote: (index: number, content: string) => void;
   setPlayerNotesTab: (tab: number) => void;
+  setLastViewedLogCountGM: (count: number) => void;
+  setLastViewedLogCountPlayer: (count: number) => void;
 }
 
 export const useMultiplayerStore = create<MultiplayerState>()(
@@ -58,6 +62,8 @@ export const useMultiplayerStore = create<MultiplayerState>()(
       gmRequests: [],
       playerNotes: ['', '', ''],
       playerNotesTab: 3, // Default to PUB (public) tab
+      lastViewedLogCountGM: 0,
+      lastViewedLogCountPlayer: 0,
 
       setCredentials: (data) => set((state) => ({ ...state, ...data })),
       disconnect: () => set({
@@ -81,7 +87,9 @@ export const useMultiplayerStore = create<MultiplayerState>()(
         blockPlayerRolls: false,
         gmRequests: [],
         playerNotes: ['', '', ''],
-        playerNotesTab: 3
+        playerNotesTab: 3,
+        lastViewedLogCountGM: 0,
+        lastViewedLogCountPlayer: 0
       }),
       setActivePlayerView: (view) => set({ activePlayerView: view }),
       setIsEncounterViewActive: (active) => set({ isEncounterViewActive: active }),
@@ -92,6 +100,8 @@ export const useMultiplayerStore = create<MultiplayerState>()(
         return { playerNotes: notes };
       }),
       setPlayerNotesTab: (tab) => set({ playerNotesTab: tab }),
+      setLastViewedLogCountGM: (count) => set({ lastViewedLogCountGM: count }),
+      setLastViewedLogCountPlayer: (count) => set({ lastViewedLogCountPlayer: count }),
     }),
     {
       name: 'hud-multiplayer-storage-v1',
@@ -105,6 +115,8 @@ export const useMultiplayerStore = create<MultiplayerState>()(
         isConnected: state.isConnected,
         playerNotes: state.playerNotes,
         playerNotesTab: state.playerNotesTab,
+        lastViewedLogCountGM: state.lastViewedLogCountGM,
+        lastViewedLogCountPlayer: state.lastViewedLogCountPlayer,
       }),
     }
   )

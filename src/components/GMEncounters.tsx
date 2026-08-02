@@ -270,19 +270,25 @@ export function GMEncounters() {
       <div className="flex bg-[#1a110a] border-y border-[#5a4b3c]">
         <button 
           onClick={() => setActiveTab('actions')}
-          className={`flex-1 py-2 font-cinzel text-sm text-center border-r border-[#5a4b3c] ${activeTab === 'actions' ? 'bg-[#3b2c19] text-wow-gold' : 'text-white hover:text-white'}`}
+          className={`flex-1 py-2 font-cinzel text-sm text-center border-r border-[#5a4b3c] relative !rounded-none ${activeTab === 'actions' ? 'bg-[#3b2c19] text-wow-gold' : 'text-white hover:text-white'}`}
         >
-          Actions List
+          <span>Actions List</span>
+          {activeTab === 'actions' && (
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-wow-gold z-10 drop-shadow-md" />
+          )}
         </button>
         <button 
           onClick={() => setActiveTab('result')}
-          className={`flex-1 py-2 font-cinzel text-sm text-center relative flex items-center justify-center gap-1.5 ${activeTab === 'result' ? 'bg-[#3b2c19] text-wow-gold' : 'text-white hover:text-white'}`}
+          className={`flex-1 py-2 font-cinzel text-sm text-center relative flex items-center justify-center gap-1.5 !rounded-none ${activeTab === 'result' ? 'bg-[#3b2c19] text-wow-gold' : 'text-white hover:text-white'}`}
         >
           <span>Draw Result</span>
           {store.currentDraw?.published && (
             <span className="w-5 h-5 bg-wow-gold border border-black text-[#1c120c] font-extrabold text-[10px] font-sans rounded-full flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.5)] shrink-0">
               !!
             </span>
+          )}
+          {activeTab === 'result' && (
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-wow-gold z-10 drop-shadow-md" />
           )}
         </button>
       </div>

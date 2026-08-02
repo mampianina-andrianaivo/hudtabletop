@@ -254,9 +254,11 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
   const crafterTextSizeLevel = useGMStore(state => state.crafterTextSizeLevel);
   const increaseCrafterTextSize = useGMStore(state => state.increaseCrafterTextSize);
   const decreaseCrafterTextSize = useGMStore(state => state.decreaseCrafterTextSize);
+  const labelSizes = ["text-sm", "text-base", "text-lg", "text-lg", "text-lg"];
   const nameSizes = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
   const valueSizes = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl'];
-  const labelClass = nameSizes[crafterTextSizeLevel] || 'text-sm';
+  const labelClass = labelSizes[crafterTextSizeLevel] || 'text-sm';
+  const nameClass = nameSizes[crafterTextSizeLevel] || 'text-sm';
   const valueClass = valueSizes[crafterTextSizeLevel] || 'text-xl';
 
   const initialEval = evaluateSpellDice(spell);
@@ -566,6 +568,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
       
       <div className="flex gap-3 mb-3 shrink-0">
         <div className="relative">
+          <div className={cn("block font-cinzel text-transparent select-none mb-1", labelClass)}>ICON</div>
           <button 
             type="button"
             onClick={() => setShowIconPicker(!showIconPicker)}
@@ -582,39 +585,39 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             />
           )}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col">
           <label className={cn("block font-cinzel text-white mb-1", labelClass)}>Name</label>
           <input 
             type="text" 
             value={draft.name} 
             onChange={e => setDraft(p => ({ ...p, name: e.target.value }))} 
-            className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-macondo font-bold transition-colors min-h-[38px]", labelClass)} 
+            className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-macondo font-bold transition-colors min-h-[38px]", nameClass)} 
           />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col">
           <label className={cn("block font-cinzel text-white mb-1", labelClass)}>TAG</label>
           <input 
             type="text" 
             value={draft.tag || ''} 
             onChange={e => setDraft(p => ({ ...p, tag: e.target.value }))} 
             placeholder="e.g. Rare, Lv 2..." 
-            className={cn("wow-input w-full p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-sans transition-colors min-h-[38px]", labelClass)} 
+            className={cn("wow-input w-full flex-1 p-2 bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-wow-gold font-sans transition-colors min-h-[38px]", nameClass)} 
           />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3 shrink-0 bg-black/40 p-2 rounded border border-[#5a4b3c]/30 text-center">
-        <div>
+        <div className="flex flex-col">
           <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>DICE</label>
           <button
             type="button"
             onClick={() => setPickerField('dice')}
-            className={cn("wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center", valueClass)}
+            className={cn("wow-button w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center", valueClass)}
           >
             <RenderSpellDice spell={draft} showUnknownResult={true} />
           </button>
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className={cn("block font-cinzel text-blue-400 mb-1", labelClass)}>MP</label>
           <button
             type="button"
@@ -622,12 +625,12 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             onClick={() => {
               if (!isDotDice) setPickerField('mp');
             }}
-            className={cn(`wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
+            className={cn(`wow-button w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-blue-400 bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
             {isDotDice ? '●' : renderMpDisplay(draft)}
           </button>
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className={cn("block font-cinzel text-gray-400 mb-1", labelClass)}>USES</label>
           <button
             type="button"
@@ -635,7 +638,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
             onClick={() => {
               if (!isDotDice) setPickerField('maxUses');
             }}
-            className={cn(`wow-button w-full h-10 p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
+            className={cn(`wow-button w-full flex-1 min-h-[40px] p-1.5 text-center font-mono font-bold text-white bg-black/60 border border-wow-gold/30 focus:border-wow-gold transition-colors rounded hover:bg-wow-gold/10 flex items-center justify-center ${isDotDice ? 'opacity-40 cursor-not-allowed border-gray-700' : ''}`, valueClass)}
           >
             {isDotDice ? '●' : (draft.maxUses || '●')}
           </button>
@@ -647,7 +650,7 @@ function SpellEditModal({ spell, onClose, onSave }: { spell: Spell, onClose: () 
         <textarea 
           value={draft.description || ''} 
           onChange={e => setDraft(p => ({ ...p, description: e.target.value }))} 
-          className={cn("wow-input w-full p-2 flex-1 resize-none bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-gray-300 custom-scrollbar rounded", labelClass)} 
+          className={cn("wow-input w-full p-2 flex-1 resize-none bg-black/60 border border-wow-gold/30 focus:border-wow-gold text-gray-300 custom-scrollbar rounded", nameClass)} 
         />
       </div>
 

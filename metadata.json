@@ -1,6 +1,6 @@
 {
-  "name": "Tabletop HUD Dashboard",
-  "description": "A World of Warcraft inspired skeuomorphic tabletop RPG dashboard for Game Masters and Players.",
+  "name": "Gestionnaire Simplicité",
+  "description": "Gestionnaire de smartphone ultra-simplifié avec onglets, FCP, produits, services, clients, ventes et facturation PDF.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

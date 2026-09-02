@@ -144,14 +144,14 @@ export default function App() {
 
   return (
     <div 
-      className="w-full h-screen bg-black flex justify-center items-center overflow-hidden py-4 px-2 sm:py-8 sm:px-8"
+      className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden py-4 px-2 sm:py-8 sm:px-8"
       style={{ 
         '--app-font-size': appFontSize,
         '--tab-font-size': tabFontSize 
       } as React.CSSProperties}
     >
       {/* Smartphone fixed frame container */}
-      <div className="w-full max-w-[420px] h-full max-h-[95vh] bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-rose-600 rounded-lg">
+      <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-rose-600 rounded-lg">
         {/* Fixed Top Tabs Ribbon */}
         <TopTabs activeTab={activeTab} onSelectTab={setActiveTab} />
 

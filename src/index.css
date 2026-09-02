@@ -9,6 +9,15 @@
     border-radius: 0 !important;
     box-sizing: border-box;
   }
+  
+  html, body {
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+    margin: 0;
+    padding: 0;
+  }
 
   body, input, button, select, textarea {
     font-family: 'Tahoma', 'Verdana', 'Segoe UI', sans-serif !important;

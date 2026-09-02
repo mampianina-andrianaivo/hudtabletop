@@ -144,7 +144,7 @@ export default function App() {
 
   return (
     <div 
-      className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden py-4 px-2 sm:py-8 sm:px-8"
+      className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden pt-4 pb-20 px-2 sm:py-8 sm:px-8"
       style={{ 
         '--app-font-size': appFontSize,
         '--tab-font-size': tabFontSize 

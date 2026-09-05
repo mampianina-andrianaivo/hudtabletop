@@ -35,6 +35,11 @@ async function createFolder(folderName: string, accessToken: string): Promise<st
     },
     body: JSON.stringify(metadata),
   });
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('Failed to create folder:', res.status, errText);
+    throw new Error(`Failed to create folder: ${res.status} ${errText}`);
+  }
   const data = await res.json();
   return data.id;
 }
@@ -135,14 +140,14 @@ export async function saveDataToDrive(user: User, payload: any): Promise<void> {
   const fileId = await findDataFile(folderId, accessToken);
   const fileContent = JSON.stringify(payload, null, 2);
 
-  const metadata = {
+  const metadata: Record<string, any> = {
     name: 'data.json',
     mimeType: 'application/json',
   };
 
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file', new Blob([fileContent], { type: 'application/json' }));
+  const boundary = '-------314159265358979323846';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
 
   let url = `${UPLOAD_API_URL}?uploadType=multipart`;
   let method = 'POST';
@@ -154,18 +159,29 @@ export async function saveDataToDrive(user: User, payload: any): Promise<void> {
   } else {
     // Create new inside folder
     metadata['parents'] = [folderId];
-    form.set('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   }
+
+  const multipartRequestBody =
+    delimiter +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    'Content-Type: application/json\r\n\r\n' +
+    fileContent +
+    closeDelimiter;
 
   const res = await fetch(url, {
     method,
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: form,
+    body: multipartRequestBody,
   });
 
   if (!res.ok) {
-    throw new Error('Failed to save data.json to Drive');
+    const errBody = await res.text();
+    console.error('Failed to save data.json to Drive:', res.status, errBody);
+    throw new Error(`Failed to save data.json to Drive: ${res.status} ${errBody}`);
   }
 }

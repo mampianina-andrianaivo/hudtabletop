@@ -9,9 +9,10 @@ export const SoutenirBlock = () => (
     </div>
     <p className="f-app text-sm text-[#FFFFFF] m-0 leading-relaxed">
       Pour soutenir l'entretien et le développement continu de cette application gratuite, vos dons sont les bienvenus ! 
-      <br/><br/>
-      <strong>MVOLA : 034 02 106 01</strong>
     </p>
+    <div className="text-white text-base font-bold select-all tracking-[0.18em] pt-1">
+      MVOLA: <span>0340210601</span>
+    </div>
   </div>
 );
 

@@ -5,16 +5,23 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-const provider = new GoogleAuthProvider();
-// Request Workspace scopes
-provider.addScope('https://www.googleapis.com/auth/drive.file');
-provider.addScope('https://www.googleapis.com/auth/userinfo.email');
-provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-
 // Flag to indicate if we are in the middle of a sign-in flow.
 let isSigningIn = false;
 // Cache the access token in memory.
 let cachedAccessToken: string | null = null;
+
+export const createGoogleProvider = () => {
+  const p = new GoogleAuthProvider();
+  p.addScope('https://www.googleapis.com/auth/drive.file');
+  p.addScope('https://www.googleapis.com/auth/drive');
+  p.addScope('https://www.googleapis.com/auth/userinfo.email');
+  p.addScope('https://www.googleapis.com/auth/userinfo.profile');
+  p.setCustomParameters({
+    prompt: 'consent',
+    access_type: 'offline'
+  });
+  return p;
+};
 
 // Initialize auth state listener. Call this on app load.
 export const initAuth = (
@@ -40,9 +47,7 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    provider.setCustomParameters({
-      prompt: 'consent'
-    });
+    const provider = createGoogleProvider();
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {

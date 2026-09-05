@@ -43,7 +43,13 @@ export const CompteTab: React.FC<CompteTabProps> = ({ onLogout, userEmail }) => 
     <div className="flex-1 flex flex-col h-full bg-[#FFFFFF] relative overflow-hidden">
       <SubRibbon buttons={subRibbonButtons} />
 
-      <div className="flex-1 p-4 max-w-md mx-auto w-full flex flex-col gap-5 tab-content-scroll overflow-y-auto">
+      <div className="flex-1 p-4 max-w-md mx-auto w-full flex flex-col gap-4 tab-content-scroll overflow-y-auto">
+        {userEmail && (
+          <div className="text-black font-bold text-sm tracking-wide py-0.5 truncate">
+            {userEmail}
+          </div>
+        )}
+
         <SoutenirBlock />
 
         {activeZone === 'fonctionnalites' && <FonctionnalitesContent />}

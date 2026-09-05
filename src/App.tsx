@@ -11,7 +11,7 @@ import { CompteTab } from './components/CompteTab';
 import { SubRibbon } from './components/SubRibbon';
 import { FCPWindow } from './components/FCPWindow';
 import { FonctionnalitesContent, ConditionsContent } from './components/InfoTexts';
-import { Info, Shield } from 'lucide-react';
+import { Info, Shield, Check } from 'lucide-react';
 import {
   getClients,
   getProduits,
@@ -288,7 +288,7 @@ export default function App() {
   if (isInitializing) {
     return (
       <div className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden pt-4 pb-20 px-2 sm:py-8 sm:px-8">
-        <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col items-center justify-center border-4 border-rose-600 rounded-lg">
+        <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col items-center justify-center border-4 border-black rounded-lg">
           <span className="font-bold text-neutral-600">Chargement des données...</span>
         </div>
       </div>
@@ -296,86 +296,108 @@ export default function App() {
   }
 
   if (needsAuth) {
+    const currentYear = new Date().getFullYear();
     return (
       <div className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden pt-4 pb-20 px-2 sm:py-8 sm:px-8">
-        <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-rose-600 rounded-lg px-6 text-center">
-          <div className="flex-1 w-full flex flex-col items-center justify-center overflow-y-auto py-4">
+        <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-black rounded-lg text-center">
+          <div className="flex-1 w-full flex flex-col items-center justify-center overflow-y-auto py-4 px-6 relative">
             
-            <div className="flex flex-col items-center mb-6 w-full gap-1">
-              <div className="flex justify-between w-[270px] text-5xl font-extrabold tracking-tight">
-                <div className="w-[65px] text-center">F</div>
-                <div className="w-[65px] text-center">C</div>
-                <div className="w-[65px] text-center">P</div>
-              </div>
-              <h2 className="text-lg font-bold text-[#116611] tracking-wider whitespace-nowrap flex justify-between w-[270px]">
-                <div className="w-[65px] text-center">FACILE</div>
-                <div className="w-[65px] text-center">CLAIRE</div>
-                <div className="w-[65px] text-center">PROPRE</div>
-              </h2>
-            </div>
-            
-            <div className="bg-[#E8F3E8] p-4 rounded-md mb-6 text-sm text-neutral-800 leading-relaxed border border-[#116611]/20 shadow-sm w-full text-center">
-              <strong>Vous avez besoin de cette application 100% gratuite si :</strong><br/><br/>
-              Vous souhaitez garder une trace rapide de vos ventes ou suivre vos clients sans vous encombrer de logiciels complexes ni d'abonnements payants. Tout est à portée de main, sécurisé, et entièrement gratuit.
+            <div className="w-full text-left mb-3">
+              <h1 className="text-2xl font-black text-black leading-tight tracking-wider uppercase">
+                FACILE<br />
+                CLAIRE<br />
+                PROPRE
+              </h1>
+              <div className="w-1/2 border-b-2 border-black mt-3 mb-4"></div>
+              
+              <p className="text-sm font-medium text-black leading-snug">
+                Webapp d'enregistrement statistique<br />
+                de vos activités de vente<br />
+                axée sur la simplicité<br />
+                et le minimalisme.
+              </p>
+              
+              <div className="w-1/2 border-b-2 border-black mt-4 mb-4"></div>
             </div>
 
-            <p className="text-neutral-600 text-sm mb-6">
-              Vos données seront stockées de manière sécurisée et privée dans un dossier dédié sur votre propre Google Drive.
-            </p>
+            <div className="w-full text-right mb-6">
+              <p className="text-xs sm:text-sm text-black leading-snug mb-3">
+                Vos données seront stockées de manière sécurisée<br />
+                et privée dans un dossier dédié<br />
+                sur votre propre Google Drive.
+              </p>
+              <p className="text-xs sm:text-sm text-black leading-snug">
+                En vous connectant, vous acceptez les conditions<br />
+                et confirmez avoir pris connaissance<br />
+                des fonctionnalités proposées.
+              </p>
+            </div>
 
-            <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-300 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 mb-3 shrink-0">
-              <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">
-                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlnsXlink="http://www.w3.org/1999/xlink" className="w-5 h-5 block">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                  <path fill="none" d="M0 0h48v48H0z"></path>
-                </svg>
-              </div>
-              <span className="font-medium text-neutral-700 text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
-            </button>
-            
-            <p className="text-sm leading-tight text-neutral-500 mb-4 max-w-[300px]">
-              En vous connectant, vous acceptez les conditions et confirmez avoir pris connaissance des fonctionnalités proposées.
-            </p>
+            <div className="w-full flex justify-center mb-4">
+              <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-400 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 shrink-0">
+                <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">
+                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlnsXlink="http://www.w3.org/1999/xlink" className="w-5 h-5 block">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                    <path fill="none" d="M0 0h48v48H0z"></path>
+                  </svg>
+                </div>
+                <span className="font-semibold text-black text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
+              </button>
+            </div>
 
             {authError && (
-              <div className="bg-[#E8F3E8] border border-[#116611]/30 text-[#116611] text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
-                {authError}
+              <div className="w-full flex flex-col items-center mb-4">
+                <div className="border border-black bg-neutral-50 text-black text-sm p-3.5 rounded max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
+                  {authError}
+                </div>
+                <div className="mt-3 w-8 h-8 rounded-full bg-black flex items-center justify-center shadow-md">
+                  <Check className="w-5 h-5 text-white stroke-[3]" />
+                </div>
               </div>
             )}
             
-            <div className="flex gap-4 w-full justify-center mt-auto pt-4 shrink-0 border-t border-neutral-100">
-              <button onClick={() => setLandingInfoMode('fonctionnalites')} className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black transition-colors cursor-pointer">
-                <Info className="w-4 h-4" />
+            <div className="flex gap-4 w-full justify-center mt-auto pt-4 shrink-0 border-t border-neutral-200">
+              <button onClick={() => setLandingInfoMode('fonctionnalites')} className="flex items-center gap-1.5 text-sm font-semibold text-black hover:opacity-75 transition-opacity cursor-pointer">
+                <Info className="w-4 h-4 text-black" />
                 Fonctionnalités
               </button>
-              <span className="text-neutral-300">•</span>
-              <button onClick={() => setLandingInfoMode('conditions')} className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black transition-colors cursor-pointer">
-                <Shield className="w-4 h-4" />
+              <span className="text-black">•</span>
+              <button onClick={() => setLandingInfoMode('conditions')} className="flex items-center gap-1.5 text-sm font-semibold text-black hover:opacity-75 transition-opacity cursor-pointer">
+                <Shield className="w-4 h-4 text-black" />
                 Conditions
               </button>
             </div>
+
+            {landingInfoMode && (
+              <FCPWindow
+                title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'}
+                cancelLabel="X"
+                onCancel={() => setLandingInfoMode(null)}
+              >
+                <div className="p-4 max-w-md mx-auto text-left flex flex-col gap-5 tab-content-scroll overflow-y-auto max-h-[70vh]">
+                  {landingInfoMode === 'fonctionnalites' && <FonctionnalitesContent />}
+                  {landingInfoMode === 'conditions' && <ConditionsContent />}
+                </div>
+              </FCPWindow>
+            )}
           </div>
 
-          {landingInfoMode && (
-            <FCPWindow
-              title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'}
-              cancelLabel="X"
-              onCancel={() => setLandingInfoMode(null)}
-            >
-              <div className="p-4 max-w-md mx-auto text-left flex flex-col gap-5 tab-content-scroll overflow-y-auto max-h-[70vh]">
-                {landingInfoMode === 'fonctionnalites' && <FonctionnalitesContent />}
-                {landingInfoMode === 'conditions' && <ConditionsContent />}
-              </div>
-            </FCPWindow>
-          )}
+          {/* Bandelette copyright permanente */}
+          <div className="w-full bg-black py-1 px-2 text-center shrink-0 select-none">
+            <span className="text-[10px] tracking-wider text-white font-normal" style={{ fontSize: '10px' }}>
+              Copyright {currentYear} | FCP
+            </span>
+          </div>
 
         </div>
       </div>
     );
   }
+
+  const currentYear = new Date().getFullYear();
 
   return (
     <div 
@@ -386,7 +408,7 @@ export default function App() {
       } as React.CSSProperties}
     >
       {/* Smartphone fixed frame container */}
-      <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-rose-600 rounded-lg">
+      <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-black rounded-lg">
         {/* Fixed Top Tabs Ribbon */}
         <TopTabs activeTab={activeTab} onSelectTab={setActiveTab} />
         
@@ -446,6 +468,13 @@ export default function App() {
             />
           )}
           {activeTab === 'compte' && <CompteTab onLogout={handleLogout} userEmail={user?.email || undefined} />}
+        </div>
+
+        {/* Bandelette copyright permanente */}
+        <div className="w-full bg-black py-1 px-2 text-center shrink-0 select-none z-20">
+          <span className="text-[10px] tracking-wider text-white font-normal" style={{ fontSize: '10px' }}>
+            Copyright {currentYear} | FCP
+          </span>
         </div>
       </div>
     </div>

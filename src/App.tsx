@@ -370,20 +370,20 @@ export default function App() {
                 Conditions
               </button>
             </div>
-
-            {landingInfoMode && (
-              <FCPWindow
-                title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'}
-                cancelLabel="X"
-                onCancel={() => setLandingInfoMode(null)}
-              >
-                <div className="p-4 max-w-md mx-auto text-left flex flex-col gap-5 tab-content-scroll overflow-y-auto max-h-[70vh]">
-                  {landingInfoMode === 'fonctionnalites' && <FonctionnalitesContent />}
-                  {landingInfoMode === 'conditions' && <ConditionsContent />}
-                </div>
-              </FCPWindow>
-            )}
           </div>
+
+          {landingInfoMode && (
+            <FCPWindow
+              title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'}
+              cancelLabel="X"
+              onCancel={() => setLandingInfoMode(null)}
+            >
+              <div className="p-4 max-w-md mx-auto text-left flex flex-col gap-5">
+                {landingInfoMode === 'fonctionnalites' && <FonctionnalitesContent />}
+                {landingInfoMode === 'conditions' && <ConditionsContent />}
+              </div>
+            </FCPWindow>
+          )}
 
           {/* Bandelette copyright permanente */}
           <div className="w-full bg-black py-1 px-2 text-center shrink-0 select-none">

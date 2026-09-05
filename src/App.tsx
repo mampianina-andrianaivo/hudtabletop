@@ -82,7 +82,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Failed to load/initialize data from Drive:', error);
-      setAuthError("La connexion à votre Google Drive suit un processus de confirmation. Veuillez réessayer de vous reconnecter maintenant.");
+      setAuthError("Le rattachement à votre Google Drive suit un processus de confirmation. Veuillez vous reconnecter avec votre compte Google déjà inscrit maintenant.");
       // Logout to prevent desynchronized state
       await logout();
       setUser(null);
@@ -327,12 +327,6 @@ export default function App() {
               ℹ️ Vos données seront sauvegardées automatiquement et de manière privée dans un dossier FCP sur votre Google Drive.
             </div>
 
-            {authError && (
-              <div className="bg-[#E8F3E8] border border-[#116611]/30 text-[#116611] text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
-                {authError}
-              </div>
-            )}
-
             <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-300 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 mb-3 shrink-0">
               <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">
                 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlnsXlink="http://www.w3.org/1999/xlink" className="w-5 h-5 block">
@@ -346,9 +340,15 @@ export default function App() {
               <span className="font-medium text-neutral-700 text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
             </button>
             
-            <p className="text-sm leading-tight text-neutral-500 mb-8 max-w-[300px]">
+            <p className="text-sm leading-tight text-neutral-500 mb-4 max-w-[300px]">
               En vous connectant, vous acceptez les conditions et confirmez avoir pris connaissance des fonctionnalités proposées.
             </p>
+
+            {authError && (
+              <div className="bg-[#E8F3E8] border border-[#116611]/30 text-[#116611] text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
+                {authError}
+              </div>
+            )}
             
             <div className="flex gap-4 w-full justify-center mt-auto pt-4 shrink-0 border-t border-neutral-100">
               <button onClick={() => setLandingInfoMode('fonctionnalites')} className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black transition-colors cursor-pointer">

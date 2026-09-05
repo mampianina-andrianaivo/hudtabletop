@@ -319,13 +319,9 @@ export default function App() {
               Vous souhaitez garder une trace rapide de vos ventes ou suivre vos clients sans vous encombrer de logiciels complexes ni d'abonnements payants. Tout est à portée de main, sécurisé, et entièrement gratuit.
             </div>
 
-            <p className="text-neutral-600 text-sm mb-4">
+            <p className="text-neutral-600 text-sm mb-6">
               Vos données seront stockées de manière sécurisée et privée dans un dossier dédié sur votre propre Google Drive.
             </p>
-
-            <div className="text-xs text-neutral-600 bg-neutral-100 border border-neutral-200 rounded p-2.5 mb-6 text-center max-w-[340px]">
-              ℹ️ Vos données seront sauvegardées automatiquement et de manière privée dans un dossier FCP sur votre Google Drive.
-            </div>
 
             <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-300 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 mb-3 shrink-0">
               <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">

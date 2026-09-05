@@ -80,7 +80,9 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Failed to load/initialize data from Drive:', error);
-      setAuthError("Erreur de synchronisation Google Drive. Veuillez vous reconnecter.");
+      // Qu'il s'agisse de la première initialisation ou d'une autorisation manquante (case Drive non cochée),
+      // on affiche directement le message positif invitant à se reconnecter pour démarrer.
+      setAuthError("Votre espace de stockage Google Drive a été configuré avec succès. Veuillez vous reconnecter pour commencer.");
       await logout();
       setUser(null);
       setNeedsAuth(true);

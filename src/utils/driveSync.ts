@@ -67,7 +67,16 @@ export async function loadDataFromDrive(user: User): Promise<any | null> {
   const folderId = await getOrCreateFolder(user, accessToken);
   const fileId = await findDataFile(folderId, accessToken);
   if (!fileId) {
-    return null; // No data yet
+    // Immédiatement créer data.json initial dès la toute première connexion
+    const initialPayload = {
+      settings: null,
+      produits: [],
+      services: [],
+      clients: [],
+      ventes: []
+    };
+    await saveDataToDrive(user, initialPayload);
+    return null; // Pas de données existantes à restaurer
   }
 
   const res = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {

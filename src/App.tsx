@@ -35,6 +35,7 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [landingInfoMode, setLandingInfoMode] = useState<'fonctionnalites' | 'conditions' | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // App Data State
   const [activeTab, setActiveTab] = useState<TabType>('produits');
@@ -62,6 +63,7 @@ export default function App() {
 
   const loadCloudData = async (currentUser: User) => {
     setIsInitializing(true);
+    setAuthError(null);
     try {
       const data = await loadDataFromDrive(currentUser);
       if (data) {
@@ -78,8 +80,13 @@ export default function App() {
         if (data.clients) saveClients(data.clients);
         if (data.ventes) saveVentes(data.ventes);
       }
-    } catch (error) {
-      console.error('Failed to load data from Drive:', error);
+    } catch (error: any) {
+      console.error('Failed to load/initialize data from Drive:', error);
+      setAuthError("La connexion à votre Google Drive suit un processus de confirmation. Veuillez réessayer de vous connecter ou vérifier votre connexion internet.");
+      // Logout to prevent desynchronized state
+      await logout();
+      setUser(null);
+      setNeedsAuth(true);
     } finally {
       setIsInitializing(false);
     }
@@ -312,9 +319,19 @@ export default function App() {
               Vous souhaitez garder une trace rapide de vos ventes ou suivre vos clients sans vous encombrer de logiciels complexes ni d'abonnements payants. Tout est à portée de main, sécurisé, et entièrement gratuit.
             </div>
 
-            <p className="text-neutral-600 text-sm mb-8">
+            <p className="text-neutral-600 text-sm mb-4">
               Vos données seront stockées de manière sécurisée et privée dans un dossier dédié sur votre propre Google Drive.
             </p>
+
+            <div className="text-xs text-neutral-600 bg-neutral-100 border border-neutral-200 rounded p-2.5 mb-6 text-center max-w-[340px]">
+              ℹ️ Vos données seront sauvegardées automatiquement et de manière privée dans un dossier FCP sur votre Google Drive.
+            </div>
+
+            {authError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed">
+                {authError}
+              </div>
+            )}
 
             <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-300 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 mb-3 shrink-0">
               <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">

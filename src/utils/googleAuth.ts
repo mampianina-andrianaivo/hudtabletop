@@ -7,8 +7,8 @@ const auth = getAuth(app);
 
 // Flag to indicate if we are in the middle of a sign-in flow.
 let isSigningIn = false;
-// Cache the access token in memory.
-let cachedAccessToken: string | null = null;
+// Cache the access token in memory and localStorage.
+let cachedAccessToken: string | null = localStorage.getItem('fcp_drive_token');
 
 export const createGoogleProvider = () => {
   const p = new GoogleAuthProvider();
@@ -27,15 +27,15 @@ export const initAuth = (
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
-      }
+    const savedToken = cachedAccessToken || localStorage.getItem('fcp_drive_token');
+    if (user && savedToken) {
+      cachedAccessToken = savedToken;
+      if (onAuthSuccess) onAuthSuccess(user, savedToken);
+    } else if (user && isSigningIn) {
+      // Waiting for popup sign-in to finish
     } else {
       cachedAccessToken = null;
+      localStorage.removeItem('fcp_drive_token');
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -53,6 +53,7 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    localStorage.setItem('fcp_drive_token', credential.accessToken);
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/user-cancelled') {
@@ -67,10 +68,11 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+  return cachedAccessToken || localStorage.getItem('fcp_drive_token');
 };
 
 export const logout = async () => {
-  await auth.signOut();
   cachedAccessToken = null;
+  localStorage.removeItem('fcp_drive_token');
+  await auth.signOut();
 };

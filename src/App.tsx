@@ -82,7 +82,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Failed to load/initialize data from Drive:', error);
-      setAuthError("La connexion à votre Google Drive suit un processus de confirmation. Veuillez réessayer de vous connecter ou vérifier votre connexion internet.");
+      setAuthError("La connexion à votre Google Drive suit un processus de confirmation. Veuillez réessayer de vous reconnecter maintenant.");
       // Logout to prevent desynchronized state
       await logout();
       setUser(null);
@@ -328,7 +328,7 @@ export default function App() {
             </div>
 
             {authError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed">
+              <div className="bg-[#E8F3E8] border border-[#116611]/30 text-[#116611] text-xs p-3 rounded mb-4 max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
                 {authError}
               </div>
             )}
@@ -343,7 +343,7 @@ export default function App() {
                   <path fill="none" d="M0 0h48v48H0z"></path>
                 </svg>
               </div>
-              <span className="font-medium text-neutral-700 text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Se connecter avec Google'}</span>
+              <span className="font-medium text-neutral-700 text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
             </button>
             
             <p className="text-sm leading-tight text-neutral-500 mb-8 max-w-[300px]">

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Service, Settings } from '../types';
 import { SubRibbon, ActionButtonDef } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
-import { CheckCircle2, Archive, Plus, Wrench } from 'lucide-react';
+import { Plus, Wrench } from 'lucide-react';
 import { generateServiceCode } from '../utils/storage';
 import { formatPrice } from '../utils/format';
 
@@ -299,15 +299,15 @@ export const ServiceTab: React.FC<ServiceTabProps> = ({
               )}
             </div>
 
-            {/* Description */}
+            {/* Description (1 ligne pour économiser de l'espace) */}
             <div className="flex flex-col gap-1">
               <label className="f-app text-[#000000] font-normal">Description (Facultatif)</label>
-              <textarea
+              <input
+                type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
                 disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none resize-none border-none disabled:opacity-50"
+                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none border-none disabled:opacity-50"
               />
             </div>
           </div>

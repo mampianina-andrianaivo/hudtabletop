@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Produit, Settings } from '../types';
 import { SubRibbon, ActionButtonDef } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
-import { CheckCircle2, Archive, Plus, Package, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Package, ChevronUp, ChevronDown } from 'lucide-react';
 import { generateProduitCode } from '../utils/storage';
 import { formatPrice } from '../utils/format';
 
@@ -188,13 +188,11 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
   };
 
   const isTrailingZeroDec = (index: number) => {
-    // Only dim the decimal digit if it is a trailing zero
     for (let i = stockDec.length - 1; i > index; i--) {
       if (stockDec[i] !== '0') return false;
     }
     return stockDec[index] === '0';
   };
-
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#FFFFFF] relative">
@@ -211,6 +209,7 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
           <div className="grid grid-cols-2 gap-3">
             {displayedProduits.map((p) => {
               const priceDisplay = formatPrice(p.prixInt, p.prixDec, settings.decimalMode);
+              const isStockZero = (!p.stockInt || Number(p.stockInt) === 0) && (!p.stockDec || Number(p.stockDec) === 0);
 
               return (
                 <button
@@ -225,11 +224,17 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
                       {p.nom}
                     </span>
                     <span className="f-app text-[#000000] block truncate w-full mt-0.5 leading-tight">
-                      Stock indicatif
+                      {isStockZero ? <span className="invisible">Stock indicatif</span> : 'Stock indicatif'}
                     </span>
                     <span className="f-app text-[#000000] block truncate w-full leading-tight">
-                      └ {p.stockInt ? Number(p.stockInt).toLocaleString('fr-FR') : '0'},{p.stockDec || '00'}
-                      {p.mesure ? <strong> {p.mesure}</strong> : ''}
+                      {isStockZero ? (
+                        p.mesure ? <strong>{p.mesure}</strong> : <span className="invisible">&nbsp;</span>
+                      ) : (
+                        <>
+                          └ {p.stockInt ? Number(p.stockInt).toLocaleString('fr-FR') : '0'},{p.stockDec || '00'}
+                          {p.mesure ? <strong> {p.mesure}</strong> : ''}
+                        </>
+                      )}
                     </span>
                     <div className="w-full text-right mt-auto pt-1">
                       <span className="f-app text-[#000000] font-bold block truncate w-full">{priceDisplay}</span>
@@ -360,15 +365,15 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
               )}
             </div>
 
-            {/* Description */}
+            {/* Description (1 ligne pour économiser de l'espace) */}
             <div className="flex flex-col gap-1">
               <label className="f-app text-[#000000] font-normal">Description (Facultatif)</label>
-              <textarea
+              <input
+                type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
                 disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none resize-none border-none disabled:opacity-50"
+                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none border-none disabled:opacity-50"
               />
             </div>
 
@@ -381,28 +386,28 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
                   <div className="flex items-center gap-1">
                     {/* 5 digits integer */}
                     {stockInt.split('').map((digit, i) => (
-                  <div key={`int-${i}`} className="flex flex-col items-center">
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      onClick={() => handleStockChange('int', i, 1)}
-                      className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      <ChevronUp className="w-5 h-5 text-black shrink-0" />
-                    </button>
-                    <div className={`w-[40px] h-[44px] flex items-center justify-center bg-[#FFFFFF] text-3xl font-bold font-mono shrink-0 ${isLeadingZeroInt(i) ? 'text-neutral-300' : 'text-[#000000]'}`}>
-                      {digit}
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      onClick={() => handleStockChange('int', i, -1)}
-                      className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      <ChevronDown className="w-5 h-5 text-black shrink-0" />
-                    </button>
-                  </div>
-                ))}
+                      <div key={`int-${i}`} className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          disabled={isArchived}
+                          onClick={() => handleStockChange('int', i, 1)}
+                          className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
+                        >
+                          <ChevronUp className="w-5 h-5 text-black shrink-0" />
+                        </button>
+                        <div className={`w-[40px] h-[44px] flex items-center justify-center bg-[#FFFFFF] text-3xl font-bold font-mono shrink-0 ${isLeadingZeroInt(i) ? 'text-neutral-300' : 'text-[#000000]'}`}>
+                          {digit}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isArchived}
+                          onClick={() => handleStockChange('int', i, -1)}
+                          className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
+                        >
+                          <ChevronDown className="w-5 h-5 text-black shrink-0" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 
@@ -414,28 +419,28 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
                 {/* 2 digits decimal */}
                 <div className="flex items-center gap-1">
                   {stockDec.split('').map((digit, i) => (
-                  <div key={`dec-${i}`} className="flex flex-col items-center">
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      onClick={() => handleStockChange('dec', i, 1)}
-                      className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      <ChevronUp className="w-5 h-5 text-black shrink-0" />
-                    </button>
-                    <div className={`w-[40px] h-[44px] flex items-center justify-center bg-[#FFFFFF] text-3xl font-bold font-mono shrink-0 ${isTrailingZeroDec(i) ? 'text-neutral-300' : 'text-[#000000]'}`}>
-                      {digit}
+                    <div key={`dec-${i}`} className="flex flex-col items-center">
+                      <button
+                        type="button"
+                        disabled={isArchived}
+                        onClick={() => handleStockChange('dec', i, 1)}
+                        className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        <ChevronUp className="w-5 h-5 text-black shrink-0" />
+                      </button>
+                      <div className={`w-[40px] h-[44px] flex items-center justify-center bg-[#FFFFFF] text-3xl font-bold font-mono shrink-0 ${isTrailingZeroDec(i) ? 'text-neutral-300' : 'text-[#000000]'}`}>
+                        {digit}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isArchived}
+                        onClick={() => handleStockChange('dec', i, -1)}
+                        className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        <ChevronDown className="w-5 h-5 text-black shrink-0" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={isArchived}
-                      onClick={() => handleStockChange('dec', i, -1)}
-                      className="w-[40px] h-[44px] flex items-center justify-center bg-[#D0D0D0] hover:bg-[#C8C8C8] border-none cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      <ChevronDown className="w-5 h-5 text-black shrink-0" />
-                    </button>
-                  </div>
-                ))}
+                  ))}
                 </div>
               </div>
             </div>

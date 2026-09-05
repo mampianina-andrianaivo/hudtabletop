@@ -14,6 +14,7 @@ interface FCPWindowProps {
   children: ReactNode;
   isEdit?: boolean;
   hasChanges?: boolean;
+  validateIsGreen?: boolean;
   onCloseWithoutSaving?: () => void;
 }
 
@@ -30,6 +31,7 @@ export const FCPWindow: React.FC<FCPWindowProps> = ({
   children,
   isEdit = false,
   hasChanges = false,
+  validateIsGreen = false,
   onCloseWithoutSaving,
 }) => {
   // Determine Validate Icon (CheckCheck for Valider/Confirmer/Enregistrer, Check for Ok, RotateCcw for Restituer)
@@ -95,9 +97,11 @@ export const FCPWindow: React.FC<FCPWindowProps> = ({
                   title={validateTitle}
                   className={`absolute inset-0 flex items-center justify-center border-none transition-all duration-150 ${
                     shouldShowValidate
-                      ? isDoubleCheck
-                        ? 'bg-[#FFD700] hover:bg-[#E6C200] cursor-pointer opacity-100 text-[#000000]'
-                        : 'bg-[#222222] hover:bg-[#111111] cursor-pointer opacity-100 text-[#FFFFFF]'
+                      ? validateIsGreen
+                        ? 'bg-[#116611] hover:bg-[#004400] cursor-pointer opacity-100 text-[#FFFFFF]'
+                        : isDoubleCheck
+                          ? 'bg-[#FFD700] hover:bg-[#E6C200] cursor-pointer opacity-100 text-[#000000]'
+                          : 'bg-[#222222] hover:bg-[#111111] cursor-pointer opacity-100 text-[#FFFFFF]'
                       : 'opacity-0 pointer-events-none select-none invisible'
                   }`}
                 >

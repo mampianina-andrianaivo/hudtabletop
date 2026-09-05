@@ -1,6 +1,6 @@
 import React from 'react';
 import { TabType } from '../types';
-import { Package, Wrench, Users, ShoppingCart, FileText, Settings, HelpCircle, BarChart2 } from 'lucide-react';
+import { Package, Wrench, Users, ShoppingCart, FileText, Settings, UserCircle, BarChart2 } from 'lucide-react';
 
 interface TopTabsProps {
   activeTab: TabType;
@@ -19,8 +19,8 @@ const TABS: TabDef[] = [
   { id: 'clients', label: 'Client', icon: Users },
   { id: 'vente', label: 'Vente', icon: ShoppingCart },
   { id: 'perf', label: 'Perf.', icon: BarChart2 },
-  { id: 'aides', label: 'Aides', icon: HelpCircle },
   { id: 'parametres', label: 'Param.', icon: Settings },
+  { id: 'compte', label: 'Compte', icon: UserCircle },
 ];
 
 export const TopTabs: React.FC<TopTabsProps> = ({ activeTab, onSelectTab }) => {

@@ -1,4 +1,4 @@
-export type TabType = 'produits' | 'service' | 'clients' | 'vente' | 'facturation' | 'parametres' | 'perf' | 'aides';
+export type TabType = 'produits' | 'service' | 'clients' | 'vente' | 'facturation' | 'parametres' | 'perf' | 'compte';
 
 export interface Produit {
   id: string;
@@ -7,6 +7,8 @@ export interface Produit {
   mesure?: string;
   prixInt: string; // Integer part
   prixDec: string; // Decimal part (max 2 digits if decimal mode)
+  stockInt?: string; // Indicative stock integer part (5 digits)
+  stockDec?: string; // Indicative stock decimal part (2 digits)
   description: string;
   isArchived: boolean;
 }

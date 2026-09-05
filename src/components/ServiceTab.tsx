@@ -319,6 +319,7 @@ export const ServiceTab: React.FC<ServiceTabProps> = ({
         <FCPWindow
           title="Confirmation"
           validateLabel="Confirmer"
+          validateIsGreen={true}
           cancelLabel="Non"
           onValidate={() => {
             if (editingService) {

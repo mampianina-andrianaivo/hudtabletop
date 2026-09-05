@@ -31,6 +31,7 @@ export const VenteTab: React.FC<VenteTabProps> = ({
   const [filter, setFilter] = useState<'active' | 'annule'>('active');
   const [selectedDetailSale, setSelectedDetailSale] = useState<Sale | null>(null);
   const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
+  const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = useState(false);
   
   // Invoice FCP State
   const [isInvoiceFCPOpen, setIsInvoiceFCPOpen] = useState(false);
@@ -390,10 +391,7 @@ export const VenteTab: React.FC<VenteTabProps> = ({
           onCancel={
             selectedDetailSale.status === 'active'
               ? () => setIsConfirmCancelOpen(true)
-              : () => {
-                  onRestoreVente(selectedDetailSale.id);
-                  setSelectedDetailSale(null);
-                }
+              : () => setIsConfirmRestoreOpen(true)
           }
           cancelIsRed={selectedDetailSale.status === 'active'}
           isEdit={true}
@@ -882,8 +880,9 @@ export const VenteTab: React.FC<VenteTabProps> = ({
       {isClientHorsListeFCP && (
         <FCPWindow
           title="Client Hors Liste"
-          validateLabel="Valider"
+          validateLabel="Free"
           cancelLabel="X"
+          validateIsGreen={true}
           onValidate={() => {
             if (hlNom.trim() && hlContact.trim() && hlAdresse.trim()) {
               setClientHorsListe({
@@ -1037,6 +1036,7 @@ export const VenteTab: React.FC<VenteTabProps> = ({
         <FCPWindow
           title="Confirmation"
           validateLabel="Confirmer"
+          validateIsGreen={true}
           cancelLabel="Non"
           onValidate={() => {
             onCancelVente(selectedDetailSale.id);
@@ -1051,6 +1051,30 @@ export const VenteTab: React.FC<VenteTabProps> = ({
             </span>
             <span className="f-app text-neutral-600">
               Cette vente sera déplacée dans la liste des ventes annulées.
+            </span>
+          </div>
+        </FCPWindow>
+      )}
+
+      {/* Confirmation FCP for Restoring a Sale */}
+      {isConfirmRestoreOpen && selectedDetailSale && (
+        <FCPWindow
+          title="Confirmation"
+          validateLabel="Confirmer"
+          cancelLabel="Non"
+          onValidate={() => {
+            onRestoreVente(selectedDetailSale.id);
+            setIsConfirmRestoreOpen(false);
+            setSelectedDetailSale(null);
+          }}
+          onCancel={() => setIsConfirmRestoreOpen(false)}
+        >
+          <div className="p-4 max-w-md mx-auto text-center flex flex-col gap-2">
+            <span className="f-app font-bold text-[#000000]">
+              Voulez-vous vraiment restaurer cette vente ?
+            </span>
+            <span className="f-app text-neutral-600">
+              Cette vente sera replacée dans la liste des actives.
             </span>
           </div>
         </FCPWindow>

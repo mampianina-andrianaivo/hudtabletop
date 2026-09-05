@@ -279,6 +279,7 @@ export const ClientTab: React.FC<ClientTabProps> = ({
         <FCPWindow
           title="Confirmation"
           validateLabel="Confirmer"
+          validateIsGreen={true}
           cancelLabel="Non"
           onValidate={() => {
             if (editingClient) {

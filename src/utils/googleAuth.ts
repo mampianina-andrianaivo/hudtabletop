@@ -13,12 +13,10 @@ let cachedAccessToken: string | null = null;
 export const createGoogleProvider = () => {
   const p = new GoogleAuthProvider();
   p.addScope('https://www.googleapis.com/auth/drive.file');
-  p.addScope('https://www.googleapis.com/auth/drive');
   p.addScope('https://www.googleapis.com/auth/userinfo.email');
   p.addScope('https://www.googleapis.com/auth/userinfo.profile');
   p.setCustomParameters({
-    prompt: 'consent',
-    access_type: 'offline'
+    prompt: 'select_account',
   });
   return p;
 };

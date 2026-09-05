@@ -6,10 +6,9 @@ import { SoutenirBlock, FonctionnalitesContent, ConditionsContent } from './Info
 
 interface CompteTabProps {
   onLogout?: () => void;
-  userEmail?: string;
 }
 
-export const CompteTab: React.FC<CompteTabProps> = ({ onLogout, userEmail }) => {
+export const CompteTab: React.FC<CompteTabProps> = ({ onLogout }) => {
   const [activeZone, setActiveZone] = useState<'fonctionnalites' | 'conditions'>('fonctionnalites');
   const [isConfirmLogoutOpen, setIsConfirmLogoutOpen] = useState(false);
 
@@ -43,13 +42,7 @@ export const CompteTab: React.FC<CompteTabProps> = ({ onLogout, userEmail }) => 
     <div className="flex-1 flex flex-col h-full bg-[#FFFFFF] relative overflow-hidden">
       <SubRibbon buttons={subRibbonButtons} />
 
-      <div className="flex-1 p-4 max-w-md mx-auto w-full flex flex-col gap-3 tab-content-scroll overflow-y-auto">
-        {userEmail && (
-          <div className="w-full text-center text-black font-bold text-sm tracking-wide py-1 border-b border-neutral-200 truncate select-all">
-            {userEmail}
-          </div>
-        )}
-
+      <div className="flex-1 p-4 max-w-md mx-auto w-full flex flex-col gap-4 tab-content-scroll overflow-y-auto">
         <SoutenirBlock />
 
         {activeZone === 'fonctionnalites' && <FonctionnalitesContent />}
@@ -71,11 +64,6 @@ export const CompteTab: React.FC<CompteTabProps> = ({ onLogout, userEmail }) => 
             <span className="f-app font-bold text-[#000000]">
               Voulez-vous vraiment vous déconnecter ?
             </span>
-            {userEmail && (
-              <span className="f-app text-neutral-800 font-bold bg-[#F0F0F0] py-2 px-3 rounded-md mt-1 mb-1 border border-neutral-300">
-                {userEmail}
-              </span>
-            )}
             <span className="f-app text-neutral-600">
               Une sauvegarde finale de sécurité sera effectuée avant la déconnexion. Les données locales seront effacées.
             </span>

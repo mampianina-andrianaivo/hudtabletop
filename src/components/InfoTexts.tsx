@@ -10,8 +10,8 @@ export const SoutenirBlock = () => (
     <p className="f-app text-sm text-[#FFFFFF] m-0 leading-relaxed">
       Pour soutenir l'entretien et le développement continu de cette application gratuite, vos dons sont les bienvenus ! 
     </p>
-    <div className="text-white text-base font-bold select-all tracking-[0.18em] pt-1">
-      MVOLA: <span>0340210601</span>
+    <div className="text-white text-sm font-normal pt-1">
+      MVOLA: <span className="font-bold select-all tracking-wider text-base">0340210601</span>
     </div>
   </div>
 );

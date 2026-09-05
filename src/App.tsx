@@ -8,7 +8,6 @@ import { VenteTab } from './components/VenteTab';
 import { ParametresTab } from './components/ParametresTab';
 import { StatsTab } from './components/StatsTab';
 import { CompteTab } from './components/CompteTab';
-import { SubRibbon } from './components/SubRibbon';
 import { FCPWindow } from './components/FCPWindow';
 import { FonctionnalitesContent, ConditionsContent } from './components/InfoTexts';
 import { Info, Shield, Check } from 'lucide-react';
@@ -73,7 +72,6 @@ export default function App() {
         if (data.clients) setClients(data.clients);
         if (data.ventes) setVentes(data.ventes);
         
-        // Also sync back to local storage just in case
         if (data.settings) saveSettings(data.settings);
         if (data.produits) saveProduits(data.produits);
         if (data.services) saveServices(data.services);
@@ -82,8 +80,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Failed to load/initialize data from Drive:', error);
-      setAuthError("Le rattachement à votre Google Drive suit un processus de confirmation. Veuillez vous reconnecter avec votre compte Google déjà inscrit maintenant.");
-      // Logout to prevent desynchronized state
+      setAuthError("Erreur de synchronisation Google Drive. Veuillez vous reconnecter.");
       await logout();
       setUser(null);
       setNeedsAuth(true);
@@ -131,7 +128,6 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // Sync data first to be safe
     if (user) {
       try {
         await saveDataToDrive(user, { settings, produits, services, clients, ventes });
@@ -140,7 +136,6 @@ export default function App() {
       }
     }
     
-    // Clear local data so the next session/user starts fresh
     clearAllData();
     const defaults = getSettings();
     saveSettings(defaults);
@@ -155,7 +150,6 @@ export default function App() {
     setNeedsAuth(true);
   };
 
-  // Save changes to storage
   const handleSaveProduit = (item: Produit) => {
     const updated = produits.some((p) => p.id === item.id)
       ? produits.map((p) => (p.id === item.id ? item : p))
@@ -284,6 +278,7 @@ export default function App() {
 
   const appFontSize = settings.fontSize === 'grand' ? '16px' : settings.fontSize === 'moyen' ? '13px' : '12px';
   const tabFontSize = settings.fontSize === 'grand' ? '13px' : '12px';
+  const currentYear = new Date().getFullYear();
 
   if (isInitializing) {
     return (
@@ -296,108 +291,58 @@ export default function App() {
   }
 
   if (needsAuth) {
-    const currentYear = new Date().getFullYear();
     return (
       <div className="w-full h-[100dvh] bg-black flex justify-center items-center overflow-hidden pt-4 pb-20 px-2 sm:py-8 sm:px-8">
         <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-black rounded-lg text-center">
           <div className="flex-1 w-full flex flex-col items-center justify-center overflow-y-auto py-4 px-6 relative">
-            
             <div className="w-full text-left mb-3">
               <h1 className="text-2xl font-black text-black leading-tight tracking-wider uppercase">
-                FACILE<br />
-                CLAIRE<br />
-                PROPRE
+                FACILE<br />CLAIRE<br />PROPRE
               </h1>
               <div className="w-1/2 border-b-2 border-black mt-3 mb-4"></div>
-              
               <p className="text-sm font-medium text-black leading-snug">
                 Webapp d'enregistrement statistique<br />
                 de vos activités de vente<br />
                 axée sur la simplicité<br />
                 et le minimalisme.
               </p>
-              
-              <div className="w-1/2 border-b-2 border-black mt-4 mb-4"></div>
             </div>
-
             <div className="w-full text-right mb-6">
               <p className="text-xs sm:text-sm text-black leading-snug mb-3">
                 Vos données seront stockées de manière sécurisée<br />
                 et privée dans un dossier dédié<br />
                 sur votre propre Google Drive.
               </p>
-              <p className="text-xs sm:text-sm text-black leading-snug">
-                En vous connectant, vous acceptez les conditions<br />
-                et confirmez avoir pris connaissance<br />
-                des fonctionnalités proposées.
-              </p>
             </div>
-
             <div className="w-full flex justify-center mb-4">
-              <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-400 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3 shrink-0">
-                <div className="w-10 h-10 bg-white flex items-center justify-center shrink-0">
-                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlnsXlink="http://www.w3.org/1999/xlink" className="w-5 h-5 block">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                    <path fill="none" d="M0 0h48v48H0z"></path>
-                  </svg>
-                </div>
-                <span className="font-semibold text-black text-sm pe-4">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
+              <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button bg-white border border-neutral-400 rounded-md p-0 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 h-10 w-full max-w-sm flex items-center justify-center gap-3">
+                <span className="font-semibold text-black text-sm">{isLoggingIn ? 'Connexion...' : 'Inscription / Connexion'}</span>
               </button>
             </div>
-
             {authError && (
-              <div className="w-full flex flex-col items-center mb-4">
-                <div className="border border-black bg-neutral-50 text-black text-sm p-3.5 rounded max-w-[340px] text-center leading-relaxed font-medium shadow-sm">
-                  {authError}
-                </div>
-                <div className="mt-3 w-8 h-8 rounded-full bg-black flex items-center justify-center shadow-md">
-                  <Check className="w-5 h-5 text-white stroke-[3]" />
-                </div>
+              <div className="w-full text-sm text-red-600 p-2 border border-red-600 rounded">
+                {authError}
               </div>
             )}
-            
-            <div className="flex gap-4 w-full justify-center mt-auto pt-4 shrink-0 border-t border-neutral-200">
-              <button onClick={() => setLandingInfoMode('fonctionnalites')} className="flex items-center gap-1.5 text-sm font-semibold text-black hover:opacity-75 transition-opacity cursor-pointer">
-                <Info className="w-4 h-4 text-black" />
-                Fonctionnalités
-              </button>
-              <span className="text-black">•</span>
-              <button onClick={() => setLandingInfoMode('conditions')} className="flex items-center gap-1.5 text-sm font-semibold text-black hover:opacity-75 transition-opacity cursor-pointer">
-                <Shield className="w-4 h-4 text-black" />
-                Conditions
-              </button>
+            <div className="flex gap-4 w-full justify-center mt-auto pt-4 border-t border-neutral-200">
+              <button onClick={() => setLandingInfoMode('fonctionnalites')} className="text-sm font-semibold text-black hover:opacity-75">Fonctionnalités</button>
+              <button onClick={() => setLandingInfoMode('conditions')} className="text-sm font-semibold text-black hover:opacity-75">Conditions</button>
             </div>
           </div>
-
           {landingInfoMode && (
-            <FCPWindow
-              title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'}
-              cancelLabel="X"
-              onCancel={() => setLandingInfoMode(null)}
-            >
-              <div className="p-4 max-w-md mx-auto text-left flex flex-col gap-5">
-                {landingInfoMode === 'fonctionnalites' && <FonctionnalitesContent />}
-                {landingInfoMode === 'conditions' && <ConditionsContent />}
-              </div>
+            <FCPWindow title={landingInfoMode === 'fonctionnalites' ? 'Fonctionnalités' : 'Conditions'} cancelLabel="X" onCancel={() => setLandingInfoMode(null)}>
+              <div className="p-4">{landingInfoMode === 'fonctionnalites' ? <FonctionnalitesContent /> : <ConditionsContent />}</div>
             </FCPWindow>
           )}
-
-          {/* Bandelette copyright permanente */}
-          <div className="w-full bg-black py-1 px-2 text-center shrink-0 select-none">
-            <span className="text-[10px] tracking-wider text-white font-normal" style={{ fontSize: '10px' }}>
+          <div className="w-full bg-black py-1 px-3 flex flex-row items-center justify-end shrink-0 select-none">
+            <span className="text-[10px] text-gray-500 font-normal text-right whitespace-nowrap">
               Copyright {currentYear} | FCP
             </span>
           </div>
-
         </div>
       </div>
     );
   }
-
-  const currentYear = new Date().getFullYear();
 
   return (
     <div 
@@ -407,74 +352,25 @@ export default function App() {
         '--tab-font-size': tabFontSize 
       } as React.CSSProperties}
     >
-      {/* Smartphone fixed frame container */}
       <div className="w-full max-w-[420px] h-full bg-[#FFFFFF] flex flex-col relative overflow-hidden shadow-xl border-4 border-black rounded-lg">
-        {/* Fixed Top Tabs Ribbon */}
         <TopTabs activeTab={activeTab} onSelectTab={setActiveTab} />
-        
-        {/* Permanent separator line matching selected sub-tab thickness */}
         <div className="h-1 bg-[#000000] w-full shrink-0 z-10" />
-
-        {/* Dynamic Working Canvas Area */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          {activeTab === 'produits' && (
-            <ProduitTab
-              produits={produits}
-              settings={settings}
-              onSaveProduit={handleSaveProduit}
-              onArchiveProduit={handleArchiveProduit}
-              onRestoreProduit={handleRestoreProduit}
-            />
-          )}
-          {activeTab === 'service' && (
-            <ServiceTab
-              services={services}
-              settings={settings}
-              onSaveService={handleSaveService}
-              onArchiveService={handleArchiveService}
-              onRestoreService={handleRestoreService}
-            />
-          )}
-          {activeTab === 'clients' && (
-            <ClientTab
-              clients={clients}
-              onSaveClient={handleSaveClient}
-              onArchiveClient={handleArchiveClient}
-              onRestoreClient={handleRestoreClient}
-            />
-          )}
-          {activeTab === 'vente' && (
-            <VenteTab
-              ventes={ventes}
-              produits={produits}
-              services={services}
-              clients={clients}
-              settings={settings}
-              onSaveVente={handleSaveVente}
-              onCancelVente={handleCancelVente}
-              onRestoreVente={handleRestoreVente}
-            />
-          )}
-          {activeTab === 'parametres' && (
-            <ParametresTab settings={settings} onSaveSettings={handleSaveSettings} onResetAllData={handleResetAllData} />
-          )}
-          {activeTab === 'perf' && (
-            <StatsTab
-              ventes={ventes}
-              produits={produits}
-              services={services}
-              clients={clients}
-              settings={settings}
-            />
-          )}
-          {activeTab === 'compte' && <CompteTab onLogout={handleLogout} userEmail={user?.email || undefined} />}
+          {activeTab === 'produits' && <ProduitTab produits={produits} settings={settings} onSaveProduit={handleSaveProduit} onArchiveProduit={handleArchiveProduit} onRestoreProduit={handleRestoreProduit} />}
+          {activeTab === 'service' && <ServiceTab services={services} settings={settings} onSaveService={handleSaveService} onArchiveService={handleArchiveService} onRestoreService={handleRestoreService} />}
+          {activeTab === 'clients' && <ClientTab clients={clients} onSaveClient={handleSaveClient} onArchiveClient={handleArchiveClient} onRestoreClient={handleRestoreClient} />}
+          {activeTab === 'vente' && <VenteTab ventes={ventes} produits={produits} services={services} clients={clients} settings={settings} onSaveVente={handleSaveVente} onCancelVente={handleCancelVente} onRestoreVente={handleRestoreVente} />}
+          {activeTab === 'parametres' && <ParametresTab settings={settings} onSaveSettings={handleSaveSettings} onResetAllData={handleResetAllData} />}
+          {activeTab === 'perf' && <StatsTab ventes={ventes} produits={produits} services={services} clients={clients} settings={settings} />}
+          {activeTab === 'compte' && <CompteTab onLogout={handleLogout} />}
         </div>
-
-        {/* Bandelette copyright permanente */}
-        <div className="w-full bg-black py-1 px-2 text-center shrink-0 select-none z-20">
-          <span className="text-[10px] tracking-wider text-white font-normal" style={{ fontSize: '10px' }}>
+        <div className="w-full bg-black py-1 px-3 flex flex-row items-center justify-between shrink-0 select-none z-20">
+          <div className="text-[10px] text-gray-500 text-left font-normal truncate max-w-[50%]">
+            {user?.email?.split('@')[0]}
+          </div>
+          <div className="text-[10px] text-gray-500 text-right font-normal whitespace-nowrap ml-auto">
             Copyright {currentYear} | FCP
-          </span>
+          </div>
         </div>
       </div>
     </div>

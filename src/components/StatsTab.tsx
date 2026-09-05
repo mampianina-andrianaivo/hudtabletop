@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Client, Produit, Sale, Service, Settings } from '../types';
-import { formatNumberAmount, formatIntWithThousands } from '../utils/format';
+import { formatNumberAmount, formatIntWithThousands, splitAmountString } from '../utils/format';
 import { isSameDay, isSameMonth, isSameWeek } from '../utils/date';
-import { ShoppingCart, Package, Wrench, Users, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Package, Wrench, Users, XCircle, ChevronLeft, ChevronRight, BarChart2, Equal } from 'lucide-react';
 
 interface StatsTabProps {
   ventes: Sale[];
@@ -17,6 +17,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [mode, setMode] = useState<'MOIS' | 'TOT'>('MOIS');
   const [salesTypeFilter, setSalesTypeFilter] = useState<'ACTIVES' | 'ANNULEES'>('ACTIVES');
+  const [graphViewMode, setGraphViewMode] = useState<'barres' | 'chiffres'>('barres');
 
   // Correct cancelled status check in French application (it is 'annule', not 'cancelled')
   const activeSales = ventes.filter((v) => v.status !== 'annule');
@@ -79,9 +80,17 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
       if (val === 0) {
         return <span className={isRed ? 'text-rose-600 font-bold' : 'text-[#000000] font-bold'}>-</span>;
       }
+      const formatted = formatNumberAmount(val, settings.decimalMode);
+      const parts = splitAmountString(formatted, settings.decimalMode);
       return (
         <span className={isRed ? 'text-rose-600 font-bold' : 'text-[#000000] font-bold'}>
-          {formatNumberAmount(val, settings.decimalMode)}
+          {parts.intPart}
+          {parts.decPart !== undefined && (
+            <>
+              ,
+              <span className="text-[0.75em]">{parts.decPart}</span>
+            </>
+          )}
         </span>
       );
     };
@@ -203,18 +212,58 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
               const activeFormatted = monthActiveTotal === 0 ? '-' : formatNumberAmount(monthActiveTotal, settings.decimalMode);
               const cancelFormatted = monthCancelTotal === 0 ? '-' : formatNumberAmount(monthCancelTotal, settings.decimalMode);
               
+              const monthActiveParts = splitAmountString(activeFormatted, settings.decimalMode);
+              const monthCancelParts = splitAmountString(cancelFormatted, settings.decimalMode);
+
+              const GraphViewToggle = () => (
+                <button
+                  type="button"
+                  onClick={() => setGraphViewMode(prev => prev === 'barres' ? 'chiffres' : 'barres')}
+                  className="w-14 h-[26px] shrink-0 self-center flex items-center justify-center gap-0.5 bg-[#EAEAEA] hover:bg-[#DCDCDC] border border-neutral-300 rounded cursor-pointer transition-all text-neutral-800"
+                  title={graphViewMode === 'barres' ? "Afficher les chiffres" : "Afficher les barres"}
+                >
+                  <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${graphViewMode === 'barres' ? 'text-[#000000] stroke-[2.5px]' : 'text-neutral-400'}`} />
+                  <span className="text-[10px] font-bold text-neutral-400 shrink-0 select-none">/</span>
+                  <Equal className={`w-3.5 h-3.5 shrink-0 ${graphViewMode === 'chiffres' ? 'text-[#000000] stroke-[3.5px]' : 'text-neutral-400 stroke-[2.5px]'}`} />
+                </button>
+              );
+              
               return (
                 <div className="flex items-stretch w-full gap-2 py-1.5 border-b-2 border-neutral-300 min-h-[32px] bg-neutral-50 px-1 font-bold">
-                  <span className="f-app text-xs font-bold text-neutral-800 w-14 shrink-0 self-center">MOIS</span>
+                  <GraphViewToggle />
                   
                   {/* Empty spacer where the bars usually are */}
                   <div className="flex-1 border-l border-neutral-200 pl-2 self-center"></div>
 
-                  <div className="w-20 text-right self-center shrink-0">
-                    <span className="f-app text-xs font-bold text-[#000000] block truncate">{activeFormatted}</span>
+                  <div className="w-32 text-right self-center shrink-0">
+                    <span className="f-app text-xs font-bold text-[#000000] block truncate">
+                      {monthActiveTotal === 0 ? '-' : (
+                        <>
+                          {monthActiveParts.intPart}
+                          {monthActiveParts.decPart !== undefined && (
+                            <>
+                              ,
+                              <span className="text-[0.75em]">{monthActiveParts.decPart}</span>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </span>
                   </div>
-                  <div className="w-20 text-right self-center shrink-0">
-                    <span className="f-app text-xs font-bold text-rose-600 block truncate">{cancelFormatted}</span>
+                  <div className="w-32 text-right self-center shrink-0">
+                    <span className="f-app text-xs font-bold text-rose-600 block truncate">
+                      {monthCancelTotal === 0 ? '-' : (
+                        <>
+                          {monthCancelParts.intPart}
+                          {monthCancelParts.decPart !== undefined && (
+                            <>
+                              ,
+                              <span className="text-[0.75em]">{monthCancelParts.decPart}</span>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </span>
                   </div>
                 </div>
               );
@@ -230,6 +279,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
                 ? ''
                 : (item.cancelledAmount === 0 ? '-' : formatNumberAmount(item.cancelledAmount, settings.decimalMode));
 
+              const activeParts = splitAmountString(activeFormatted, settings.decimalMode);
+              const cancelParts = splitAmountString(cancelFormatted, settings.decimalMode);
+
               return (
                 <div key={idx} className="flex items-stretch w-full gap-2 py-0.5 border-b border-neutral-100 last:border-b-0 min-h-[24px]">
                   <div className="flex items-center gap-1 w-14 shrink-0 self-center text-xs font-bold text-neutral-600">
@@ -237,40 +289,71 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
                     <span className="w-6 text-left shrink-0">{item.label}</span>
                   </div>
                   
-                  <div className="flex-1 flex flex-col gap-0.5 justify-center border-l border-neutral-200 pl-2 self-center">
-                    {/* Active Bar (Black) */}
-                    <div className="flex items-center h-2 w-full bg-transparent">
-                      {!item.isNonExistent && (
-                        <div 
-                          className="bg-[#000000] rounded-sm transition-all duration-300 h-full" 
-                          style={{ 
-                            width: item.activeAmount > 0 ? `${activePct}%` : '4px',
-                            minWidth: '4px'
-                          }}
-                        ></div>
-                      )}
+                  {graphViewMode === 'barres' ? (
+                    <div className="flex-1 flex flex-col gap-0.5 justify-center border-l border-neutral-200 pl-2 self-center">
+                      {/* Active Bar (Black) */}
+                      <div className="flex items-center h-2 w-full bg-transparent">
+                        {!item.isNonExistent && (
+                          <div 
+                            className="bg-[#000000] rounded-sm transition-all duration-300 h-full" 
+                            style={{ 
+                              width: item.activeAmount > 0 ? `${activePct}%` : '4px',
+                              minWidth: '4px'
+                            }}
+                          ></div>
+                        )}
+                      </div>
+                      {/* Canceled Bar (Red) */}
+                      <div className="flex items-center h-2 w-full bg-transparent">
+                        {!item.isNonExistent && (
+                          <div 
+                            className="bg-rose-600 rounded-sm transition-all duration-300 h-full" 
+                            style={{ 
+                              width: item.cancelledAmount > 0 ? `${cancelPct}%` : '4px',
+                              minWidth: '4px'
+                            }}
+                          ></div>
+                        )}
+                      </div>
                     </div>
-                    {/* Canceled Bar (Red) */}
-                    <div className="flex items-center h-2 w-full bg-transparent">
-                      {!item.isNonExistent && (
-                        <div 
-                          className="bg-rose-600 rounded-sm transition-all duration-300 h-full" 
-                          style={{ 
-                            width: item.cancelledAmount > 0 ? `${cancelPct}%` : '4px',
-                            minWidth: '4px'
-                          }}
-                        ></div>
-                      )}
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Empty spacer where the bars usually are in chiffres mode */}
+                      <div className="flex-1 border-l border-neutral-200 pl-2 self-center"></div>
 
-                  {/* Fully separated side-by-side columns for Active and Cancelled amounts */}
-                  <div className="w-20 text-right self-center shrink-0">
-                    <span className="f-app text-xs font-normal text-[#000000] block truncate">{activeFormatted}</span>
-                  </div>
-                  <div className="w-20 text-right self-center shrink-0">
-                    <span className="f-app text-xs font-normal text-rose-600 block truncate">{cancelFormatted}</span>
-                  </div>
+                      {/* Fully separated side-by-side columns for Active and Cancelled amounts */}
+                      <div className="w-32 text-right self-center shrink-0">
+                        <span className="f-app text-xs font-normal text-[#000000] block truncate">
+                          {item.isNonExistent ? '' : (item.activeAmount === 0 ? '-' : (
+                            <>
+                              {activeParts.intPart}
+                              {activeParts.decPart !== undefined && (
+                                <>
+                                  ,
+                                  <span className="text-[0.75em]">{activeParts.decPart}</span>
+                                </>
+                              )}
+                            </>
+                          ))}
+                        </span>
+                      </div>
+                      <div className="w-32 text-right self-center shrink-0">
+                        <span className="f-app text-xs font-normal text-rose-600 block truncate">
+                          {item.isNonExistent ? '' : (item.cancelledAmount === 0 ? '-' : (
+                            <>
+                              {cancelParts.intPart}
+                              {cancelParts.decPart !== undefined && (
+                                <>
+                                  ,
+                                  <span className="text-[0.75em]">{cancelParts.decPart}</span>
+                                </>
+                              )}
+                            </>
+                          ))}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -379,14 +462,26 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className={`border-b border-neutral-100 hover:bg-neutral-50 ${r.isArchived ? 'text-rose-600' : 'text-[#000000]'}`}>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%]" title={r.code}>{r.code}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[40%]" title={r.nom}>{r.nom}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.ms}>{r.ms}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.nbr.toString()}>{formatIntWithThousands(r.nbr.toString().replace('.', ','))}</td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                const formattedNbr = formatNumberAmount(r.nbr, settings.decimalMode);
+                const nbrParts = splitAmountString(formattedNbr, settings.decimalMode);
+                return (
+                  <tr key={i} className={`border-b border-neutral-100 hover:bg-neutral-50 ${r.isArchived ? 'text-rose-600' : 'text-[#000000]'}`}>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%]" title={r.code}>{r.code}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[40%]" title={r.nom}>{r.nom}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.ms}>{r.ms}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.nbr.toString()}>
+                      {nbrParts.intPart}
+                      {nbrParts.decPart !== undefined && (
+                        <>
+                          ,
+                          <span className="text-[0.75em]">{nbrParts.decPart}</span>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -493,14 +588,26 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className={`border-b border-neutral-100 hover:bg-neutral-50 ${r.isArchived ? 'text-rose-600' : 'text-[#000000]'}`}>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%]" title={r.code}>{r.code}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[40%]" title={r.nom}>{r.nom}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.ms}>{r.ms}</td>
-                  <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.nbr.toString()}>{formatIntWithThousands(r.nbr.toString().replace('.', ','))}</td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                const formattedNbr = formatNumberAmount(r.nbr, settings.decimalMode);
+                const nbrParts = splitAmountString(formattedNbr, settings.decimalMode);
+                return (
+                  <tr key={i} className={`border-b border-neutral-100 hover:bg-neutral-50 ${r.isArchived ? 'text-rose-600' : 'text-[#000000]'}`}>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%]" title={r.code}>{r.code}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[40%]" title={r.nom}>{r.nom}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.ms}>{r.ms}</td>
+                    <td className="p-2 f-app text-sm font-normal whitespace-nowrap truncate w-[20%] text-right" title={r.nbr.toString()}>
+                      {nbrParts.intPart}
+                      {nbrParts.decPart !== undefined && (
+                        <>
+                          ,
+                          <span className="text-[0.75em]">{nbrParts.decPart}</span>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

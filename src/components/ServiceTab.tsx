@@ -4,7 +4,7 @@ import { SubRibbon, ActionButtonDef } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
 import { Plus, Wrench } from 'lucide-react';
 import { generateServiceCode } from '../utils/storage';
-import { formatPrice } from '../utils/format';
+import { formatPrice, splitPrice } from '../utils/format';
 
 interface ServiceTabProps {
   services: Service[];
@@ -151,27 +151,54 @@ export const ServiceTab: React.FC<ServiceTabProps> = ({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {displayedServices.map((s) => {
-              const priceDisplay = formatPrice(s.prixInt, s.prixDec, settings.decimalMode);
+              const priceParts = splitPrice(s.prixInt, s.prixDec, settings.decimalMode);
 
               return (
                 <button
                   key={s.id}
                   onClick={() => handleOpenEdit(s)}
                   type="button"
-                  className="min-h-[145px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative overflow-hidden"
+                  className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
                 >
-                  <div className="w-full flex-1 flex flex-col justify-start overflow-hidden">
-                    <span className={`f-app font-bold block truncate w-full leading-tight ${s.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>{s.code}</span>
-                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-tight">
+                  <div className="w-full flex-1 flex flex-col justify-start">
+                    {/* Ligne 1 : Code Service */}
+                    <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${s.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
+                      {s.code}
+                    </span>
+
+                    {/* Ligne 2 : Nom du Service */}
+                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
                       {s.nom}
                     </span>
-                    {s.mesure && (
-                      <span className="f-app text-[#000000] block truncate w-full mt-0.5 leading-tight">
-                        {s.mesure}
+
+                    {/* Ligne 3 : Ligne vide réservée entre le nom et la mesure */}
+                    <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
+                      &nbsp;
+                    </span>
+
+                    {/* Ligne 4 : Mesure avec └ */}
+                    <span className="f-app text-[#000000] flex items-center gap-1 w-full mt-1 leading-normal pb-0.5">
+                      {s.mesure ? (
+                        <>
+                          <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                          <span className="truncate w-full block">{s.mesure}</span>
+                        </>
+                      ) : (
+                        <span className="invisible select-none">&nbsp;</span>
+                      )}
+                    </span>
+
+                    {/* Ligne 5 : Prix aligné en bas à droite */}
+                    <div className="w-full text-right mt-auto pt-2">
+                      <span className="f-app text-[#000000] font-bold block truncate w-full leading-normal pb-0.5">
+                        {priceParts.intPart}
+                        {priceParts.decPart !== undefined && (
+                          <>
+                            ,
+                            <span className="text-[0.75em]">{priceParts.decPart}</span>
+                          </>
+                        )}
                       </span>
-                    )}
-                    <div className="w-full text-right mt-auto pt-1">
-                      <span className="f-app text-[#000000] font-bold block truncate w-full">{priceDisplay}</span>
                     </div>
                   </div>
 
@@ -246,57 +273,60 @@ export const ServiceTab: React.FC<ServiceTabProps> = ({
               />
             </div>
 
-            {/* Mesure */}
-            <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Mesure <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="text"
-                value={mesure}
-                onChange={(e) => setMesure(e.target.value)}
-                disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50"
-              />
-            </div>
+            {/* Mesure et Prix côte à côte */}
+            <div className="grid grid-cols-2 gap-3 items-end">
+              {/* Mesure */}
+              <div className="flex flex-col gap-1">
+                <label className="f-app text-[#000000] font-bold">
+                  Mesure <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={mesure}
+                  onChange={(e) => setMesure(e.target.value)}
+                  disabled={isArchived}
+                  className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50 w-full"
+                />
+              </div>
 
-            {/* Prix */}
-            <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Prix <span className="text-rose-600">*</span>
-              </label>
+              {/* Prix avec * avant Prix et aligné à droite */}
+              <div className="flex flex-col gap-1">
+                <label className="f-app text-[#000000] font-bold text-right">
+                  <span className="text-rose-600">*</span> Prix
+                </label>
 
-              {settings.decimalMode === '2' ? (
-                <div className="flex items-center gap-2">
+                {settings.decimalMode === '2' ? (
+                  <div className="flex items-center gap-1 w-full">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={prixInt}
+                      onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
+                      disabled={isArchived}
+                      className="flex-1 min-w-0 bg-[#FFFFFF] text-[#000000] px-2 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
+                    />
+                    <span className="f-app font-bold text-[#000000]">,</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={2}
+                      value={prixDec}
+                      onChange={(e) => setPrixDec(e.target.value.replace(/\D/g, ''))}
+                      disabled={isArchived}
+                      className="w-12 bg-[#FFFFFF] text-[#000000] px-1 py-2 f-app font-bold text-center outline-none border-none disabled:opacity-50 shrink-0"
+                    />
+                  </div>
+                ) : (
                   <input
                     type="text"
                     inputMode="numeric"
                     value={prixInt}
                     onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
                     disabled={isArchived}
-                    className="flex-1 bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
+                    className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50 w-full"
                   />
-                  <span className="f-app font-bold text-[#000000]">,</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={2}
-                    value={prixDec}
-                    onChange={(e) => setPrixDec(e.target.value.replace(/\D/g, ''))}
-                    disabled={isArchived}
-                    className="w-16 bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-center outline-none border-none disabled:opacity-50"
-                  />
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={prixInt}
-                  onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
-                  disabled={isArchived}
-                  className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
-                />
-              )}
+                )}
+              </div>
             </div>
 
             {/* Description (1 ligne pour économiser de l'espace) */}

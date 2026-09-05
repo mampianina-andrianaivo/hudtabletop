@@ -14,6 +14,44 @@ export function formatIntWithThousands(val: string | number | undefined | null):
   return isNegative ? `-${formatted}` : formatted;
 }
 
+export function splitPrice(
+  prixInt: string | number | undefined | null,
+  prixDec?: string | null,
+  decimalMode?: '0' | '2'
+): { intPart: string; decPart?: string } {
+  const intPart = formatIntWithThousands(prixInt || '0');
+  if (decimalMode === '2') {
+    const dec = (prixDec || '00').padEnd(2, '0').slice(0, 2);
+    return { intPart, decPart: dec };
+  }
+  return { intPart };
+}
+
+export function splitAmountString(
+  amountStr: string | undefined | null,
+  decimalMode?: '0' | '2'
+): { intPart: string; decPart?: string } {
+  if (!amountStr) return { intPart: '0', decPart: decimalMode === '2' ? '00' : undefined };
+  const str = amountStr.trim().replace(/\s/g, '');
+  if (!str) return { intPart: '0', decPart: decimalMode === '2' ? '00' : undefined };
+
+  if (str.includes(',') || str.includes('.')) {
+    const parts = str.split(/[,.]/);
+    const intPart = formatIntWithThousands(parts[0]);
+    if (decimalMode === '0') {
+      return { intPart };
+    }
+    const decPart = (parts[1] || '00').padEnd(2, '0').slice(0, 2);
+    return { intPart, decPart };
+  }
+
+  const intPart = formatIntWithThousands(str);
+  if (decimalMode === '2') {
+    return { intPart, decPart: '00' };
+  }
+  return { intPart };
+}
+
 export function formatPrice(
   prixInt: string | number | undefined | null,
   prixDec?: string | null,

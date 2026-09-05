@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { CartItem, Client, Produit, Sale, Service, Settings } from '../types';
 import { ActionButtonDef, SubRibbon } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
-import { Plus, ShoppingCart, User, Package, Wrench, X, RefreshCw, Trash2, ArrowLeft, CheckCheck } from 'lucide-react';
+import { Plus, ShoppingCart, User, Package, Wrench, RefreshCw, Trash2, ArrowLeft, CheckCheck } from 'lucide-react';
 import { generateVenteCode } from '../utils/storage';
-import { formatPrice, formatNumberAmount, formatAmountString, formatIntWithThousands } from '../utils/format';
+import { formatPrice, formatNumberAmount, formatAmountString, formatIntWithThousands, splitAmountString } from '../utils/format';
 import { generateInvoicePDF } from '../utils/pdf';
 
 interface VenteTabProps {
@@ -340,26 +340,47 @@ export const VenteTab: React.FC<VenteTabProps> = ({
                 : clients.find((c) => c.nom === s.clientNom);
               const clientCode = saleClient?.code || 'CL#';
               const isClientArchived = saleClient ? saleClient.isArchived : false;
+              const totalParts = splitAmountString(s.totalAmount, settings.decimalMode);
 
               return (
                 <button
                   key={s.id}
                   onClick={() => setSelectedDetailSale(s)}
                   type="button"
-                  className="min-h-[145px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative overflow-hidden"
+                  className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
                 >
-                  <div className="w-full flex-1 flex flex-col justify-start overflow-hidden">
-                    <span className={`f-app font-bold block truncate w-full leading-tight ${s.status === 'annule' ? 'text-rose-600' : 'text-neutral-600'}`}>{s.code}</span>
-                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-tight">
+                  <div className="w-full flex-1 flex flex-col justify-start">
+                    {/* Ligne 1 : Num ID Vente */}
+                    <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${s.status === 'annule' ? 'text-rose-600' : 'text-neutral-600'}`}>
+                      {s.code}
+                    </span>
+
+                    {/* Ligne 2 : Ligne vide insérée entre le num id vente et le nom client */}
+                    <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
+                      &nbsp;
+                    </span>
+
+                    {/* Ligne 3 : Nom Client */}
+                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
                       {s.clientNom}
                     </span>
-                    <span className={`f-app flex items-center gap-1 w-full mt-0.5 leading-tight overflow-hidden text-ellipsis whitespace-nowrap ${isClientArchived ? 'text-rose-600 font-bold' : 'text-neutral-600'}`}>
+
+                    {/* Ligne 4 : Code Client */}
+                    <span className={`f-app flex items-center gap-1 w-full mt-1 leading-normal pb-0.5 ${isClientArchived ? 'text-rose-600 font-bold' : 'text-neutral-600'}`}>
                       <span className="font-bold shrink-0 select-none">└</span>
                       <span className="truncate w-full block">{clientCode}</span>
                     </span>
-                    <div className="w-full text-right mt-auto pt-1">
-                      <span className="f-app text-[#000000] font-bold block truncate w-full">
-                        {formatAmountString(s.totalAmount, settings.decimalMode)}
+
+                    {/* Ligne 5 : Montant Total aligné en bas à droite */}
+                    <div className="w-full text-right mt-auto pt-2">
+                      <span className="f-app text-[#000000] font-bold block truncate w-full leading-normal pb-0.5">
+                        {totalParts.intPart}
+                        {totalParts.decPart !== undefined && (
+                          <>
+                            ,
+                            <span className="text-[0.75em]">{totalParts.decPart}</span>
+                          </>
+                        )}
                       </span>
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import { SubRibbon, ActionButtonDef } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
 import { Plus, Package, ChevronUp, ChevronDown } from 'lucide-react';
 import { generateProduitCode } from '../utils/storage';
-import { formatPrice } from '../utils/format';
+import { formatPrice, splitPrice } from '../utils/format';
 
 interface ProduitTabProps {
   produits: Produit[];
@@ -208,36 +208,66 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {displayedProduits.map((p) => {
-              const priceDisplay = formatPrice(p.prixInt, p.prixDec, settings.decimalMode);
-              const isStockZero = (!p.stockInt || Number(p.stockInt) === 0) && (!p.stockDec || Number(p.stockDec) === 0);
+              const priceParts = splitPrice(p.prixInt, p.prixDec, settings.decimalMode);
+              const isStockZero = (parseInt(p.stockInt, 10) || 0) === 0 && (parseInt(p.stockDec, 10) || 0) === 0;
 
               return (
                 <button
                   key={p.id}
                   onClick={() => handleOpenEdit(p)}
                   type="button"
-                  className="min-h-[145px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative overflow-hidden"
+                  className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
                 >
-                  <div className="w-full flex-1 flex flex-col justify-start overflow-hidden">
-                    <span className={`f-app font-bold block truncate w-full leading-tight ${p.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>{p.code}</span>
-                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-tight">
+                  <div className="w-full flex-1 flex flex-col justify-start">
+                    {/* Ligne 1 : Code Produit */}
+                    <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${p.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
+                      {p.code}
+                    </span>
+
+                    {/* Ligne 2 : Nom du Produit */}
+                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
                       {p.nom}
                     </span>
-                    <span className="f-app text-[#000000] block truncate w-full mt-0.5 leading-tight">
-                      {isStockZero ? <span className="invisible">Stock indicatif</span> : 'Stock indicatif'}
+
+                    {/* Ligne 3 : Titre Stock indicatif (ou invisible si 0) */}
+                    <span className="f-app text-[#000000] block truncate w-full mt-1 leading-normal pb-0.5">
+                      {isStockZero ? <span className="invisible select-none">Stock indicatif</span> : 'Stock indicatif'}
                     </span>
-                    <span className="f-app text-[#000000] block truncate w-full leading-tight">
+
+                    {/* Ligne 4 : Valeur Stock + Mesure (ou Mesure seule avec └ si 0) */}
+                    <span className="f-app text-[#000000] flex items-center gap-1 w-full mt-1 leading-normal pb-0.5">
                       {isStockZero ? (
-                        p.mesure ? <strong>{p.mesure}</strong> : <span className="invisible">&nbsp;</span>
+                        p.mesure ? (
+                          <>
+                            <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                            <span className="truncate w-full block">{p.mesure}</span>
+                          </>
+                        ) : (
+                          <span className="invisible select-none">&nbsp;</span>
+                        )
                       ) : (
                         <>
-                          └ {p.stockInt ? Number(p.stockInt).toLocaleString('fr-FR') : '0'},{p.stockDec || '00'}
-                          {p.mesure ? <strong> {p.mesure}</strong> : ''}
+                          <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                          <span className="truncate w-full block">
+                            {p.stockInt ? Number(p.stockInt).toLocaleString('fr-FR') : '0'},
+                            <span className="text-[0.75em]">{(p.stockDec || '00').padEnd(2, '0').slice(0, 2)}</span>
+                            {p.mesure ? ` ${p.mesure}` : ''}
+                          </span>
                         </>
                       )}
                     </span>
-                    <div className="w-full text-right mt-auto pt-1">
-                      <span className="f-app text-[#000000] font-bold block truncate w-full">{priceDisplay}</span>
+
+                    {/* Ligne 5 : Prix aligné en bas à droite */}
+                    <div className="w-full text-right mt-auto pt-2">
+                      <span className="f-app text-[#000000] font-bold block truncate w-full leading-normal pb-0.5">
+                        {priceParts.intPart}
+                        {priceParts.decPart !== undefined && (
+                          <>
+                            ,
+                            <span className="text-[0.75em]">{priceParts.decPart}</span>
+                          </>
+                        )}
+                      </span>
                     </div>
                   </div>
 
@@ -312,57 +342,60 @@ export const ProduitTab: React.FC<ProduitTabProps> = ({
               />
             </div>
 
-            {/* Mesure */}
-            <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Mesure <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="text"
-                value={mesure}
-                onChange={(e) => setMesure(e.target.value)}
-                disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50"
-              />
-            </div>
+            {/* Mesure et Prix côte à côte */}
+            <div className="grid grid-cols-2 gap-3 items-end">
+              {/* Mesure */}
+              <div className="flex flex-col gap-1">
+                <label className="f-app text-[#000000] font-bold">
+                  Mesure <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={mesure}
+                  onChange={(e) => setMesure(e.target.value)}
+                  disabled={isArchived}
+                  className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50 w-full"
+                />
+              </div>
 
-            {/* Prix */}
-            <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Prix <span className="text-rose-600">*</span>
-              </label>
+              {/* Prix avec * avant Prix et aligné à droite */}
+              <div className="flex flex-col gap-1">
+                <label className="f-app text-[#000000] font-bold text-right">
+                  <span className="text-rose-600">*</span> Prix
+                </label>
 
-              {settings.decimalMode === '2' ? (
-                <div className="flex items-center gap-2">
+                {settings.decimalMode === '2' ? (
+                  <div className="flex items-center gap-1 w-full">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={prixInt}
+                      onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
+                      disabled={isArchived}
+                      className="flex-1 min-w-0 bg-[#FFFFFF] text-[#000000] px-2 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
+                    />
+                    <span className="f-app font-bold text-[#000000]">,</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={2}
+                      value={prixDec}
+                      onChange={(e) => setPrixDec(e.target.value.replace(/\D/g, ''))}
+                      disabled={isArchived}
+                      className="w-12 bg-[#FFFFFF] text-[#000000] px-1 py-2 f-app font-bold text-center outline-none border-none disabled:opacity-50 shrink-0"
+                    />
+                  </div>
+                ) : (
                   <input
                     type="text"
                     inputMode="numeric"
                     value={prixInt}
                     onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
                     disabled={isArchived}
-                    className="flex-1 bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
+                    className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50 w-full"
                   />
-                  <span className="f-app font-bold text-[#000000]">,</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={2}
-                    value={prixDec}
-                    onChange={(e) => setPrixDec(e.target.value.replace(/\D/g, ''))}
-                    disabled={isArchived}
-                    className="w-16 bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-center outline-none border-none disabled:opacity-50"
-                  />
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={prixInt}
-                  onChange={(e) => setPrixInt(e.target.value.replace(/\D/g, ''))}
-                  disabled={isArchived}
-                  className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold text-right outline-none border-none disabled:opacity-50"
-                />
-              )}
+                )}
+              </div>
             </div>
 
             {/* Description (1 ligne pour économiser de l'espace) */}

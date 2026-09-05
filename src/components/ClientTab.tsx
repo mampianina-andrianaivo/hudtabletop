@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Client } from '../types';
 import { SubRibbon, ActionButtonDef } from './SubRibbon';
 import { FCPWindow } from './FCPWindow';
-import { CheckCircle2, Archive, Plus, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { generateClientCode } from '../utils/storage';
 
 interface ClientTabProps {
@@ -28,7 +28,7 @@ export const ClientTab: React.FC<ClientTabProps> = ({
   const [nom, setNom] = useState('');
   const [contact, setContact] = useState('');
   const [adresse, setAdresse] = useState('');
-  const [description, setDescription] = useState('');
+  const [remarque, setRemarque] = useState('');
   const [code, setCode] = useState('');
 
   const activeClients = clients.filter((c) => !c.isArchived);
@@ -45,7 +45,7 @@ export const ClientTab: React.FC<ClientTabProps> = ({
     setNom('');
     setContact('');
     setAdresse('');
-    setDescription('');
+    setRemarque('');
     setCode(newCode);
     setIsFCPOpen(true);
   };
@@ -53,15 +53,15 @@ export const ClientTab: React.FC<ClientTabProps> = ({
   const handleOpenEdit = (c: Client) => {
     setEditingClient(c);
     setNom(c.nom);
-    setContact(c.contact || '');
-    setAdresse(c.adresse || '');
-    setDescription(c.description || '');
+    setContact(c.contact);
+    setAdresse(c.adresse);
+    setRemarque(c.description || '');
     setCode(c.code);
     setIsFCPOpen(true);
   };
 
   const handleValidate = () => {
-    if (!nom.trim() || !contact.trim() || !adresse.trim()) return;
+    if (!nom.trim()) return;
 
     const finalCode = code || generateClientCode(clients);
     if (!finalCode) {
@@ -70,12 +70,12 @@ export const ClientTab: React.FC<ClientTabProps> = ({
     }
 
     const item: Client = {
-      id: editingClient ? editingClient.id : `cli_${Date.now()}`,
+      id: editingClient ? editingClient.id : `client_${Date.now()}`,
       code: finalCode,
       nom: nom.trim(),
       contact: contact.trim(),
       adresse: adresse.trim(),
-      description: description.trim(),
+      description: remarque.trim(),
       isArchived: editingClient ? editingClient.isArchived : false,
     };
 
@@ -115,14 +115,14 @@ export const ClientTab: React.FC<ClientTabProps> = ({
     },
   ];
 
-  const isFormValid = nom.trim().length > 0 && contact.trim().length > 0 && adresse.trim().length > 0;
+  const isFormValid = nom.trim().length > 0;
   const isArchived = editingClient?.isArchived ?? false;
 
   const hasChanges = editingClient
     ? (nom.trim() !== editingClient.nom ||
-       contact.trim() !== (editingClient.contact || '') ||
-       adresse.trim() !== (editingClient.adresse || '') ||
-       description.trim() !== (editingClient.description || ''))
+       contact.trim() !== editingClient.contact ||
+       adresse.trim() !== editingClient.adresse ||
+       remarque.trim() !== (editingClient.description || ''))
     : false;
 
   return (
@@ -139,25 +139,39 @@ export const ClientTab: React.FC<ClientTabProps> = ({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {displayedClients.map((c) => (
-               <button
+              <button
                 key={c.id}
                 onClick={() => handleOpenEdit(c)}
                 type="button"
-                className="min-h-[145px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative overflow-hidden"
+                className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
               >
-                <div className="w-full flex-1 flex flex-col justify-start overflow-hidden">
-                  <span className={`f-app font-bold block truncate w-full leading-tight ${c.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>{c.code}</span>
-                  <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-tight">
+                <div className="w-full flex-1 flex flex-col justify-start">
+                  {/* Ligne 1 : Code Client */}
+                  <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${c.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
+                    {c.code}
+                  </span>
+
+                  {/* Ligne 2 : Nom Client */}
+                  <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
                     {c.nom}
                   </span>
-                  <div className="w-full mt-auto pt-1 text-[#000000] flex flex-col gap-0.5 overflow-hidden">
-                    <span className="f-app flex items-center gap-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                       <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
-                      <span className="truncate w-full block">{c.contact}</span>
-                    </span>
-                    <span className="f-app flex items-center gap-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                       <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
-                      <span className="truncate w-full block">{c.adresse}</span>
+
+                  {/* Ligne 3 : Ligne vide réservée pour égaliser la hauteur exacte */}
+                  <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
+                    &nbsp;
+                  </span>
+
+                  {/* Ligne 4 : Contact */}
+                  <span className="f-app text-[#000000] flex items-center gap-1 w-full mt-1 leading-normal pb-0.5">
+                    <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                    <span className="truncate w-full block">{c.contact ? c.contact : <span className="invisible select-none">&nbsp;</span>}</span>
+                  </span>
+
+                  {/* Ligne 5 : Adresse alignée en bas */}
+                  <div className="w-full text-left mt-auto pt-2">
+                    <span className="f-app text-[#000000] flex items-center gap-1 w-full leading-normal pb-0.5">
+                      <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                      <span className="truncate w-full block">{c.adresse ? c.adresse : <span className="invisible select-none">&nbsp;</span>}</span>
                     </span>
                   </div>
                 </div>
@@ -234,40 +248,37 @@ export const ClientTab: React.FC<ClientTabProps> = ({
 
             {/* Contact */}
             <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Contact <span className="text-rose-600">*</span>
-              </label>
+              <label className="f-app text-[#000000] font-normal">Contact (Facultatif)</label>
               <input
                 type="text"
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
                 disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50"
+                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none border-none disabled:opacity-50"
               />
             </div>
 
             {/* Adresse */}
             <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-bold">
-                Adresse <span className="text-rose-600">*</span>
-              </label>
+              <label className="f-app text-[#000000] font-normal">Adresse (Facultatif)</label>
               <input
                 type="text"
                 value={adresse}
                 onChange={(e) => setAdresse(e.target.value)}
                 disabled={isArchived}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app font-bold outline-none border-none disabled:opacity-50"
+                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none border-none disabled:opacity-50"
               />
             </div>
 
-            {/* Description */}
+            {/* Remarque */}
             <div className="flex flex-col gap-1">
-              <label className="f-app text-[#000000] font-normal">Description (Facultatif)</label>
+              <label className="f-app text-[#000000] font-normal">Remarque (Facultatif)</label>
               <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none resize-none border-none"
+                value={remarque}
+                onChange={(e) => setRemarque(e.target.value)}
+                disabled={isArchived}
+                className="bg-[#FFFFFF] text-[#000000] px-3 py-2 f-app outline-none border-none resize-none disabled:opacity-50"
               />
             </div>
           </div>

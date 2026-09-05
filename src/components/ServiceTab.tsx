@@ -158,52 +158,50 @@ export const ServiceTab: React.FC<ServiceTabProps> = ({
                   key={s.id}
                   onClick={() => handleOpenEdit(s)}
                   type="button"
-                  className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
+                  className="h-[160px] bg-[#F0F0F0] p-2.5 flex flex-col justify-start items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative w-full gap-0.5"
                 >
-                  <div className="w-full flex-1 flex flex-col justify-start">
-                    {/* Ligne 1 : Code Service */}
-                    <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${s.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
-                      {s.code}
-                    </span>
+                  {/* Ligne 1 : Code Service (Gras) */}
+                  <span className={`f-app font-bold block truncate w-full leading-5 h-5 ${s.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
+                    {s.code}
+                  </span>
 
-                    {/* Ligne 2 : Nom du Service */}
-                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
-                      {s.nom}
-                    </span>
+                  {/* Ligne 2 : Nom du Service (Gras) */}
+                  <span className="f-app text-[#000000] font-bold block truncate w-full leading-5 h-5">
+                    {s.nom}
+                  </span>
 
-                    {/* Ligne 3 : Ligne vide réservée entre le nom et la mesure */}
-                    <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
-                      &nbsp;
-                    </span>
+                  {/* Ligne 3 : Ligne vide réservée (pas gras) */}
+                  <span className="f-app invisible select-none block truncate w-full leading-5 h-5 font-normal" aria-hidden="true">
+                    &nbsp;
+                  </span>
 
-                    {/* Ligne 4 : Mesure avec └ */}
-                    <span className="f-app text-[#000000] flex items-center gap-1 w-full mt-1 leading-normal pb-0.5">
-                      {s.mesure ? (
+                  {/* Ligne 4 : Mesure avec └ (pas gras) */}
+                  <span className="f-app text-neutral-600 flex items-center gap-1 w-full leading-5 h-5 font-normal">
+                    {s.mesure ? (
+                      <>
+                        <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                        <span className="truncate">{s.mesure}</span>
+                      </>
+                    ) : (
+                      <span className="invisible select-none">&nbsp;</span>
+                    )}
+                  </span>
+
+                  {/* Ligne 5 : Prix aligné à droite (Gras) */}
+                  <div className="w-full text-right leading-5 h-5">
+                    <span className="f-app text-[#000000] font-bold block truncate w-full">
+                      {priceParts.intPart}
+                      {priceParts.decPart !== undefined && (
                         <>
-                          <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
-                          <span className="truncate w-full block">{s.mesure}</span>
+                          ,
+                          <span className="text-[0.75em]">{priceParts.decPart}</span>
                         </>
-                      ) : (
-                        <span className="invisible select-none">&nbsp;</span>
                       )}
                     </span>
-
-                    {/* Ligne 5 : Prix aligné en bas à droite */}
-                    <div className="w-full text-right mt-auto pt-2">
-                      <span className="f-app text-[#000000] font-bold block truncate w-full leading-normal pb-0.5">
-                        {priceParts.intPart}
-                        {priceParts.decPart !== undefined && (
-                          <>
-                            ,
-                            <span className="text-[0.75em]">{priceParts.decPart}</span>
-                          </>
-                        )}
-                      </span>
-                    </div>
                   </div>
 
-                  {/* Reserved bottom slot for archive label on all tiles */}
-                  <div className="w-full h-[24px] min-h-[24px] mt-2 shrink-0 flex items-center justify-center">
+                  {/* Ligne 6 : Bandelette d'archivage (espace toujours pré-réservé) */}
+                  <div className="w-full h-[24px] min-h-[24px] mt-auto shrink-0 flex items-center justify-center">
                     {s.isArchived ? (
                       <div className="w-full bg-[#000000] text-[#FFFFFF] f-app font-bold py-0.5 px-2 text-center uppercase tracking-wider h-[24px] flex items-center justify-center">
                         Archivé

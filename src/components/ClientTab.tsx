@@ -143,41 +143,56 @@ export const ClientTab: React.FC<ClientTabProps> = ({
                 key={c.id}
                 onClick={() => handleOpenEdit(c)}
                 type="button"
-                className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
+                className="h-[160px] bg-[#F0F0F0] p-2.5 flex flex-col justify-start items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative w-full gap-0.5"
               >
-                <div className="w-full flex-1 flex flex-col justify-start">
-                  {/* Ligne 1 : Code Client */}
-                  <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${c.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
-                    {c.code}
-                  </span>
+                {/* Ligne 1 : Code Client (Gras) */}
+                <span className={`f-app font-bold block truncate w-full leading-5 h-5 ${c.isArchived ? 'text-rose-600' : 'text-neutral-600'}`}>
+                  {c.code}
+                </span>
 
-                  {/* Ligne 2 : Nom Client */}
-                  <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
-                    {c.nom}
-                  </span>
+                {/* Ligne 2 : Nom Client (Gras) */}
+                <span className="f-app text-[#000000] font-bold block truncate w-full leading-5 h-5">
+                  {c.nom}
+                </span>
 
-                  {/* Ligne 3 : Ligne vide réservée pour égaliser la hauteur exacte */}
-                  <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
-                    &nbsp;
-                  </span>
-
-                  {/* Ligne 4 : Contact */}
-                  <span className="f-app text-[#000000] flex items-center gap-1 w-full mt-1 leading-normal pb-0.5">
-                    <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
-                    <span className="truncate w-full block">{c.contact ? c.contact : <span className="invisible select-none">&nbsp;</span>}</span>
-                  </span>
-
-                  {/* Ligne 5 : Adresse alignée en bas */}
-                  <div className="w-full text-left mt-auto pt-2">
-                    <span className="f-app text-[#000000] flex items-center gap-1 w-full leading-normal pb-0.5">
+                {/* Ligne 3 : Contact (pas gras) */}
+                <span className="f-app text-neutral-600 flex items-center gap-1 w-full leading-5 h-5 font-normal">
+                  {c.contact ? (
+                    <>
                       <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
-                      <span className="truncate w-full block">{c.adresse ? c.adresse : <span className="invisible select-none">&nbsp;</span>}</span>
-                    </span>
-                  </div>
-                </div>
+                      <span className="truncate">{c.contact}</span>
+                    </>
+                  ) : (
+                    <span className="invisible select-none">&nbsp;</span>
+                  )}
+                </span>
 
-                {/* Reserved bottom slot for archive label on all tiles */}
-                <div className="w-full h-[24px] min-h-[24px] mt-2 shrink-0 flex items-center justify-center">
+                {/* Ligne 4 : Adresse (pas gras) */}
+                <span className="f-app text-neutral-600 flex items-center gap-1 w-full leading-5 h-5 font-normal">
+                  {c.adresse ? (
+                    <>
+                      <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                      <span className="truncate">{c.adresse}</span>
+                    </>
+                  ) : (
+                    <span className="invisible select-none">&nbsp;</span>
+                  )}
+                </span>
+
+                {/* Ligne 5 : Description/Remarque (Gras) */}
+                <span className="f-app text-[#000000] flex items-center gap-1 w-full leading-5 h-5 font-bold">
+                  {c.description ? (
+                    <>
+                      <span className="text-neutral-600 font-bold shrink-0 select-none">└</span>
+                      <span className="truncate">{c.description}</span>
+                    </>
+                  ) : (
+                    <span className="invisible select-none">&nbsp;</span>
+                  )}
+                </span>
+
+                {/* Ligne 6 : Bandelette archivée (espace toujours pré-réservé) */}
+                <div className="w-full h-[24px] min-h-[24px] mt-auto shrink-0 flex items-center justify-center">
                   {c.isArchived ? (
                     <div className="w-full bg-[#000000] text-[#FFFFFF] f-app font-bold py-0.5 px-2 text-center uppercase tracking-wider h-[24px] flex items-center justify-center">
                       Archivé

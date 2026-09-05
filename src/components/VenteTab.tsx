@@ -347,46 +347,45 @@ export const VenteTab: React.FC<VenteTabProps> = ({
                   key={s.id}
                   onClick={() => setSelectedDetailSale(s)}
                   type="button"
-                  className="min-h-[160px] bg-[#F0F0F0] p-3 flex flex-col justify-between items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative"
+                  className="h-[160px] bg-[#F0F0F0] p-2.5 flex flex-col justify-start items-start text-left hover:bg-[#E5E5E5] transition-none cursor-pointer group border-none relative w-full gap-0.5"
                 >
-                  <div className="w-full flex-1 flex flex-col justify-start">
-                    {/* Ligne 1 : Num ID Vente */}
-                    <span className={`f-app font-bold block truncate w-full leading-normal pb-0.5 ${s.status === 'annule' ? 'text-rose-600' : 'text-neutral-600'}`}>
-                      {s.code}
-                    </span>
+                  {/* Ligne 1 : Code Vente (Gras) */}
+                  <span className={`f-app font-bold block truncate w-full leading-5 h-5 ${s.status === 'annule' ? 'text-rose-600' : 'text-neutral-600'}`}>
+                    {s.code}
+                  </span>
 
-                    {/* Ligne 2 : Ligne vide insérée entre le num id vente et le nom client */}
-                    <span className="f-app invisible select-none block truncate w-full mt-1 leading-normal pb-0.5" aria-hidden="true">
-                      &nbsp;
-                    </span>
+                  {/* Ligne 2 : Nom Client (Gras) */}
+                  <span className="f-app text-[#000000] font-bold block truncate w-full leading-5 h-5">
+                    {s.clientNom}
+                  </span>
 
-                    {/* Ligne 3 : Nom Client */}
-                    <span className="f-app text-[#000000] font-bold block truncate w-full mt-1 leading-normal pb-0.5">
-                      {s.clientNom}
-                    </span>
+                  {/* Ligne 3 : Code Client (pas gras) */}
+                  <span className={`f-app flex items-center gap-1 w-full leading-5 h-5 font-normal ${isClientArchived ? 'text-rose-600 font-bold' : 'text-neutral-600'}`}>
+                    <span className="font-bold shrink-0 select-none">└</span>
+                    <span className="truncate">{clientCode}</span>
+                  </span>
 
-                    {/* Ligne 4 : Code Client */}
-                    <span className={`f-app flex items-center gap-1 w-full mt-1 leading-normal pb-0.5 ${isClientArchived ? 'text-rose-600 font-bold' : 'text-neutral-600'}`}>
-                      <span className="font-bold shrink-0 select-none">└</span>
-                      <span className="truncate w-full block">{clientCode}</span>
-                    </span>
+                  {/* Ligne 4 : Date de la Vente (pas gras) */}
+                  <span className="f-app text-neutral-600 flex items-center gap-1 w-full leading-5 h-5 font-normal">
+                    <span className="font-bold shrink-0 select-none">└</span>
+                    <span className="truncate">{new Date(s.createdAt).toLocaleDateString()}</span>
+                  </span>
 
-                    {/* Ligne 5 : Montant Total aligné en bas à droite */}
-                    <div className="w-full text-right mt-auto pt-2">
-                      <span className="f-app text-[#000000] font-bold block truncate w-full leading-normal pb-0.5">
-                        {totalParts.intPart}
-                        {totalParts.decPart !== undefined && (
-                          <>
-                            ,
-                            <span className="text-[0.75em]">{totalParts.decPart}</span>
-                          </>
-                        )}
-                      </span>
-                    </div>
+                  {/* Ligne 5 : Montant Total aligné à droite (Gras) */}
+                  <div className="w-full text-right leading-5 h-5">
+                    <span className="f-app text-[#000000] font-bold block truncate w-full">
+                      {totalParts.intPart}
+                      {totalParts.decPart !== undefined && (
+                        <>
+                          ,
+                          <span className="text-[0.75em]">{totalParts.decPart}</span>
+                        </>
+                      )}
+                    </span>
                   </div>
 
-                  {/* Reserved bottom slot for cancellation label on all tiles */}
-                  <div className="w-full h-[24px] min-h-[24px] mt-2 shrink-0 flex items-center justify-center">
+                  {/* Ligne 6 : Bandelette annulée (espace toujours pré-réservé) */}
+                  <div className="w-full h-[24px] min-h-[24px] mt-auto shrink-0 flex items-center justify-center">
                     {s.status === 'annule' ? (
                       <div className="w-full bg-[#000000] text-[#FFFFFF] f-app font-bold py-0.5 px-2 text-center uppercase tracking-wider h-[24px] flex items-center justify-center">
                         Annulée

@@ -82,7 +82,7 @@ export default function App() {
       console.error('Failed to load/initialize data from Drive:', error);
       // Qu'il s'agisse de la première initialisation ou d'une autorisation manquante (case Drive non cochée),
       // on affiche directement le message positif invitant à se reconnecter pour démarrer.
-      setAuthError("Votre espace de stockage Google Drive a été configuré avec succès. Veuillez vous reconnecter pour commencer.");
+      setAuthError("Configuration de dossier Google Drive - Succès. Reconnexion demandée.");
       await logout();
       setUser(null);
       setNeedsAuth(true);

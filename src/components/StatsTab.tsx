@@ -635,6 +635,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ ventes, produits, services, 
             >
               {isActive && (
                 <>
+                  <div className="absolute top-0 left-0 w-0 h-0 border-t-[10px] border-r-[10px] border-t-red-600 border-r-transparent z-20" />
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-black" />
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-black" />
                 </>

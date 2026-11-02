@@ -30,8 +30,36 @@ export const FonctionnalitesContent = () => (
       <p className="f-app text-sm text-neutral-800 m-0 leading-relaxed">
         Veuillez noter que FCP n'est pas un site e-commerce ni une plateforme de vente en ligne. 
         Il s'agit d'un <strong>outil privé et personnel</strong> de sauvegarde et de suivi de statistiques liées à vos activités.
-        Gérez vos clients, facturez rapidement et gardez une trace de toutes vos ventes.
+        Gérez vos clients, vos offres et gardez une trace de toutes vos ventes.
       </p>
+    </div>
+
+    <div className="bg-[#F0F0F0] p-4 flex flex-col gap-2">
+      <h3 className="f-app font-bold text-lg m-0 mb-1">Usages des Onglets</h3>
+      <p className="f-app text-sm text-neutral-800 m-0 leading-relaxed">
+        L'application s'organise autour d'onglets spécifiques conçus pour structurer efficacement votre activité :
+      </p>
+      <ul className="f-app text-sm text-neutral-800 m-0 pl-5 list-disc leading-relaxed flex flex-col gap-2">
+        <li>
+          <strong>Prod. (Produits) :</strong> Gestion de vos articles physiques.
+          <br />
+          <span className="text-neutral-600 block mt-1">
+            ⚠️ <strong>À savoir sur le Stock indicatif :</strong> Le champ "Stock indicatif" est fourni <strong>uniquement à titre informatif et de repère statique</strong>. L'application ne gère pas de décompte actif (il n'y a pas de réduction automatique du stock lors de l'enregistrement d'une vente). Ce chiffre sert de mémo pour vos besoins d'approvisionnement personnels.
+          </span>
+        </li>
+        <li>
+          <strong>Serv. (Services) :</strong> Référentiel de vos prestations immatérielles, forfaits, main d'œuvre ou tarifs horaires. Contrairement aux produits, les services n'ont pas de notion de stock.
+        </li>
+        <li>
+          <strong>Client :</strong> Carnet d'adresses centralisant vos contacts, adresses et descriptions spécifiques. L'association de fiches clients à vos transactions permet un suivi plus précis.
+        </li>
+        <li>
+          <strong>Vente :</strong> Module de saisie de vos transactions. Vous pouvez y lier un client, ajouter plusieurs produits ou services, et spécifier les quantités associées. Chaque vente enregistrée génère automatiquement un identifiant unique (Code Vente).
+        </li>
+        <li>
+          <strong>Perf. (Performances) :</strong> Tableau de bord statistique qui analyse vos résultats. Il permet de suivre les ventes actives et annulées (au jour, à la semaine, au mois ou de manière globale) et offre un graphique mensuel interactif permettant de basculer à tout moment entre l'affichage des barres visuelles et l'affichage des chiffres.
+        </li>
+      </ul>
     </div>
 
     <div className="bg-[#F0F0F0] p-4 flex flex-col gap-2">

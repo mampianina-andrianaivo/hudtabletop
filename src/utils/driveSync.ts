@@ -81,7 +81,7 @@ export async function loadDataFromDrive(user: User): Promise<any | null> {
       ventes: []
     };
     await saveDataToDrive(user, initialPayload);
-    return null; // Pas de données existantes à restaurer
+    return initialPayload; // Retourner directement le payload initial sans forcer à se reconnecter
   }
 
   const res = await fetch(`${DRIVE_API_URL}/${fileId}?alt=media`, {

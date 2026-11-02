@@ -1,15 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <style>
-    line {
-      stroke: #000000;
-    }
-    @media (prefers-color-scheme: dark) {
-      line {
-        stroke: #FFFFFF;
-      }
-    }
-  </style>
-  <line x1="18" y1="20" x2="18" y2="10"></line>
-  <line x1="12" y1="20" x2="12" y2="4"></line>
-  <line x1="6" y1="20" x2="6" y2="14"></line>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Fond noir -->
+  <rect width="24" height="24" rx="4" fill="#000000" />
+  <!-- Pictogramme blanc -->
+  <line x1="18" y1="18" x2="18" y2="10" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></line>
+  <line x1="12" y1="18" x2="12" y2="6" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></line>
+  <line x1="6" y1="18" x2="6" y2="13" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></line>
 </svg>
